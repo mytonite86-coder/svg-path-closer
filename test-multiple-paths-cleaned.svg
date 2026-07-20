@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220">
+  <!-- Already closed -->
+  <path d="M 20 20 L 100 20 L 100 100 L 20 100 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Repairable micro-gap -->
+  <path d="M 130 20 L 210 20 L 210 100 L 130 100 L 130 21 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Intentional large open path -->
+  <path d="M 40 160 L 140 160 L 200 200" fill="none" stroke="black" stroke-width="2"/>
+</svg>

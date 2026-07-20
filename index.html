@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>SVG Path Closer</title>
+
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <main>
+        <h1>SVG Path Closer</h1>
+
+        <p>
+            Upload an SVG file to detect and repair open CNC paths.
+        </p>
+        <section>
+            <label for="svg-file">Choose an SVG file</label>
+
+            <input type="file" id="svg-file" accept=".svg,image/svg+xml" />
+        </section>
+        <section id="results" hidden>
+            <h2>Scan Results</h2>
+
+            <p id="status-message">No SVG has been scanned yet.</p>
+
+            <dl id="repair-summary" hidden>
+                <div>
+                    <dt>Paths scanned</dt>
+                    <dd id="paths-scanned">0</dd>
+                </div>
+
+                <div id="open-paths-card" role="button" tabindex="0">
+                    <dt>Open paths found</dt>
+                    <dd id="open-paths-found">0</dd>
+                </div>
+
+                <div>
+                    <dt>Paths repaired</dt>
+                    <dd id="paths-repaired">0</dd>
+                </div>
+
+                <div>
+                    <dt>Paths skipped</dt>
+                    <dd id="paths-skipped">0</dd>
+                    <div>
+                        <dt>Validation</dt>
+                        <dd id="validation-status">Not run</dd>
+                    </div>
+                </div>
+            </dl>
+            <section id="open-path-review" hidden>
+                <h2>Select Open Paths</h2>
+                <div id="svg-preview" aria-label="Scanned SVG preview"></div>
+                <p>
+                    Choose which numbered open paths should be closed.
+                </p>
+
+                <div id="open-path-list"></div>
+            </section>
+
+            <button id="fix-button" type="button" disabled>
+                Fix Open Paths
+            </button>
+
+            <button id="download-button" type="button" disabled>
+                Download Clean SVG
+            </button>
+        </section>
+    </main>
+
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
