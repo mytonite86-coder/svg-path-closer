@@ -47,53 +47,86 @@
             <input type="file" id="svg-file" accept=".svg,image/svg+xml" />
         </section>
         <section id="results" class="eco-section" hidden>
-            <h2 class="eco-heading">Scan Results</h2>
+    <h2 class="eco-heading">Scan Results</h2>
 
-            <p id="status-message">No SVG has been scanned yet.</p>
+    <p id="status-message" class="eco-status eco-status--accent">
+        No SVG has been scanned yet.
+    </p>
 
-            <dl id="repair-summary" hidden>
-                <div>
-                    <dt>Paths scanned</dt>
-                    <dd id="paths-scanned">0</dd>
-                </div>
+    <dl id="repair-summary" class="eco-dashboard pathseal-dashboard" hidden>
+        <div class="eco-stat">
+            <dt class="eco-stat__label">Paths scanned</dt>
+            <dd id="paths-scanned" class="eco-stat__value">0</dd>
+        </div>
 
-                <div id="open-paths-card" role="button" tabindex="0">
-                    <dt>Open paths found</dt>
-                    <dd id="open-paths-found">0</dd>
-                </div>
+        <div
+            id="open-paths-card"
+            class="eco-stat eco-stat--accent eco-card--interactive"
+            role="button"
+            tabindex="0"
+        >
+            <dt class="eco-stat__label">Open paths found</dt>
+            <dd id="open-paths-found" class="eco-stat__value">0</dd>
+        </div>
 
-                <div>
-                    <dt>Paths repaired</dt>
-                    <dd id="paths-repaired">0</dd>
-                </div>
+        <div class="eco-stat">
+            <dt class="eco-stat__label">Paths repaired</dt>
+            <dd id="paths-repaired" class="eco-stat__value">0</dd>
+        </div>
 
-                <div>
-                    <dt>Paths skipped</dt>
-                    <dd id="paths-skipped">0</dd>
-                    <div>
-                        <dt>Validation</dt>
-                        <dd id="validation-status">Not run</dd>
-                    </div>
-                </div>
-            </dl>
-            <section id="open-path-review" hidden>
-                <h2>Select Open Paths</h2>
-                <div id="svg-preview" aria-label="Scanned SVG preview"></div>
-                <p>
-                    Choose which numbered open paths should be closed.
-                </p>
+        <div class="eco-stat">
+            <dt class="eco-stat__label">Paths skipped</dt>
+            <dd id="paths-skipped" class="eco-stat__value">0</dd>
+        </div>
 
-                <div id="open-path-list"></div>
-            </section>
+        <div class="eco-stat">
+            <dt class="eco-stat__label">Validation</dt>
+            <dd id="validation-status" class="eco-stat__value">
+                Not run
+            </dd>
+        </div>
+    </dl>
 
-            <button id="fix-button" type="button" disabled>
-                Fix Open Paths
-            </button>
+    <section id="open-path-review" class="eco-workspace" hidden>
+        <h2 class="eco-heading">Select Open Paths</h2>
 
-            <button id="download-button" type="button" disabled>
-                Download Clean SVG
-            </button>
-        </section>
+        <p class="eco-muted">
+            Review the numbered gaps and choose exactly which paths
+            PathSeal should close.
+        </p>
+
+        <div
+            id="svg-preview"
+            class="eco-preview"
+            aria-label="Scanned SVG preview"
+        ></div>
+
+        <div
+            id="open-path-list"
+            class="eco-review-list"
+        ></div>
+    </section>
+
+    <div class="eco-actions">
+        <button
+            id="fix-button"
+            class="eco-button pathseal-repair-button"
+            type="button"
+            disabled
+        >
+            Repair Selected Paths
+        </button>
+
+        <button
+            id="download-button"
+            class="eco-button eco-button--success"
+            type="button"
+            disabled
+        >
+            Download Clean SVG
+        </button>
+    </div>
+</section>
     </main>
 
 
