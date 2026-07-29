@@ -1,0 +1,131 @@
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 512 512"
+    role="img"
+    aria-labelledby="badge-title badge-description"
+>
+    <title id="badge-title">SVG Micro Eco</title>
+    <desc id="badge-description">
+        Industrial hexagonal badge representing the five-tool SVG Micro Eco suite.
+    </desc>
+
+    <defs>
+        <linearGradient id="badge-body" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#202a33" />
+            <stop offset="55%" stop-color="#11171d" />
+            <stop offset="100%" stop-color="#080b0f" />
+        </linearGradient>
+
+        <linearGradient id="steel-edge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#d7dee3" />
+            <stop offset="45%" stop-color="#71808c" />
+            <stop offset="100%" stop-color="#35414b" />
+        </linearGradient>
+
+        <filter id="badge-shadow" x="-25%" y="-25%" width="150%" height="150%">
+            <feDropShadow
+                dx="0"
+                dy="14"
+                stdDeviation="14"
+                flood-color="#000000"
+                flood-opacity="0.5"
+            />
+        </filter>
+    </defs>
+
+    <g filter="url(#badge-shadow)">
+        <polygon
+            points="256,24 440,130 440,382 256,488 72,382 72,130"
+            fill="url(#badge-body)"
+            stroke="url(#steel-edge)"
+            stroke-width="12"
+        />
+
+        <polygon
+            points="256,48 420,142 420,370 256,464 92,370 92,142"
+            fill="none"
+            stroke="#3d4b58"
+            stroke-width="3"
+        />
+
+        <path
+            d="M112 154 L256 70 L400 154"
+            fill="none"
+            stroke="#ff7a00"
+            stroke-width="5"
+            stroke-linecap="round"
+        />
+    </g>
+
+    <!-- Five-tool modular hub -->
+    <g
+        fill="none"
+        stroke="#b8c2ca"
+        stroke-width="7"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+    >
+        <path d="M256 210 L256 166" />
+        <path d="M224 230 L181 211" />
+        <path d="M228 270 L193 304" />
+        <path d="M284 270 L319 304" />
+        <path d="M288 230 L331 211" />
+    </g>
+
+    <g fill="#11171d" stroke="#b8c2ca" stroke-width="6">
+        <circle cx="256" cy="154" r="15" />
+        <circle cx="167" cy="205" r="15" />
+        <circle cx="181" cy="318" r="15" />
+        <circle cx="331" cy="318" r="15" />
+        <circle cx="345" cy="205" r="15" />
+    </g>
+
+    <polygon
+        points="256,202 298,226 298,274 256,298 214,274 214,226"
+        fill="#182129"
+        stroke="#ff7a00"
+        stroke-width="8"
+    />
+
+    <circle cx="256" cy="250" r="12" fill="#ff7a00" />
+
+    <!-- Family name -->
+    <text
+        x="256"
+        y="375"
+        text-anchor="middle"
+        fill="#f4f7f9"
+        font-family="Arial Narrow, Segoe UI, Arial, sans-serif"
+        font-size="47"
+        font-weight="900"
+        letter-spacing="3"
+    >
+        SVG
+    </text>
+
+    <text
+        x="256"
+        y="410"
+        text-anchor="middle"
+        fill="#ff7a00"
+        font-family="Segoe UI, Arial, sans-serif"
+        font-size="22"
+        font-weight="800"
+        letter-spacing="5"
+    >
+        MICRO ECO
+    </text>
+
+    <text
+        x="256"
+        y="438"
+        text-anchor="middle"
+        fill="#7f8b95"
+        font-family="Segoe UI, Arial, sans-serif"
+        font-size="11"
+        font-weight="700"
+        letter-spacing="2"
+    >
+       
+    </text>
+</svg>

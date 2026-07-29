@@ -272,7 +272,10 @@ openPathsCard.addEventListener("click", () => {
     currentOpenPaths.forEach((analysis, index) => {
         const option = document.createElement("label");
         const checkbox = document.createElement("input");
-
+        checkbox.addEventListener(
+            "change",
+            updatePendingRepairsFromSelection
+        );
         checkbox.type = "checkbox";
         checkbox.dataset.pathIndex = index;
         checkbox.checked = analysis.gapType !== "large-gap";
@@ -330,7 +333,7 @@ openPathsCard.addEventListener("click", () => {
                 checkbox.checked
             );
         });
-
+        updatePendingRepairsFromSelection();
         const gapDistance = analysis.gapDistance.toFixed(2);
         const recommendation =
             analysis.gapType === "large-gap"
