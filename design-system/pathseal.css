@@ -1,0 +1,50 @@
+@import url("./base.css");
+
+/* ========================================
+   PATHSEAL TOOL IDENTITY
+   ======================================== */
+
+:root {
+    --tool-accent: #ff7a00;
+    --tool-accent-bright: #ff9b38;
+    --tool-accent-dark: #b84e00;
+    --tool-accent-soft: rgba(255, 122, 0, 0.14);
+}
+
+/* Proposed and selected closures */
+
+#svg-preview .review-selected {
+    stroke: var(--tool-accent) !important;
+    stroke-width: 3px !important;
+    filter: drop-shadow(
+        0 0 3px rgba(255, 122, 0, 0.75)
+    );
+}
+
+#svg-preview .gap-bridge {
+    stroke: var(--tool-accent) !important;
+    stroke-width: 2.5px !important;
+    stroke-dasharray: 7 5;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+
+/* PathSeal repair action */
+
+.pathseal-repair-button {
+    color: var(--text-on-accent);
+    background:
+        linear-gradient(
+            135deg,
+            var(--tool-accent-bright),
+            var(--tool-accent)
+        );
+}
+
+/* PathSeal badge treatment */
+
+.pathseal-badge {
+    filter:
+        drop-shadow(0 12px 20px rgba(0, 0, 0, 0.45))
+        drop-shadow(0 0 12px var(--tool-accent-soft));
+}
