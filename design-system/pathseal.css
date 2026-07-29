@@ -48,3 +48,37 @@
         drop-shadow(0 12px 20px rgba(0, 0, 0, 0.45))
         drop-shadow(0 0 12px var(--tool-accent-soft));
 }
+/* Bridge the original MVP dashboard into the shared chassis */
+
+#repair-summary > div {
+    padding: var(--space-4);
+    color: var(--text-primary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+
+#repair-summary > div > div {
+    padding: var(--space-4) 0 0;
+    background: transparent;
+    border: 0;
+}
+
+#repair-summary dt {
+    color: var(--text-muted);
+}
+
+#repair-summary dd {
+    color: var(--text-primary);
+}
+
+#open-paths-card {
+    background:
+        linear-gradient(
+            145deg,
+            var(--tool-accent-soft),
+            var(--surface-raised)
+        ) !important;
+    border-color: var(--tool-accent) !important;
+    box-shadow: var(--shadow-accent);
+}
