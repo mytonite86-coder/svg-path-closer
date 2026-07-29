@@ -82,3 +82,8 @@
     border-color: var(--tool-accent) !important;
     box-shadow: var(--shadow-accent);
 }
+.pathseal-hero-title {
+    max-width: 900px;
+    font-size: clamp(2rem, 4vw, 3.75rem);
+    line-height: 1.05;
+}
