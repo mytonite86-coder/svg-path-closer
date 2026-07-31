@@ -141,6 +141,84 @@
             gap directly on the drawing, and lets you approve exactly which
             contours should be repaired.
         </p>
+        <section id="account-panel" class="eco-section eco-panel">
+    <h2 class="eco-heading">PathSeal Access</h2>
+
+    <p id="account-status" class="eco-status">
+        Scan and review are free. Sign in to repair and download.
+    </p>
+
+    <div id="account-fields">
+        <label for="account-email">Email</label>
+        <input
+            id="account-email"
+            type="email"
+            autocomplete="email"
+        />
+
+        <label for="account-username">
+            Username
+            <span class="eco-muted">
+                required only when creating an account
+            </span>
+        </label>
+        <input
+            id="account-username"
+            type="text"
+            autocomplete="username"
+        />
+
+        <label for="account-password">Password</label>
+        <input
+            id="account-password"
+            type="password"
+            autocomplete="current-password"
+        />
+
+        <div class="eco-actions">
+            <button
+                id="login-button"
+                class="eco-button"
+                type="button"
+            >
+                Sign In
+            </button>
+
+            <button
+                id="register-button"
+                class="eco-button pathseal-repair-button"
+                type="button"
+            >
+                Create Account
+            </button>
+        </div>
+    </div>
+
+    <div id="account-session" hidden>
+        <p>
+            Signed in as
+            <strong id="account-name"></strong>
+        </p>
+
+        <div class="eco-actions">
+            <button
+                id="subscribe-button"
+                class="eco-button pathseal-repair-button"
+                type="button"
+            >
+                Unlock Repair &amp; Download
+            </button>
+
+            <button
+                id="logout-button"
+                class="eco-button"
+                type="button"
+            >
+                Sign Out
+            </button>
+        </div>
+    </div>
+</section>
 
         <div class="eco-grid eco-grid--3 pathseal-benefits">
             <article class="eco-card">

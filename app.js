@@ -1,4 +1,15 @@
 import {
+    login,
+    registerAccount,
+    refreshSession,
+    clearSession,
+    getCurrentUser,
+    hasEntitlement,
+    startPathSealCheckout,
+    confirmPathSealCheckout,
+} from "./modules/auth.js";
+
+import {
     parseSvg,
     getPathElements,
     analyzePath,
@@ -23,6 +34,40 @@ const validationStatus =
 const openPathsCard =
     document.querySelector("#open-paths-card");
 
+const accountStatus =
+    document.querySelector("#account-status");
+
+const accountFields =
+    document.querySelector("#account-fields");
+
+const accountSession =
+    document.querySelector("#account-session");
+
+const accountEmail =
+    document.querySelector("#account-email");
+
+const accountUsername =
+    document.querySelector("#account-username");
+
+const accountPassword =
+    document.querySelector("#account-password");
+
+const accountName =
+    document.querySelector("#account-name");
+
+const loginButton =
+    document.querySelector("#login-button");
+
+const registerButton =
+    document.querySelector("#register-button");
+
+const subscribeButton =
+    document.querySelector("#subscribe-button");
+
+const logoutButton =
+    document.querySelector("#logout-button");
+
+
 const openPathReview =
     document.querySelector("#open-path-review");
 
@@ -36,6 +81,203 @@ let pendingRepairs = [];
 let repairedSvgText = "";
 let originalFileName = "";
 let currentOpenPaths = [];
+
+function renderAccountState() {
+    const user = getCurrentUser();
+    const pathSealUnlocked =
+        hasEntitlement("pathseal");
+
+    accountFields.hidden = Boolean(user);
+    accountSession.hidden = !user;
+
+    if (!user) {
+        accountStatus.textContent =
+            "Scan and review are free. Sign in to repair and download.";
+        accountName.textContent = "";
+        subscribeButton.hidden = false;
+        return;
+    }
+
+    accountName.textContent =
+        user.username || user.email;
+
+    if (pathSealUnlocked) {
+        accountStatus.textContent =
+            "PathSeal repair and download are unlocked.";
+        subscribeButton.hidden = true;
+    } else {
+        accountStatus.textContent =
+            "Signed in. Subscribe to unlock repair and download.";
+        subscribeButton.hidden = false;
+    }
+}
+
+async function handleLogin() {
+    const email = accountEmail.value.trim();
+    const password = accountPassword.value;
+
+    if (!email || !password) {
+        accountStatus.textContent =
+            "Enter your email and password.";
+        return;
+    }
+
+    loginButton.disabled = true;
+    registerButton.disabled = true;
+    accountStatus.textContent = "Signing in...";
+
+    try {
+        await login(email, password);
+
+        accountPassword.value = "";
+        renderAccountState();
+    } catch (error) {
+        accountStatus.textContent =
+            error.message || "Sign-in failed.";
+    } finally {
+        loginButton.disabled = false;
+        registerButton.disabled = false;
+    }
+}
+
+async function handleRegister() {
+    const email = accountEmail.value.trim();
+    const username = accountUsername.value.trim();
+    const password = accountPassword.value;
+
+    if (!email || !username || !password) {
+        accountStatus.textContent =
+            "Enter an email, username, and password.";
+        return;
+    }
+
+    loginButton.disabled = true;
+    registerButton.disabled = true;
+    accountStatus.textContent =
+        "Creating your account...";
+
+    try {
+        await registerAccount(
+            email,
+            username,
+            password
+        );
+
+        accountPassword.value = "";
+        renderAccountState();
+    } catch (error) {
+        accountStatus.textContent =
+            error.message ||
+            "Account creation failed.";
+    } finally {
+        loginButton.disabled = false;
+        registerButton.disabled = false;
+    }
+}
+
+async function handleSubscribe() {
+    subscribeButton.disabled = true;
+    accountStatus.textContent =
+        "Opening secure checkout...";
+
+    try {
+        await startPathSealCheckout();
+    } catch (error) {
+        accountStatus.textContent =
+            error.message ||
+            "Checkout could not be opened.";
+
+        subscribeButton.disabled = false;
+    }
+}
+
+function handleLogout() {
+    clearSession();
+
+    accountEmail.value = "";
+    accountUsername.value = "";
+    accountPassword.value = "";
+
+    renderAccountState();
+}
+
+async function initializeAccount() {
+    renderAccountState();
+
+    const urlParameters =
+        new URLSearchParams(
+            window.location.search
+        );
+
+    const checkoutResult =
+        urlParameters.get("checkout");
+
+    const sessionId =
+        urlParameters.get("session_id");
+
+    if (
+        checkoutResult === "success" &&
+        sessionId
+    ) {
+        accountStatus.textContent =
+            "Confirming PathSeal access...";
+
+        try {
+            await confirmPathSealCheckout(
+                sessionId
+            );
+
+            renderAccountState();
+
+            if (hasEntitlement("pathseal")) {
+                accountStatus.textContent =
+                    "PathSeal repair and download are unlocked.";
+            } else {
+                accountStatus.textContent =
+                    "Payment received. Access is still being confirmed.";
+            }
+        } catch (error) {
+            accountStatus.textContent =
+                error.message ||
+                "Checkout confirmation failed.";
+        }
+    } else if (checkoutResult === "cancel") {
+        accountStatus.textContent =
+            "Checkout canceled. Your account was not charged.";
+    } else if (getCurrentUser()) {
+        try {
+            await refreshSession();
+        } catch {
+            // Invalid sessions are cleared by auth.js.
+        }
+
+        renderAccountState();
+    }
+
+    if (checkoutResult) {
+        urlParameters.delete("checkout");
+        urlParameters.delete("session_id");
+
+        const remainingQuery =
+            urlParameters.toString();
+
+        const cleanUrl =
+            window.location.pathname +
+            (
+                remainingQuery
+                    ? `?${remainingQuery}`
+                    : ""
+            ) +
+            window.location.hash;
+
+        window.history.replaceState(
+            {},
+            "",
+            cleanUrl
+        );
+    }
+}
+
 function createPreviewSvg(svgDocument) {
     const previewSvg = document.importNode(
         svgDocument.documentElement,
@@ -351,6 +593,22 @@ openPathsCard.addEventListener("click", () => {
     openPathReview.hidden = false;
 });
 fixButton.addEventListener("click", () => {
+        if (!hasEntitlement("pathseal")) {
+        accountStatus.textContent =
+            getCurrentUser()
+                ? "Subscribe to unlock PathSeal repair."
+                : "Sign in or create an account to unlock PathSeal repair.";
+
+        document
+            .querySelector("#account-panel")
+            .scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+
+        return;
+    }
+
     if (pendingRepairs.length === 0) {
         return;
     }
@@ -394,6 +652,22 @@ fixButton.addEventListener("click", () => {
 
 });
 downloadButton.addEventListener("click", () => {
+        if (!hasEntitlement("pathseal")) {
+        accountStatus.textContent =
+            getCurrentUser()
+                ? "Subscribe to unlock clean SVG downloads."
+                : "Sign in or create an account to unlock clean SVG downloads.";
+
+        document
+            .querySelector("#account-panel")
+            .scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+
+        return;
+    }
+
     if (!repairedSvgText) {
         return;
     }
@@ -418,3 +692,25 @@ downloadButton.addEventListener("click", () => {
 
     URL.revokeObjectURL(downloadUrl);
 });
+
+loginButton.addEventListener(
+    "click",
+    handleLogin
+);
+
+registerButton.addEventListener(
+    "click",
+    handleRegister
+);
+
+subscribeButton.addEventListener(
+    "click",
+    handleSubscribe
+);
+
+logoutButton.addEventListener(
+    "click",
+    handleLogout
+);
+
+initializeAccount();
