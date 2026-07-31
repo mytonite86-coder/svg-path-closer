@@ -1,0 +1,106 @@
+:root {
+    /* Core brand colors */
+    --eco-black: #080b0f;
+    --eco-charcoal: #11171d;
+    --eco-steel-dark: #182129;
+    --eco-steel: #26323d;
+    --eco-steel-light: #3d4b58;
+
+    --eco-white: #f4f7f9;
+    --eco-silver: #b8c2ca;
+    --eco-muted: #7f8b95;
+
+    /* Tool accent
+       Each micro-tool can override these variables */
+    --tool-accent: #ff7a00;
+    --tool-accent-bright: #ff9b38;
+    --tool-accent-dark: #b84e00;
+    --tool-accent-soft: rgba(255, 122, 0, 0.14);
+
+    /* Status colors */
+    --status-success: #35c779;
+    --status-warning: #f3b63f;
+    --status-danger: #ef6464;
+    --status-info: #4da3ff;
+
+    /* Surfaces */
+    --surface-page: var(--eco-black);
+    --surface-panel: var(--eco-charcoal);
+    --surface-raised: var(--eco-steel-dark);
+    --surface-control: var(--eco-steel);
+    --surface-preview: #f4f6f7;
+
+    /* Text */
+    --text-primary: var(--eco-white);
+    --text-secondary: var(--eco-silver);
+    --text-muted: var(--eco-muted);
+    --text-on-accent: #101419;
+
+    /* Borders */
+    --border-subtle: #2b3640;
+    --border-standard: var(--eco-steel-light);
+    --border-accent: var(--tool-accent);
+
+    /* Typography */
+    --font-display:
+        "Arial Narrow",
+        "Roboto Condensed",
+        "Segoe UI",
+        sans-serif;
+
+    --font-body:
+        Inter,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+
+    --font-mono:
+        "Cascadia Code",
+        Consolas,
+        monospace;
+
+    /* Type scale */
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-md: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.5rem;
+    --text-2xl: 2rem;
+    --text-3xl: clamp(2.5rem, 7vw, 5rem);
+
+    /* Spacing */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.5rem;
+    --space-6: 2rem;
+    --space-7: 3rem;
+    --space-8: 4rem;
+
+    /* Shape */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+    --radius-round: 999px;
+
+    /* Layout */
+    --page-width: 1180px;
+    --tool-width: 980px;
+    --reading-width: 680px;
+
+    /* Shadows */
+    --shadow-small:
+        0 6px 18px rgba(0, 0, 0, 0.24);
+
+    --shadow-panel:
+        0 24px 70px rgba(0, 0, 0, 0.45);
+
+    --shadow-accent:
+        0 0 24px var(--tool-accent-soft);
+
+    /* Motion */
+    --transition-fast: 120ms ease;
+    --transition-standard: 180ms ease;
+}
