@@ -16,11 +16,20 @@ export function parseSvg(svgText) {
 }
 
 export function getPathElements(svgDocument) {
-    const pathElements = svgDocument.querySelectorAll("path");
+    const pathElements = svgDocument.querySelectorAll("path, line");
 
     return Array.from(pathElements);
 }
 export function getPathData(pathElement) {
+    if (pathElement.tagName.toLowerCase() === "line") {
+        const x1 = pathElement.getAttribute("x1");
+        const y1 = pathElement.getAttribute("y1");
+        const x2 = pathElement.getAttribute("x2");
+        const y2 = pathElement.getAttribute("y2");
+
+        return `M ${x1} ${y1} L ${x2} ${y2}`;
+    }
+
     const pathData = pathElement.getAttribute("d");
 
     if (!pathData) {
@@ -29,6 +38,8 @@ export function getPathData(pathElement) {
 
     return pathData.trim();
 }
+
+
 export function isPathExplicitlyClosed(pathData) {
     return /[zZ]\s*$/.test(pathData);
 }
