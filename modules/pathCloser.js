@@ -81,16 +81,185 @@ export function getPathReferenceLength(pathElement) {
 
     return 1;
 }
-export function getSvgReferenceLength(svgDocument) {
-    const svgElement = svgDocument.documentElement;
-    const viewBox = svgElement.viewBox.baseVal;
+export function getDrawingReferenceLength(pathElements) {
+    const points = pathElements.flatMap((pathElement) => {
+        const endpoints = getPathEndpoints(pathElement);
 
-    if (viewBox.width > 0 && viewBox.height > 0) {
-        return Math.hypot(viewBox.width, viewBox.height);
+        return [
+            endpoints.start,
+            endpoints.end,
+        ];
+    });
+
+    if (points.length === 0) {
+        return 1;
     }
 
-    return 1000;
+    const xValues = points.map((point) => point.x);
+    const yValues = points.map((point) => point.y);
+
+    const drawingWidth =
+        Math.max(...xValues) - Math.min(...xValues);
+
+    const drawingHeight =
+        Math.max(...yValues) - Math.min(...yValues);
+
+    const referenceLength =
+        Math.hypot(drawingWidth, drawingHeight);
+
+    return referenceLength > 0
+        ? referenceLength
+        : 1;
 }
+
+export function pointsAreNear(
+    firstPoint,
+    secondPoint,
+    tolerance
+) {
+    const horizontalDistance =
+        secondPoint.x - firstPoint.x;
+
+    const verticalDistance =
+        secondPoint.y - firstPoint.y;
+
+    return Math.hypot(
+        horizontalDistance,
+        verticalDistance
+    ) <= tolerance;
+}
+
+export function getConnectionTolerance(pathElements) {
+    const referenceLength =
+        getDrawingReferenceLength(pathElements);
+
+    return Math.max(
+        referenceLength * 0.0000001,
+        0.01
+    );
+}
+
+function findNearbyNode(nodes, point, tolerance) {
+    return nodes.find((node) =>
+        pointsAreNear(
+            node.point,
+            point,
+            tolerance
+        )
+    );
+}
+
+function getOrCreateNode(nodes, point, tolerance) {
+    const nearbyNode =
+        findNearbyNode(nodes, point, tolerance);
+
+    if (nearbyNode) {
+        return nearbyNode;
+    }
+
+    const node = {
+        point: {
+            x: point.x,
+            y: point.y,
+        },
+        edges: [],
+    };
+
+    nodes.push(node);
+
+    return node;
+}
+
+export function buildEndpointGraph(pathElements) {
+    const tolerance =
+        getConnectionTolerance(pathElements);
+
+    const nodes = [];
+
+    const edges = pathElements.map((pathElement) => {
+        const endpoints =
+            getPathEndpoints(pathElement);
+
+        const startNode = getOrCreateNode(
+            nodes,
+            endpoints.start,
+            tolerance
+        );
+
+        const endNode = getOrCreateNode(
+            nodes,
+            endpoints.end,
+            tolerance
+        );
+
+        const edge = {
+            pathElement,
+            startNode,
+            endNode,
+        };
+
+        startNode.edges.push(edge);
+        endNode.edges.push(edge);
+
+        return edge;
+    });
+
+    return {
+        nodes,
+        edges,
+        tolerance,
+    };
+}
+
+export function getConnectedEdgeComponents(graph) {
+    const unvisitedEdges =
+        new Set(graph.edges);
+
+    const components = [];
+
+    while (unvisitedEdges.size > 0) {
+        const firstEdge =
+            unvisitedEdges.values().next().value;
+
+        const pendingEdges = [firstEdge];
+        const componentEdges = [];
+        const componentNodes = new Set();
+
+        while (pendingEdges.length > 0) {
+            const edge = pendingEdges.pop();
+
+            if (!unvisitedEdges.has(edge)) {
+                continue;
+            }
+
+            unvisitedEdges.delete(edge);
+            componentEdges.push(edge);
+
+            const edgeNodes = [
+                edge.startNode,
+                edge.endNode,
+            ];
+
+            edgeNodes.forEach((node) => {
+                componentNodes.add(node);
+
+                node.edges.forEach((connectedEdge) => {
+                    if (unvisitedEdges.has(connectedEdge)) {
+                        pendingEdges.push(connectedEdge);
+                    }
+                });
+            });
+        }
+
+        components.push({
+            edges: componentEdges,
+            nodes: [...componentNodes],
+        });
+    }
+
+    return components;
+}
+
 export function classifyGap(gapDistance, referenceLength) {
     const gapRatio = gapDistance / referenceLength;
 
