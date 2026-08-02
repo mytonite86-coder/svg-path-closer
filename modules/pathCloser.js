@@ -324,6 +324,91 @@ export function analyzeComponent(component) {
     };
 }
 
+export function analyzeContours(pathElements) {
+    const graph =
+        buildEndpointGraph(pathElements);
+
+    const components =
+        getConnectedEdgeComponents(graph);
+
+    return components.map((component) =>
+        analyzeComponent(component)
+    );
+}
+
+export function createContourBridge(analysis) {
+    if (
+        !analysis.hasSingleOpenGap ||
+        !analysis.endpoints
+    ) {
+        return null;
+    }
+
+    const sourceElement =
+        analysis.component.edges[0]?.pathElement;
+
+    if (!sourceElement) {
+        return null;
+    }
+
+    const svgDocument =
+        sourceElement.ownerDocument;
+
+    const bridge = svgDocument.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line"
+    );
+
+    bridge.setAttribute(
+        "x1",
+        analysis.endpoints.start.x
+    );
+
+    bridge.setAttribute(
+        "y1",
+        analysis.endpoints.start.y
+    );
+
+    bridge.setAttribute(
+        "x2",
+        analysis.endpoints.end.x
+    );
+
+    bridge.setAttribute(
+        "y2",
+        analysis.endpoints.end.y
+    );
+
+    [
+        "class",
+        "style",
+        "stroke",
+        "stroke-width",
+        "stroke-linecap",
+        "stroke-linejoin",
+        "vector-effect",
+    ].forEach((attributeName) => {
+        const attributeValue =
+            sourceElement.getAttribute(attributeName);
+
+        if (attributeValue !== null) {
+            bridge.setAttribute(
+                attributeName,
+                attributeValue
+            );
+        }
+    });
+
+    bridge.setAttribute(
+        "data-pathseal-repair",
+        "true"
+    );
+
+    sourceElement.parentNode.append(bridge);
+
+    return bridge;
+}
+
 export function classifyGap(gapDistance, referenceLength) {
     const gapRatio = gapDistance / referenceLength;
 
