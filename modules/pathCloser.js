@@ -260,6 +260,70 @@ export function getConnectedEdgeComponents(graph) {
     return components;
 }
 
+export function getComponentTerminalNodes(component) {
+    return component.nodes.filter(
+        (node) => node.edges.length === 1
+    );
+}
+
+export function getComponentReferenceLength(component) {
+    const referenceLength = component.edges.reduce(
+        (totalLength, edge) =>
+            totalLength +
+            edge.pathElement.getTotalLength(),
+        0
+    );
+
+    return referenceLength > 0
+        ? referenceLength
+        : 1;
+}
+
+export function analyzeComponent(component) {
+    const terminalNodes =
+        getComponentTerminalNodes(component);
+
+    const referenceLength =
+        getComponentReferenceLength(component);
+
+    const isClosed = terminalNodes.length === 0;
+
+    const hasSingleOpenGap =
+        terminalNodes.length === 2;
+
+    let endpoints = null;
+    let gapDistance = 0;
+    let gapType = isClosed
+        ? "closed"
+        : "complex";
+
+    if (hasSingleOpenGap) {
+        endpoints = {
+            start: terminalNodes[0].point,
+            end: terminalNodes[1].point,
+        };
+
+        gapDistance =
+            getEndpointDistance(endpoints);
+
+        gapType = classifyGap(
+            gapDistance,
+            referenceLength
+        );
+    }
+
+    return {
+        component,
+        terminalNodes,
+        endpoints,
+        isClosed,
+        hasSingleOpenGap,
+        gapDistance,
+        referenceLength,
+        gapType,
+    };
+}
+
 export function classifyGap(gapDistance, referenceLength) {
     const gapRatio = gapDistance / referenceLength;
 
