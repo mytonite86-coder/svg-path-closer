@@ -382,38 +382,39 @@ fileInput.addEventListener("change", async () => {
     }
 
 
-    const pathAnalyses = pathElements.map((pathElement) =>
-        analyzePath(pathElement)
+        const contourAnalyses =
+        analyzeContours(pathElements);
 
-    );
-    const repairablePaths = pathAnalyses.filter(
-        (analysis) =>
-            !analysis.isClosed &&
-            analysis.gapType !== "large-gap"
-    );
+    const repairableContours =
+        contourAnalyses.filter(
+            (analysis) =>
+                analysis.hasSingleOpenGap &&
+                analysis.gapType !== "large-gap"
+        );
 
+    const openContours =
+        contourAnalyses.filter(
+            (analysis) => !analysis.isClosed
+        );
 
-    const openPaths = pathAnalyses.filter(
-        (analysis) => !analysis.isClosed
-    );
-    currentOpenPaths = openPaths;
+    currentOpenPaths = openContours;
 
-    const skippedPaths =
-        openPaths.length - repairablePaths.length;
-
+    const skippedContours =
+        openContours.length -
+        repairableContours.length;
 
     repairSummary.hidden = false;
-    pathsScanned.textContent = pathAnalyses.length;
-    openPathsFound.textContent = openPaths.length;
+    pathsScanned.textContent =
+        contourAnalyses.length;
+    openPathsFound.textContent =
+        openContours.length;
     pathsRepaired.textContent = 0;
-    pathsSkipped.textContent = skippedPaths;
+    pathsSkipped.textContent =
+        skippedContours;
 
-
-
-    pendingRepairs = repairablePaths.map((analysis) => ({
-        pathElement: analysis.pathElement,
-        pathData: closePathData(analysis.pathData),
-    }));
+    pendingRepairs = [
+        ...repairableContours,
+    ];
 
     fixButton.disabled = pendingRepairs.length === 0;
 
@@ -506,14 +507,12 @@ openPathsCard.addEventListener("click", () => {
         ];
 
         pendingRepairs = selectedCheckboxes.map((checkbox) => {
-            const pathIndex = Number(checkbox.dataset.pathIndex);
-            const analysis = currentOpenPaths[pathIndex];
+    const contourIndex = Number(
+        checkbox.dataset.pathIndex
+    );
 
-            return {
-                pathElement: analysis.pathElement,
-                pathData: closePathData(analysis.pathData),
-            };
-        });
+    return currentOpenPaths[contourIndex];
+});
 
         fixButton.disabled = pendingRepairs.length === 0;
 
