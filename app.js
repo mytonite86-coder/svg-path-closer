@@ -12,6 +12,8 @@ import {
 import {
     parseSvg,
     getPathElements,
+    analyzeContours,
+    createContourBridge,
     analyzePath,
     closePathData,
     updatePathData,
@@ -81,6 +83,13 @@ let pendingRepairs = [];
 let repairedSvgText = "";
 let originalFileName = "";
 let currentOpenPaths = [];
+
+
+function getContourElements(analysis) {
+    return analysis.component.edges.map(
+        (edge) => edge.pathElement
+    );
+}
 
 function renderAccountState() {
     const user = getCurrentUser();
