@@ -49,37 +49,81 @@ export function tokenizePathData(pathData) {
 
     return pathData.match(tokenPattern) ?? [];
 }
-export function getPathEndpoints(pathElement) {
-    const totalLength = pathElement.getTotalLength();
+function measurePathElement(pathElement, measurement) {
+    const measurementSvg = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg"
+    );
 
-    const startPoint = pathElement.getPointAtLength(0);
-    const endPoint = pathElement.getPointAtLength(totalLength);
+    measurementSvg.setAttribute("width", "1");
+    measurementSvg.setAttribute("height", "1");
+    measurementSvg.style.position = "absolute";
+    measurementSvg.style.left = "-10000px";
+    measurementSvg.style.top = "-10000px";
+    measurementSvg.style.visibility = "hidden";
+    measurementSvg.style.overflow = "visible";
 
-    return {
-        start: {
-            x: startPoint.x,
-            y: startPoint.y,
-        },
-        end: {
-            x: endPoint.x,
-            y: endPoint.y,
-        },
-    };
-}
-export function getEndpointDistance(endpoints) {
-    const horizontalDistance = endpoints.end.x - endpoints.start.x;
-    const verticalDistance = endpoints.end.y - endpoints.start.y;
+    const measurementElement =
+        pathElement.cloneNode(true);
 
-    return Math.hypot(horizontalDistance, verticalDistance);
-}
-export function getPathReferenceLength(pathElement) {
-    const pathLength = pathElement.getTotalLength();
+    measurementSvg.appendChild(measurementElement);
+    document.body.appendChild(measurementSvg);
 
-    if (pathLength > 0) {
-        return pathLength;
+    try {
+        return measurement(measurementElement);
+    } finally {
+        measurementSvg.remove();
     }
+}
 
-    return 1;
+export function getPathEndpoints(pathElement) {
+    return measurePathElement(
+        pathElement,
+        (measurementElement) => {
+            const totalLength =
+                measurementElement.getTotalLength();
+
+            const startPoint =
+                measurementElement.getPointAtLength(0);
+            const endPoint =
+                measurementElement.getPointAtLength(
+                    totalLength
+                );
+
+            return {
+                start: {
+                    x: startPoint.x,
+                    y: startPoint.y,
+                },
+                end: {
+                    x: endPoint.x,
+                    y: endPoint.y,
+                },
+            };
+        }
+    );
+}
+
+export function getEndpointDistance(endpoints) {
+    const horizontalDistance =
+        endpoints.end.x - endpoints.start.x;
+    const verticalDistance =
+        endpoints.end.y - endpoints.start.y;
+
+    return Math.hypot(
+        horizontalDistance,
+        verticalDistance
+    );
+}
+
+export function getPathReferenceLength(pathElement) {
+    const pathLength = measurePathElement(
+        pathElement,
+        (measurementElement) =>
+            measurementElement.getTotalLength()
+    );
+
+    return pathLength > 0 ? pathLength : 1;
 }
 export function getDrawingReferenceLength(pathElements) {
     const points = pathElements.flatMap((pathElement) => {
@@ -270,7 +314,11 @@ export function getComponentReferenceLength(component) {
     const referenceLength = component.edges.reduce(
         (totalLength, edge) =>
             totalLength +
-            edge.pathElement.getTotalLength(),
+            measurePathElement(
+                edge.pathElement,
+                (measurementElement) =>
+                    measurementElement.getTotalLength()
+            ),
         0
     );
 
