@@ -439,9 +439,8 @@ openPathsCard.addEventListener("click", () => {
     ];
     requestAnimationFrame(() => {
         const previewPaths = [
-            ...previewSvg.querySelectorAll("path"),
-        ];
-
+    ...previewSvg.querySelectorAll("path, line"),
+];
         const svgMatrix = previewSvg.getScreenCTM();
 
         if (previewPaths.length === 0 || !svgMatrix) {
