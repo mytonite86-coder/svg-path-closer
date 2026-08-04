@@ -16,10 +16,8 @@ import {
     createContourBridge,
     analyzePath,
     closePathData,
-    updatePathData,
     serializeSvg,
     validateSvgText,
-    validateRepairedPaths,
 } from "./modules/pathCloser.js";
 const fileInput = document.querySelector("#svg-file");
 const resultsSection = document.querySelector("#results");
@@ -437,7 +435,7 @@ openPathsCard.addEventListener("click", () => {
     const originalPaths = getPathElements(svgDocument);
 
     const previewPathElements = [
-        ...previewSvg.querySelectorAll("path"),
+        ...previewSvg.querySelectorAll("path, line"),
     ];
     requestAnimationFrame(() => {
         const previewPaths = [
@@ -529,60 +527,77 @@ openPathsCard.addEventListener("click", () => {
         checkbox.type = "checkbox";
         checkbox.dataset.pathIndex = index;
         checkbox.checked = analysis.gapType !== "large-gap";
-        const originalPathIndex =
-            originalPaths.indexOf(analysis.pathElement);
 
-        const previewPath =
-            previewPathElements[originalPathIndex];
+        const previewContourElements =
+            getContourElements(analysis)
+                .map((element) => {
+                    const originalIndex =
+                        originalPaths.indexOf(element);
 
-        if (previewPath) {
-            previewPath.classList.toggle(
-                "review-selected",
-                checkbox.checked
-            );
-            const pathLength = previewPath.getTotalLength();
+                    return previewPathElements[originalIndex];
+                })
+                .filter(Boolean);
 
-            const bridgeStart =
-                previewPath.getPointAtLength(0);
+        const updateContourPreview = () => {
+            previewContourElements.forEach((element) => {
+                element.classList.toggle(
+                    "review-selected",
+                    checkbox.checked
+                );
+            });
+        };
 
-            const bridgeEnd =
-                previewPath.getPointAtLength(pathLength);
+        updateContourPreview();
 
+        if (
+            previewContourElements.length > 0 &&
+            analysis.endpoints
+        ) {
             const bridge = document.createElementNS(
                 "http://www.w3.org/2000/svg",
                 "line"
             );
 
-            bridge.setAttribute("x1", bridgeEnd.x);
-            bridge.setAttribute("y1", bridgeEnd.y);
-            bridge.setAttribute("x2", bridgeStart.x);
-            bridge.setAttribute("y2", bridgeStart.y);
-
-            const pathTransform =
-                previewPath.getAttribute("transform");
-
-            if (pathTransform) {
-                bridge.setAttribute("transform", pathTransform);
-            }
+            bridge.setAttribute(
+                "x1",
+                analysis.endpoints.start.x
+            );
+            bridge.setAttribute(
+                "y1",
+                analysis.endpoints.start.y
+            );
+            bridge.setAttribute(
+                "x2",
+                analysis.endpoints.end.x
+            );
+            bridge.setAttribute(
+                "y2",
+                analysis.endpoints.end.y
+            );
 
             bridge.classList.add("gap-bridge");
 
-            bridge.style.display =
-                checkbox.checked ? "" : "none";
-
-            previewPath.parentNode.append(bridge);
-
-            checkbox.addEventListener("change", () => {
+            const updateBridgeVisibility = () => {
                 bridge.style.display =
                     checkbox.checked ? "" : "none";
-            });
-        }
-        checkbox.addEventListener("change", () => {
-            previewPath.classList.toggle(
-                "review-selected",
-                checkbox.checked
+            };
+
+            updateBridgeVisibility();
+
+            previewContourElements[0]
+                .parentNode.append(bridge);
+
+            checkbox.addEventListener(
+                "change",
+                updateBridgeVisibility
             );
-        });
+        }
+
+        checkbox.addEventListener(
+            "change",
+            updateContourPreview
+        );
+
         updatePendingRepairsFromSelection();
         const gapDistance = analysis.gapDistance.toFixed(2);
         const recommendation =
@@ -621,42 +636,34 @@ fixButton.addEventListener("click", () => {
         return;
     }
 
-    pendingRepairs.forEach((repair) => {
-        updatePathData(repair.pathElement, repair.pathData);
-    });
-    const pathValidation =
-        validateRepairedPaths(pendingRepairs);
+    const repairedCount = pendingRepairs.length;
 
-    if (!pathValidation.isValid) {
+    pendingRepairs.forEach((repair) => {
+        createContourBridge(repair);
+    });
+
+    repairedSvgText = serializeSvg(svgDocument);
+    const validationResult =
+        validateSvgText(repairedSvgText);
+
+    if (!validationResult.isValid) {
         repairedSvgText = "";
         downloadButton.disabled = true;
-
-        statusMessage.textContent =
-            pathValidation.message;
         validationStatus.textContent = "Failed";
+        statusMessage.textContent =
+            validationResult.message ||
+            "The repaired SVG failed validation.";
         return;
     }
 
-    repairedSvgText = serializeSvg(svgDocument);
-    const validationResult = validateSvgText(repairedSvgText);
-
-
-    downloadButton.disabled = !validationResult.isValid;
-    validationStatus.textContent =
-        validationResult.isValid ? "Passed" : "Failed";
-
-    const repairedCount = pendingRepairs.length;
+    downloadButton.disabled = false;
+    validationStatus.textContent = "Passed";
     pathsRepaired.textContent = repairedCount;
-
     pendingRepairs = [];
-    if (!validationResult.isValid) {
-        repairedSvgText = "";
-    }
     fixButton.disabled = true;
 
     statusMessage.textContent =
-        `${repairedCount} open path${repairedCount === 1 ? "" : "s"} repaired successfully.`;
-
+        `${repairedCount} open contour${repairedCount === 1 ? "" : "s"} repaired successfully.`;
 
 });
 downloadButton.addEventListener("click", () => {
