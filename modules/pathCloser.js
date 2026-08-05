@@ -481,6 +481,128 @@ export function analyzeComponent(component) {
     };
 }
 
+function getTerminalEntries(components) {
+    return components.flatMap((component) =>
+        getComponentTerminalNodes(component).map((node) => ({
+            component,
+            node,
+        }))
+    );
+}
+
+function getPointDistance(firstPoint, secondPoint) {
+    return Math.hypot(
+        secondPoint.x - firstPoint.x,
+        secondPoint.y - firstPoint.y
+    );
+}
+
+function findNearestTerminal(entry, terminalEntries) {
+    let nearestEntry = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    terminalEntries.forEach((candidate) => {
+        if (candidate === entry) {
+            return;
+        }
+
+        const distance = getPointDistance(
+            entry.node.point,
+            candidate.node.point
+        );
+
+        if (distance < nearestDistance) {
+            nearestEntry = candidate;
+            nearestDistance = distance;
+        }
+    });
+
+    return nearestEntry;
+}
+
+function mergeCandidateComponents(firstComponent, secondComponent) {
+    if (firstComponent === secondComponent) {
+        return firstComponent;
+    }
+
+    return {
+        edges: [
+            ...firstComponent.edges,
+            ...secondComponent.edges,
+        ],
+        nodes: [
+            ...new Set([
+                ...firstComponent.nodes,
+                ...secondComponent.nodes,
+            ]),
+        ],
+    };
+}
+
+export function pairNearestTerminalNodes(components) {
+    const terminalEntries = getTerminalEntries(components);
+    const nearestByEntry = new Map(
+        terminalEntries.map((entry) => [
+            entry,
+            findNearestTerminal(entry, terminalEntries),
+        ])
+    );
+    const pairedEntries = new Set();
+    const pairs = [];
+
+    terminalEntries.forEach((entry) => {
+        if (pairedEntries.has(entry)) {
+            return;
+        }
+
+        const nearestEntry = nearestByEntry.get(entry);
+
+        if (
+            !nearestEntry ||
+            pairedEntries.has(nearestEntry) ||
+            nearestByEntry.get(nearestEntry) !== entry
+        ) {
+            return;
+        }
+
+        pairedEntries.add(entry);
+        pairedEntries.add(nearestEntry);
+        pairs.push([entry, nearestEntry]);
+    });
+
+    return pairs;
+}
+
+function analyzeTerminalPair(firstEntry, secondEntry) {
+    const component = mergeCandidateComponents(
+        firstEntry.component,
+        secondEntry.component
+    );
+    const endpoints = {
+        start: firstEntry.node.point,
+        end: secondEntry.node.point,
+    };
+    const gapDistance = getEndpointDistance(endpoints);
+    const referenceLength = getComponentReferenceLength(component);
+
+    return {
+        component,
+        terminalNodes: [
+            firstEntry.node,
+            secondEntry.node,
+        ],
+        endpoints,
+        isClosed: false,
+        hasSingleOpenGap: true,
+        gapDistance,
+        referenceLength,
+        gapType: classifyGap(
+            gapDistance,
+            referenceLength
+        ),
+    };
+}
+
 export function analyzeContours(pathElements) {
     const graph =
         buildEndpointGraph(pathElements);
@@ -488,9 +610,19 @@ export function analyzeContours(pathElements) {
     const components =
         getConnectedEdgeComponents(graph);
 
-    return components.map((component) =>
-        analyzeComponent(component)
-    );
+    const closedAnalyses = components
+        .map((component) => analyzeComponent(component))
+        .filter((analysis) => analysis.isClosed);
+
+    const openAnalyses = pairNearestTerminalNodes(components)
+        .map(([firstEntry, secondEntry]) =>
+            analyzeTerminalPair(firstEntry, secondEntry)
+        );
+
+    return [
+        ...closedAnalyses,
+        ...openAnalyses,
+    ];
 }
 
 export function createContourBridge(analysis) {
@@ -626,44 +758,3 @@ export function analyzePath(pathElement) {
 export function validateSvgText(svgText) {
     try {
         const validationDocument = parseSvg(svgText);
-        const rootElement = validationDocument.documentElement;
-
-        if (rootElement.tagName.toLowerCase() !== "svg") {
-            return {
-                isValid: false,
-                message: "The repaired file does not have an SVG root element.",
-            };
-        }
-
-        return {
-            isValid: true,
-            message: "The repaired SVG structure is valid.",
-        };
-    } catch (error) {
-        return {
-            isValid: false,
-            message: error.message,
-        };
-    }
-}
-export function validateRepairedPaths(repairs) {
-    const failedRepairs = repairs.filter((repair) => {
-        const updatedPathData = getPathData(repair.pathElement);
-
-        return !isPathExplicitlyClosed(updatedPathData);
-    });
-
-    if (failedRepairs.length > 0) {
-        return {
-            isValid: false,
-            failedCount: failedRepairs.length,
-            message: `${failedRepairs.length} path repair failed validation.`,
-        };
-    }
-
-    return {
-        isValid: true,
-        failedCount: 0,
-        message: "All repaired paths are closed.",
-    };
-}
