@@ -892,8 +892,7 @@ openPathsCard.addEventListener("click", () => {
 
             updateBridgeVisibility();
 
-            previewContourElements[0]
-                .parentNode.append(bridge);
+            previewSvg.append(bridge);
 
             checkbox.addEventListener(
                 "change",
