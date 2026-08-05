@@ -809,13 +809,15 @@ openPathsCard.addEventListener("click", () => {
             ),
         ];
 
-        pendingRepairs = selectedCheckboxes.map((checkbox) => {
-    const contourIndex = Number(
-        checkbox.dataset.pathIndex
-    );
+        pendingRepairs = selectedCheckboxes
+            .map((checkbox) => {
+                const contourIndex = Number(
+                    checkbox.dataset.pathIndex
+                );
 
-    return currentOpenPaths[contourIndex];
-});
+                return currentOpenPaths[contourIndex];
+            })
+            .filter(isRepairableContour);
 
         fixButton.disabled = pendingRepairs.length === 0;
 
@@ -832,7 +834,6 @@ openPathsCard.addEventListener("click", () => {
         checkbox.type = "checkbox";
         checkbox.dataset.pathIndex = index;
         checkbox.checked = isRepairableContour(analysis);
-        checkbox.disabled = !isRepairableContour(analysis);
 
         const previewContourElements =
             getContourElements(analysis)
@@ -856,7 +857,7 @@ openPathsCard.addEventListener("click", () => {
         updateContourPreview();
 
         if (
-            isRepairableContour(analysis) &&
+            analysis.hasSingleOpenGap &&
             previewContourElements.length > 0 &&
             analysis.endpoints
         ) {
@@ -908,7 +909,7 @@ openPathsCard.addEventListener("click", () => {
         const gapDistance = analysis.gapDistance.toFixed(2);
         const recommendation =
             analysis.gapType === "large-gap"
-                ? "Skipped — gap too large"
+                ? "Review only — gap too large to repair"
                 : "Recommended";
 
         option.append(
