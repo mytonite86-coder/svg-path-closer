@@ -449,10 +449,9 @@ openPathsCard.addEventListener("click", () => {
 
         const screenToSvg = svgMatrix.inverse();
 
-        const points = previewPaths.flatMap((path) => {
+        const elementBounds = previewPaths.map((path) => {
             const bounds = path.getBoundingClientRect();
-
-            return [
+            const points = [
                 new DOMPoint(bounds.left, bounds.top),
                 new DOMPoint(bounds.right, bounds.top),
                 new DOMPoint(bounds.right, bounds.bottom),
@@ -460,7 +459,43 @@ openPathsCard.addEventListener("click", () => {
             ].map((point) =>
                 point.matrixTransform(screenToSvg)
             );
+
+            const width = Math.abs(
+                points[1].x - points[0].x
+            );
+            const height = Math.abs(
+                points[3].y - points[0].y
+            );
+
+            return {
+                path,
+                points,
+                span: Math.hypot(width, height),
+            };
         });
+
+        const boundsBySize = [
+            ...elementBounds,
+        ].sort((first, second) =>
+            second.span - first.span
+        );
+
+        const largestBounds = boundsBySize[0];
+        const nextLargestBounds = boundsBySize[1];
+
+        const framingBounds =
+            nextLargestBounds &&
+            largestBounds.span >
+                nextLargestBounds.span * 4
+                ? elementBounds.filter(
+                    (bounds) =>
+                        bounds !== largestBounds
+                )
+                : elementBounds;
+
+        const points = framingBounds.flatMap(
+            (bounds) => bounds.points
+        );
 
         const xValues = points.map((point) => point.x);
         const yValues = points.map((point) => point.y);
