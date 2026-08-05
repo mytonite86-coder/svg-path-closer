@@ -14,6 +14,7 @@ import {
     getPathElements,
     analyzeContours,
     createContourBridge,
+    isRepairableContour,
     analyzePath,
     closePathData,
     serializeSvg,
@@ -596,11 +597,7 @@ fileInput.addEventListener("change", async () => {
         analyzeContours(pathElements);
 
     const repairableContours =
-        contourAnalyses.filter(
-            (analysis) =>
-                analysis.hasSingleOpenGap &&
-                analysis.gapType !== "large-gap"
-        );
+        contourAnalyses.filter(isRepairableContour);
 
     const openContours =
         contourAnalyses.filter(
@@ -834,7 +831,8 @@ openPathsCard.addEventListener("click", () => {
         );
         checkbox.type = "checkbox";
         checkbox.dataset.pathIndex = index;
-        checkbox.checked = analysis.gapType !== "large-gap";
+        checkbox.checked = isRepairableContour(analysis);
+        checkbox.disabled = !isRepairableContour(analysis);
 
         const previewContourElements =
             getContourElements(analysis)
@@ -858,6 +856,7 @@ openPathsCard.addEventListener("click", () => {
         updateContourPreview();
 
         if (
+            isRepairableContour(analysis) &&
             previewContourElements.length > 0 &&
             analysis.endpoints
         ) {
@@ -909,7 +908,7 @@ openPathsCard.addEventListener("click", () => {
         const gapDistance = analysis.gapDistance.toFixed(2);
         const recommendation =
             analysis.gapType === "large-gap"
-                ? "Manual review"
+                ? "Skipped — gap too large"
                 : "Recommended";
 
         option.append(
