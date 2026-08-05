@@ -104,6 +104,112 @@ export function getPathEndpoints(pathElement) {
     );
 }
 
+function getDocumentPathEndpoints(pathElements) {
+    if (pathElements.length === 0) {
+        return new Map();
+    }
+
+    const sourceRoot =
+        pathElements[0].ownerDocument.documentElement;
+    const measurementRoot = sourceRoot.cloneNode(true);
+
+    measurementRoot
+        .querySelectorAll("script, foreignObject")
+        .forEach((element) => element.remove());
+
+    [
+        measurementRoot,
+        ...measurementRoot.querySelectorAll("*"),
+    ].forEach((element) => {
+        [...element.attributes].forEach((attribute) => {
+            const name = attribute.name.toLowerCase();
+            const value = attribute.value.trim().toLowerCase();
+
+            if (name.startsWith("on")) {
+                element.removeAttribute(attribute.name);
+            }
+
+            if (
+                (name === "href" || name === "xlink:href") &&
+                !value.startsWith("#")
+            ) {
+                element.removeAttribute(attribute.name);
+            }
+        });
+    });
+
+    measurementRoot.setAttribute("width", "1");
+    measurementRoot.setAttribute("height", "1");
+    measurementRoot.style.position = "absolute";
+    measurementRoot.style.left = "-10000px";
+    measurementRoot.style.top = "-10000px";
+    measurementRoot.style.visibility = "hidden";
+    measurementRoot.style.overflow = "visible";
+
+    document.body.appendChild(measurementRoot);
+
+    try {
+        const measurementElements = [
+            ...measurementRoot.querySelectorAll("path, line"),
+        ];
+        const rootMatrix = measurementRoot.getCTM();
+
+        if (!rootMatrix) {
+            return new Map(
+                pathElements.map((pathElement) => [
+                    pathElement,
+                    getPathEndpoints(pathElement),
+                ])
+            );
+        }
+
+        const screenToRoot = rootMatrix.inverse();
+
+        return new Map(
+            pathElements.map((pathElement, index) => {
+                const measurementElement =
+                    measurementElements[index];
+                const elementMatrix =
+                    measurementElement?.getCTM();
+
+                if (!measurementElement || !elementMatrix) {
+                    return [
+                        pathElement,
+                        getPathEndpoints(pathElement),
+                    ];
+                }
+
+                const totalLength =
+                    measurementElement.getTotalLength();
+                const startPoint = measurementElement
+                    .getPointAtLength(0)
+                    .matrixTransform(elementMatrix)
+                    .matrixTransform(screenToRoot);
+                const endPoint = measurementElement
+                    .getPointAtLength(totalLength)
+                    .matrixTransform(elementMatrix)
+                    .matrixTransform(screenToRoot);
+
+                return [
+                    pathElement,
+                    {
+                        start: {
+                            x: startPoint.x,
+                            y: startPoint.y,
+                        },
+                        end: {
+                            x: endPoint.x,
+                            y: endPoint.y,
+                        },
+                    },
+                ];
+            })
+        );
+    } finally {
+        measurementRoot.remove();
+    }
+}
+
 export function getEndpointDistance(endpoints) {
     const horizontalDistance =
         endpoints.end.x - endpoints.start.x;
@@ -218,11 +324,14 @@ export function buildEndpointGraph(pathElements) {
     const tolerance =
         getConnectionTolerance(pathElements);
 
+    const endpointsByElement =
+        getDocumentPathEndpoints(pathElements);
+
     const nodes = [];
 
     const edges = pathElements.map((pathElement) => {
         const endpoints =
-            getPathEndpoints(pathElement);
+            endpointsByElement.get(pathElement);
 
         const startNode = getOrCreateNode(
             nodes,
@@ -452,7 +561,7 @@ export function createContourBridge(analysis) {
         "true"
     );
 
-    sourceElement.parentNode.append(bridge);
+    svgDocument.documentElement.append(bridge);
 
     return bridge;
 }
