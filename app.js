@@ -75,12 +75,224 @@ const openPathList =
     document.querySelector("#open-path-list");
 const svgPreview =
     document.querySelector("#svg-preview");
+const previewZoomOut =
+    document.querySelector("#preview-zoom-out");
+const previewFit =
+    document.querySelector("#preview-fit");
+const previewZoomIn =
+    document.querySelector("#preview-zoom-in");
 let svgText = "";
 let svgDocument = null;
 let pendingRepairs = [];
 let repairedSvgText = "";
 let originalFileName = "";
 let currentOpenPaths = [];
+let previewNavigation = null;
+
+function createPreviewNavigation(previewSvg) {
+    const activePointers = new Map();
+    let fittedViewBox = null;
+    let previousPanPoint = null;
+    let previousPinchDistance = null;
+
+    const readViewBox = () => {
+        const values = previewSvg
+            .getAttribute("viewBox")
+            ?.trim()
+            .split(/[\s,]+/)
+            .map(Number);
+
+        if (
+            !values ||
+            values.length !== 4 ||
+            values.some((value) => !Number.isFinite(value))
+        ) {
+            return null;
+        }
+
+        return values;
+    };
+
+    const writeViewBox = (values) => {
+        previewSvg.setAttribute("viewBox", values.join(" "));
+    };
+
+    const clientToSvg = (clientX, clientY) => {
+        const screenMatrix = previewSvg.getScreenCTM();
+
+        if (!screenMatrix) {
+            return null;
+        }
+
+        return new DOMPoint(clientX, clientY)
+            .matrixTransform(screenMatrix.inverse());
+    };
+
+    const zoomAt = (scale, clientX, clientY) => {
+        const viewBox = readViewBox();
+        const anchor = clientToSvg(clientX, clientY);
+
+        if (!viewBox || !anchor) {
+            return;
+        }
+
+        const newWidth = viewBox[2] * scale;
+        const newHeight = viewBox[3] * scale;
+        const xRatio = (anchor.x - viewBox[0]) / viewBox[2];
+        const yRatio = (anchor.y - viewBox[1]) / viewBox[3];
+
+        writeViewBox([
+            anchor.x - newWidth * xRatio,
+            anchor.y - newHeight * yRatio,
+            newWidth,
+            newHeight,
+        ]);
+    };
+
+    const zoomFromCenter = (scale) => {
+        const bounds = svgPreview.getBoundingClientRect();
+        zoomAt(
+            scale,
+            bounds.left + bounds.width / 2,
+            bounds.top + bounds.height / 2
+        );
+    };
+
+    const onPointerDown = (event) => {
+        svgPreview.setPointerCapture(event.pointerId);
+        activePointers.set(event.pointerId, event);
+
+        if (activePointers.size === 1) {
+            previousPanPoint = clientToSvg(
+                event.clientX,
+                event.clientY
+            );
+        }
+    };
+
+    const onPointerMove = (event) => {
+        if (!activePointers.has(event.pointerId)) {
+            return;
+        }
+
+        activePointers.set(event.pointerId, event);
+        const pointers = [...activePointers.values()];
+
+        if (pointers.length === 1) {
+            const currentPoint = clientToSvg(
+                event.clientX,
+                event.clientY
+            );
+            const viewBox = readViewBox();
+
+            if (currentPoint && previousPanPoint && viewBox) {
+                writeViewBox([
+                    viewBox[0] + previousPanPoint.x - currentPoint.x,
+                    viewBox[1] + previousPanPoint.y - currentPoint.y,
+                    viewBox[2],
+                    viewBox[3],
+                ]);
+            }
+
+            previousPanPoint = clientToSvg(
+                event.clientX,
+                event.clientY
+            );
+            return;
+        }
+
+        if (pointers.length === 2) {
+            const distance = Math.hypot(
+                pointers[0].clientX - pointers[1].clientX,
+                pointers[0].clientY - pointers[1].clientY
+            );
+            const centerX =
+                (pointers[0].clientX + pointers[1].clientX) / 2;
+            const centerY =
+                (pointers[0].clientY + pointers[1].clientY) / 2;
+
+            if (previousPinchDistance && distance > 0) {
+                zoomAt(
+                    previousPinchDistance / distance,
+                    centerX,
+                    centerY
+                );
+            }
+
+            previousPinchDistance = distance;
+            previousPanPoint = null;
+        }
+    };
+
+    const onPointerEnd = (event) => {
+        activePointers.delete(event.pointerId);
+        previousPinchDistance = null;
+
+        const remainingPointer = activePointers.values().next().value;
+        previousPanPoint = remainingPointer
+            ? clientToSvg(
+                remainingPointer.clientX,
+                remainingPointer.clientY
+            )
+            : null;
+    };
+
+    const onWheel = (event) => {
+        event.preventDefault();
+        zoomAt(
+            event.deltaY < 0 ? 0.85 : 1.18,
+            event.clientX,
+            event.clientY
+        );
+    };
+
+    const onZoomIn = () => zoomFromCenter(0.8);
+    const onZoomOut = () => zoomFromCenter(1.25);
+    const onFit = () => {
+        if (fittedViewBox) {
+            writeViewBox(fittedViewBox);
+        }
+    };
+
+    svgPreview.addEventListener("pointerdown", onPointerDown);
+    svgPreview.addEventListener("pointermove", onPointerMove);
+    svgPreview.addEventListener("pointerup", onPointerEnd);
+    svgPreview.addEventListener("pointercancel", onPointerEnd);
+    svgPreview.addEventListener("wheel", onWheel, {
+        passive: false,
+    });
+    previewZoomIn.addEventListener("click", onZoomIn);
+    previewZoomOut.addEventListener("click", onZoomOut);
+    previewFit.addEventListener("click", onFit);
+
+    return {
+        rememberFit() {
+            fittedViewBox = readViewBox();
+        },
+        destroy() {
+            svgPreview.removeEventListener(
+                "pointerdown",
+                onPointerDown
+            );
+            svgPreview.removeEventListener(
+                "pointermove",
+                onPointerMove
+            );
+            svgPreview.removeEventListener(
+                "pointerup",
+                onPointerEnd
+            );
+            svgPreview.removeEventListener(
+                "pointercancel",
+                onPointerEnd
+            );
+            svgPreview.removeEventListener("wheel", onWheel);
+            previewZoomIn.removeEventListener("click", onZoomIn);
+            previewZoomOut.removeEventListener("click", onZoomOut);
+            previewFit.removeEventListener("click", onFit);
+        },
+    };
+}
 
 
 function getContourElements(analysis) {
@@ -429,9 +641,12 @@ openPathsCard.addEventListener("click", () => {
     openPathList.innerHTML = "";
     svgPreview.replaceChildren();
 
+    previewNavigation?.destroy();
+
     const previewSvg = createPreviewSvg(svgDocument);
 
     svgPreview.append(previewSvg);
+    previewNavigation = createPreviewNavigation(previewSvg);
     const originalPaths = getPathElements(svgDocument);
 
     const previewPathElements = [
@@ -586,6 +801,8 @@ openPathsCard.addEventListener("click", () => {
             "preserveAspectRatio",
             "xMidYMid meet"
         );
+
+        previewNavigation.rememberFit();
 
     });
     function updatePendingRepairsFromSelection() {
