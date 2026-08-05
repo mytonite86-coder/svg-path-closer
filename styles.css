@@ -150,6 +150,8 @@ button:not(:disabled):hover {
     border: 2px solid #cbd5e1;
     border-radius: 10px;
     background-color: white;
+    touch-action: none;
+    user-select: none;
 }
 
 #svg-preview .preview-svg {
@@ -165,8 +167,8 @@ button:not(:disabled):hover {
     circle,
     ellipse,
     rect) {
-    vector-effect: non-scaling-stroke;
-    stroke-width: 1.5px;
+    vector-effect: non-scaling-stroke !important;
+    stroke-width: 1.5px !important;
 }
 
 #svg-preview .review-selected {
@@ -180,4 +182,38 @@ button:not(:disabled):hover {
     stroke-dasharray: 7 5;
     vector-effect: non-scaling-stroke;
     pointer-events: none;
+}
+
+.preview-controls {
+    display: grid;
+    grid-template-columns: 56px minmax(120px, 1fr) 56px;
+    gap: 10px;
+    max-width: 320px;
+    margin: -6px auto 20px;
+}
+
+.preview-control-button,
+.preview-fit-button {
+    min-height: 52px;
+    border: 2px solid #94a3b8;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-weight: 800;
+}
+
+.preview-control-button {
+    padding: 0;
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.preview-fit-button {
+    font-size: 1rem;
+}
+
+.preview-control-button:active,
+.preview-fit-button:active {
+    transform: translateY(2px);
+    background: #e2e8f0;
 }
