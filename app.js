@@ -474,22 +474,79 @@ openPathsCard.addEventListener("click", () => {
             };
         });
 
-        const boundsBySize = [
-            ...elementBounds,
-        ].sort((first, second) =>
-            second.span - first.span
-        );
+        const median = (values) => {
+            const sortedValues = [...values].sort(
+                (first, second) => first - second
+            );
+            const middleIndex = Math.floor(
+                sortedValues.length / 2
+            );
 
-        const largestBounds = boundsBySize[0];
-        const nextLargestBounds = boundsBySize[1];
+            return sortedValues.length % 2 === 0
+                ? (
+                    sortedValues[middleIndex - 1] +
+                    sortedValues[middleIndex]
+                ) / 2
+                : sortedValues[middleIndex];
+        };
+
+        const clusterCenter = {
+            x: median(
+                elementBounds.map(
+                    (bounds) =>
+                        (
+                            bounds.points[0].x +
+                            bounds.points[2].x
+                        ) / 2
+                )
+            ),
+            y: median(
+                elementBounds.map(
+                    (bounds) =>
+                        (
+                            bounds.points[0].y +
+                            bounds.points[2].y
+                        ) / 2
+                )
+            ),
+        };
+
+        const boundsByDistance = elementBounds
+            .map((bounds) => {
+                const centerX =
+                    (
+                        bounds.points[0].x +
+                        bounds.points[2].x
+                    ) / 2;
+                const centerY =
+                    (
+                        bounds.points[0].y +
+                        bounds.points[2].y
+                    ) / 2;
+
+                return {
+                    bounds,
+                    distance: Math.hypot(
+                        centerX - clusterCenter.x,
+                        centerY - clusterCenter.y
+                    ),
+                };
+            })
+            .sort((first, second) =>
+                second.distance - first.distance
+            );
+
+        const farthestBounds = boundsByDistance[0];
+        const nextFarthestBounds = boundsByDistance[1];
 
         const framingBounds =
-            nextLargestBounds &&
-            largestBounds.span >
-                nextLargestBounds.span * 4
+            elementBounds.length >= 4 &&
+            nextFarthestBounds &&
+            farthestBounds.distance >
+                nextFarthestBounds.distance * 4
                 ? elementBounds.filter(
                     (bounds) =>
-                        bounds !== largestBounds
+                        bounds !== farthestBounds.bounds
                 )
                 : elementBounds;
 
