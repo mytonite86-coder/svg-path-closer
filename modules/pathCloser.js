@@ -758,3 +758,44 @@ export function analyzePath(pathElement) {
 export function validateSvgText(svgText) {
     try {
         const validationDocument = parseSvg(svgText);
+        const rootElement = validationDocument.documentElement;
+
+        if (rootElement.tagName.toLowerCase() !== "svg") {
+            return {
+                isValid: false,
+                message: "The repaired file does not have an SVG root element.",
+            };
+        }
+
+        return {
+            isValid: true,
+            message: "The repaired SVG structure is valid.",
+        };
+    } catch (error) {
+        return {
+            isValid: false,
+            message: error.message,
+        };
+    }
+}
+export function validateRepairedPaths(repairs) {
+    const failedRepairs = repairs.filter((repair) => {
+        const updatedPathData = getPathData(repair.pathElement);
+
+        return !isPathExplicitlyClosed(updatedPathData);
+    });
+
+    if (failedRepairs.length > 0) {
+        return {
+            isValid: false,
+            failedCount: failedRepairs.length,
+            message: `${failedRepairs.length} path repair failed validation.`,
+        };
+    }
+
+    return {
+        isValid: true,
+        failedCount: 0,
+        message: "All repaired paths are closed.",
+    };
+}
