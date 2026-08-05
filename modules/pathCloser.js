@@ -495,8 +495,7 @@ export function analyzeContours(pathElements) {
 
 export function createContourBridge(analysis) {
     if (
-        !analysis.hasSingleOpenGap ||
-        !analysis.endpoints
+        !isRepairableContour(analysis)
     ) {
         return null;
     }
@@ -578,6 +577,14 @@ export function classifyGap(gapDistance, referenceLength) {
     }
 
     return "large-gap";
+}
+
+export function isRepairableContour(analysis) {
+    return Boolean(
+        analysis?.hasSingleOpenGap &&
+        analysis.endpoints &&
+        analysis.gapType !== "large-gap"
+    );
 }
 export function closePathData(pathData) {
     const cleanPathData = pathData.trim();
