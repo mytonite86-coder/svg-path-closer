@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
     captureAttribution,
     getStoredAttribution,
+    trackPathSealEvent,
 } from "../modules/attribution.js";
 
 function memoryStorage() {
@@ -64,3 +65,42 @@ test("records unattributed traffic as direct", () => {
     assert.equal(attribution.visitorId, "visitor-direct");
 });
 
+test("relays a visit without exposing the ingestion key", async () => {
+    let request;
+    const accepted = await trackPathSealEvent("visit", {
+        attribution: {
+            visitorId: "visitor-1",
+            source: "linkedin",
+            medium: "social",
+            campaign: "launch",
+        },
+        occurredAt: new Date("2026-08-06T18:00:00Z"),
+        fetchApi: async (...args) => {
+            request = args;
+            return { ok: true };
+        },
+    });
+
+    assert.equal(accepted, true);
+    assert.match(request[0], /\/api\/analytics\/pathseal\/events$/);
+    assert.equal(request[1].headers.Authorization, undefined);
+    assert.deepEqual(JSON.parse(request[1].body), {
+        type: "visit",
+        visitorId: "visitor-1",
+        source: "linkedin",
+        medium: "social",
+        campaign: "launch",
+        occurredAt: "2026-08-06T18:00:00.000Z",
+    });
+});
+
+test("tracking failure never blocks PathSeal", async () => {
+    const accepted = await trackPathSealEvent("visit", {
+        attribution: { visitorId: "visitor-1", source: "direct" },
+        fetchApi: async () => {
+            throw new Error("offline");
+        },
+    });
+
+    assert.equal(accepted, false);
+});

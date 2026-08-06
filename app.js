@@ -20,9 +20,15 @@ import {
     serializeSvg,
     validateSvgText,
 } from "./modules/pathCloser.js";
-import { captureAttribution } from "./modules/attribution.js";
+import {
+    captureAttribution,
+    trackPathSealEvent,
+} from "./modules/attribution.js";
 
-captureAttribution({ search: window.location.search });
+const attribution = captureAttribution({
+    search: window.location.search,
+});
+void trackPathSealEvent("visit", { attribution });
 
 const fileInput = document.querySelector("#svg-file");
 const resultsSection = document.querySelector("#results");

@@ -63,3 +63,37 @@ export function getStoredAttribution(
     return readJson(storage, ATTRIBUTION_STORAGE_KEY);
 }
 
+export async function trackPathSealEvent(
+    type,
+    {
+        attribution = getStoredAttribution(),
+        occurredAt = new Date(),
+        fetchApi = window.fetch.bind(window),
+    } = {}
+) {
+    if (!attribution) {
+        return false;
+    }
+
+    try {
+        const response = await fetchApi(
+            "https://mab-path-editor.onrender.com/api/analytics/pathseal/events",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type,
+                    visitorId: attribution.visitorId,
+                    source: attribution.source,
+                    medium: attribution.medium,
+                    campaign: attribution.campaign,
+                    occurredAt: occurredAt.toISOString(),
+                }),
+            }
+        );
+
+        return response.ok;
+    } catch {
+        return false;
+    }
+}

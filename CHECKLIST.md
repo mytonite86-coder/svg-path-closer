@@ -36,7 +36,8 @@
 - [x] Assign and preserve an anonymous visitor ID
 - [x] Classify untagged visits as direct traffic
 - [x] Test attribution persistence without exposing an ingestion key
-- [ ] Send product events through the trusted shared backend
+- [x] Send visit attribution through the trusted shared backend
+- [ ] Add signup, upload, and checkout-start funnel events
 - [ ] Carry attribution through signup and checkout
 - [ ] Confirm subscription conversions from the Stripe webhook
 
