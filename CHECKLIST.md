@@ -30,6 +30,16 @@
 * [x] Test multiple paths
 * [x] Test malformed SVG files
 
+## SignalDrift Attribution
+
+- [x] Capture first-touch UTM source, medium, and campaign
+- [x] Assign and preserve an anonymous visitor ID
+- [x] Classify untagged visits as direct traffic
+- [x] Test attribution persistence without exposing an ingestion key
+- [ ] Send product events through the trusted shared backend
+- [ ] Carry attribution through signup and checkout
+- [ ] Confirm subscription conversions from the Stripe webhook
+
 
 ## Approval Preview
 
