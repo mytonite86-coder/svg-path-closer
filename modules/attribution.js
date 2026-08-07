@@ -34,16 +34,20 @@ export function captureAttribution({
         storage.setItem(VISITOR_STORAGE_KEY, visitorId);
     }
 
+    const parameters = new URLSearchParams(search);
+    const taggedSource = clean(parameters.get("utm_source"), 120);
     const existing = readJson(storage, ATTRIBUTION_STORAGE_KEY);
 
-    if (existing?.visitorId) {
+    if (
+        existing?.visitorId &&
+        (existing.source !== "direct" || !taggedSource)
+    ) {
         return existing;
     }
 
-    const parameters = new URLSearchParams(search);
     const attribution = {
         visitorId,
-        source: clean(parameters.get("utm_source"), 120) || "direct",
+        source: taggedSource || "direct",
         medium: clean(parameters.get("utm_medium"), 120),
         campaign: clean(parameters.get("utm_campaign"), 200),
         capturedAt: now.toISOString(),
