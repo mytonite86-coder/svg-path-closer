@@ -54,6 +54,26 @@ test("preserves first-touch attribution across later visits", () => {
     assert.equal(later.campaign, "first");
 });
 
+test("upgrades an earlier direct visit when campaign tags arrive", () => {
+    const storage = memoryStorage();
+    const common = {
+        storage,
+        cryptoApi: { randomUUID: () => "visitor-1" },
+    };
+
+    captureAttribution({ ...common, search: "" });
+    const attributed = captureAttribution({
+        ...common,
+        search: "?utm_source=signaldrift-test&utm_medium=smoke&utm_campaign=pathseal-live",
+    });
+
+    assert.equal(attributed.visitorId, "visitor-1");
+    assert.equal(attributed.source, "signaldrift-test");
+    assert.equal(attributed.medium, "smoke");
+    assert.equal(attributed.campaign, "pathseal-live");
+    assert.deepEqual(getStoredAttribution(storage), attributed);
+});
+
 test("records unattributed traffic as direct", () => {
     const attribution = captureAttribution({
         search: "",
