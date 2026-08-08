@@ -586,6 +586,8 @@ fileInput.addEventListener("change", async () => {
         return;
     }
 
+    void trackPathSealEvent("upload", { attribution });
+
     const pathElements = getPathElements(svgDocument);
     if (pathElements.length === 0) {
         resultsSection.hidden = false;
