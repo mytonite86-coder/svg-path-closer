@@ -114,6 +114,33 @@ test("relays a visit without exposing the ingestion key", async () => {
     });
 });
 
+test("relays a successful SVG upload with its stored attribution", async () => {
+    let request;
+    const accepted = await trackPathSealEvent("upload", {
+        attribution: {
+            visitorId: "visitor-upload",
+            source: "signaldrift-test",
+            medium: "smoke",
+            campaign: "mongodb-live-test-2",
+        },
+        occurredAt: new Date("2026-08-07T18:00:00Z"),
+        fetchApi: async (...args) => {
+            request = args;
+            return { ok: true };
+        },
+    });
+
+    assert.equal(accepted, true);
+    assert.deepEqual(JSON.parse(request[1].body), {
+        type: "upload",
+        visitorId: "visitor-upload",
+        source: "signaldrift-test",
+        medium: "smoke",
+        campaign: "mongodb-live-test-2",
+        occurredAt: "2026-08-07T18:00:00.000Z",
+    });
+});
+
 test("tracking failure never blocks PathSeal", async () => {
     const accepted = await trackPathSealEvent("visit", {
         attribution: { visitorId: "visitor-1", source: "direct" },
