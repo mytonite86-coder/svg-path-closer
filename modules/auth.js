@@ -155,7 +155,9 @@ export async function refreshSession() {
     return user;
 }
 
-export async function startPathSealCheckout() {
+export async function startPathSealCheckout(
+    attribution = {}
+) {
     const checkout = await apiRequest(
         "/payments/checkout/session",
         {
@@ -166,6 +168,10 @@ export async function startPathSealCheckout() {
                 origin_url:
                     window.location.origin +
                     window.location.pathname,
+                visitor_id: attribution.visitorId || "",
+                source: attribution.source || "direct",
+                medium: attribution.medium || "",
+                campaign: attribution.campaign || "",
             },
         }
     );
