@@ -28,7 +28,7 @@ import {
 const attribution = captureAttribution({
     search: window.location.search,
 });
-void trackPathSealEvent("visit", { attribution });
+void trackPathSealEvent("landing_visit", { attribution });
 
 const fileInput = document.querySelector("#svg-file");
 const resultsSection = document.querySelector("#results");
@@ -358,6 +358,10 @@ async function handleLogin() {
 
     try {
         await login(email, password);
+        void trackPathSealEvent(
+            "login_completed",
+            { attribution }
+        );
 
         accountPassword.value = "";
         renderAccountState();
@@ -392,6 +396,10 @@ async function handleRegister() {
             username,
             password
         );
+        void trackPathSealEvent(
+            "account_created",
+            { attribution }
+        );
 
         accountPassword.value = "";
         renderAccountState();
@@ -411,7 +419,11 @@ async function handleSubscribe() {
         "Opening secure checkout...";
 
     try {
-        await startPathSealCheckout();
+        void trackPathSealEvent(
+            "checkout_started",
+            { attribution }
+        );
+        await startPathSealCheckout(attribution);
     } catch (error) {
         accountStatus.textContent =
             error.message ||
@@ -562,6 +574,10 @@ fileInput.addEventListener("change", async () => {
     }
 
     originalFileName = selectedFile.name;
+    void trackPathSealEvent(
+        "upload_started",
+        { attribution }
+    );
 
 
     repairedSvgText = "";
@@ -582,13 +598,19 @@ fileInput.addEventListener("change", async () => {
         repairSummary.hidden = true;
 
         statusMessage.textContent = error.message;
+        void trackPathSealEvent(
+            "error",
+            { attribution }
+        );
 
         return;
     }
 
-    void trackPathSealEvent("upload", { attribution });
-
     const pathElements = getPathElements(svgDocument);
+    void trackPathSealEvent(
+        "scan_completed",
+        { attribution }
+    );
     if (pathElements.length === 0) {
         resultsSection.hidden = false;
         repairSummary.hidden = false;
@@ -956,6 +978,10 @@ fixButton.addEventListener("click", () => {
     }
 
     const repairedCount = pendingRepairs.length;
+    void trackPathSealEvent(
+        "repair_selected",
+        { attribution }
+    );
 
     pendingRepairs.forEach((repair) => {
         createContourBridge(repair);
@@ -972,6 +998,10 @@ fixButton.addEventListener("click", () => {
         statusMessage.textContent =
             validationResult.message ||
             "The repaired SVG failed validation.";
+        void trackPathSealEvent(
+            "error",
+            { attribution }
+        );
         return;
     }
 
@@ -1023,6 +1053,10 @@ downloadButton.addEventListener("click", () => {
 
     downloadLink.download = cleanedFileName;
     downloadLink.click();
+    void trackPathSealEvent(
+        "validated_download_completed",
+        { attribution }
+    );
 
     URL.revokeObjectURL(downloadUrl);
 });
