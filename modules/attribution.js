@@ -84,6 +84,7 @@ export async function trackPathSealEvent(
             "https://mab-path-editor.onrender.com/api/analytics/pathseal/events",
             {
                 method: "POST",
+                keepalive: true,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     type,
