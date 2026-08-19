@@ -3,7 +3,7 @@
 ## Brand Structure
 
 **Parent brand:** SVG Micro Eco
-**Producer:** Kreepy Productions
+**Producer:** Skald and Kreepy Productions
 **Product model:** Five browser-based CNC SVG repair tools sharing one visual system, account system, subscription, and support structure.
 
 Each tool should feel like a different machine mounted inside the same industrial body.
@@ -45,7 +45,7 @@ The following elements stay consistent across every SVG Micro Eco tool:
 * Footer
 * Mobile layout
 * Support language
-* Kreepy Productions attribution
+* Skald and Kreepy Productions attribution
 
 The working repair engine must remain separate from the shared interface whenever practical.
 
@@ -235,9 +235,9 @@ Do not build a separate payment stack for each tool.
 Use the following wording consistently:
 
 **SVG Micro Eco**
-Produced by **Kreepy Productions**
+Produced by **Skald and Kreepy Productions**
 
-Kreepy Productions should appear as the producer, not as the primary product name.
+Skald and Kreepy Productions should appear as the producer, not as the primary product name.
 
 ---
 
