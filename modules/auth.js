@@ -227,7 +227,10 @@ export function getCurrentUser() {
 }
 
 export function hasEntitlement(productId) {
+    const entitlements = currentUser?.entitlements || [];
+
     return Boolean(
-        currentUser?.entitlements?.includes(productId)
+        entitlements.includes(productId) ||
+        entitlements.includes("all_products_lifetime")
     );
 }
