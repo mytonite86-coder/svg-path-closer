@@ -63,5 +63,8 @@
 - [x] Surface questionable exact matches for review
 - [x] Prevent the removal helper from applying review-only proposals
 - [x] Add focused automated tests
-- [ ] Connect Tool 2 proposals to the shared review interface
+- [x] Show keep/remove pairs and safety reasons before repair
+- [x] Allow each safe removal proposal to be deselected
+- [x] Require confirmation before generating cleaned output
+- [x] Keep questionable matches visible and unchanged
 - [ ] Add transformed and path-command geometry behind explicit review rules
