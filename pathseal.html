@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>PathSeal | SVG Micro Eco</title>
+    <link
+    rel="icon"
+    href="assets/pathseal-badge.svg"
+    type="image/svg+xml"
+/>
+
+    <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="design-system/pathseal.css" />
+</head>
+
+<body class="eco-page">
+   <p class="eco-shell eco-muted"><a href="index.html">← SVG Micro Eco tools</a></p>
+   <main class="eco-shell eco-tool-shell eco-panel eco-panel--accent">
+        <header class="eco-header">
+    <div class="eco-brand">
+        <img
+            class="eco-brand__badge pathseal-badge"
+            src="assets/pathseal-badge.svg"
+            alt="PathSeal, an SVG Micro Eco tool"
+        />
+
+        <div>
+            <p class="eco-brand__family">SVG Micro Eco</p>
+            <p class="eco-brand__tool">PathSeal</p>
+        </div>
+    </div>
+</header>
+
+<h1 class="eco-title pathseal-hero-title">
+    Find the break. Seal the path. Send the cut.
+</h1>
+
+        <p class="eco-subtitle">
+    Scan CNC-ready SVG files, review every open contour, and approve
+    exactly which gaps PathSeal should close.
+</p>
+        <section class="eco-upload">
+            <label for="svg-file">Choose an SVG file</label>
+
+            <input type="file" id="svg-file" accept=".svg,image/svg+xml" />
+        </section>
+        <section id="results" class="eco-section" hidden>
+    <h2 class="eco-heading">Scan Results</h2>
+
+    <p id="status-message" class="eco-status eco-status--accent">
+        No SVG has been scanned yet.
+    </p>
+
+    <dl id="repair-summary" class="eco-dashboard pathseal-dashboard" hidden>
+        <div class="eco-stat">
+            <dt class="eco-stat__label">Paths scanned</dt>
+            <dd id="paths-scanned" class="eco-stat__value">0</dd>
+        </div>
+
+        <div
+            id="open-paths-card"
+            class="eco-stat eco-stat--accent eco-card--interactive"
+            role="button"
+            tabindex="0"
+        >
+            <dt class="eco-stat__label">Open paths found</dt>
+            <dd id="open-paths-found" class="eco-stat__value">0</dd>
+        </div>
+
+        <div class="eco-stat">
+            <dt class="eco-stat__label">Paths repaired</dt>
+            <dd id="paths-repaired" class="eco-stat__value">0</dd>
+        </div>
+
+        <div class="eco-stat">
+            <dt class="eco-stat__label">Paths skipped</dt>
+            <dd id="paths-skipped" class="eco-stat__value">0</dd>
+        </div>
+
+        <div class="eco-stat">
+            <dt class="eco-stat__label">Validation</dt>
+            <dd id="validation-status" class="eco-stat__value">
+                Not run
+            </dd>
+        </div>
+    </dl>
+
+    <section id="open-path-review" class="eco-workspace" hidden>
+        <h2 class="eco-heading">Select Open Paths</h2>
+
+        <p class="eco-muted">
+            Review the numbered gaps and choose exactly which paths
+            PathSeal should close.
+        </p>
+
+        <div
+            id="svg-preview"
+            class="eco-preview"
+            aria-label="Scanned SVG preview"
+        ></div>
+
+        <div
+            class="preview-controls"
+            aria-label="Preview zoom controls"
+        >
+            <button
+                id="preview-zoom-out"
+                class="preview-control-button"
+                type="button"
+                aria-label="Zoom out"
+            >−</button>
+            <button
+                id="preview-fit"
+                class="preview-fit-button"
+                type="button"
+            >Fit Drawing</button>
+            <button
+                id="preview-zoom-in"
+                class="preview-control-button"
+                type="button"
+                aria-label="Zoom in"
+            >+</button>
+        </div>
+
+        <div
+            id="open-path-list"
+            class="eco-review-list"
+        ></div>
+    </section>
+
+    <div class="eco-actions">
+        <button
+            id="fix-button"
+            class="eco-button pathseal-repair-button"
+            type="button"
+            disabled
+        >
+            Repair Selected Paths
+        </button>
+
+        <button
+            id="download-button"
+            class="eco-button eco-button--success"
+            type="button"
+            disabled
+        >
+            Download Clean SVG
+        </button>
+    </div>
+</section>
+    </main>
+<section class="pathseal-sales">
+    <div class="eco-shell eco-reading-width">
+        <p class="eco-eyebrow">CNC SVG repair without the guesswork</p>
+
+        <h2 class="eco-title">
+            Stop hunting broken contours after the machine rejects the file.
+        </h2>
+
+        <p class="eco-subtitle">
+            PathSeal scans SVG files for open paths, shows each questionable
+            gap directly on the drawing, and lets you approve exactly which
+            contours should be repaired.
+        </p>
+        <section id="account-panel" class="eco-section eco-panel">
+    <h2 class="eco-heading">PathSeal Access</h2>
+
+    <p id="account-status" class="eco-status">
+        Scan and review are free. Sign in to repair and download.
+    </p>
+
+    <div id="account-fields">
+        <label for="account-email">Email</label>
+        <input
+            id="account-email"
+            type="email"
+            autocomplete="email"
+        />
+
+        <label for="account-username">
+            Username
+            <span class="eco-muted">
+                required only when creating an account
+            </span>
+        </label>
+        <input
+            id="account-username"
+            type="text"
+            autocomplete="username"
+        />
+
+        <label for="account-password">Password</label>
+        <input
+            id="account-password"
+            type="password"
+            autocomplete="current-password"
+        />
+
+        <div class="eco-actions">
+            <button
+                id="login-button"
+                class="eco-button"
+                type="button"
+            >
+                Sign In
+            </button>
+
+            <button
+                id="register-button"
+                class="eco-button pathseal-repair-button"
+                type="button"
+            >
+                Create Account
+            </button>
+        </div>
+    </div>
+
+    <div id="account-session" hidden>
+        <p>
+            Signed in as
+            <strong id="account-name"></strong>
+        </p>
+
+        <div class="eco-actions">
+            <button
+                id="subscribe-button"
+                class="eco-button pathseal-repair-button"
+                type="button"
+            >
+                Unlock Repair &amp; Download
+            </button>
+
+            <button
+                id="logout-button"
+                class="eco-button"
+                type="button"
+            >
+                Sign Out
+            </button>
+        </div>
+    </div>
+</section>
+
+        <div class="eco-grid eco-grid--3 pathseal-benefits">
+            <article class="eco-card">
+                <h3 class="eco-heading">Find every break</h3>
+                <p class="eco-muted">
+                    Scan the complete SVG and identify open contours before
+                    they become failed cuts or wasted material.
+                </p>
+            </article>
+
+            <article class="eco-card">
+                <h3 class="eco-heading">Review before repair</h3>
+                <p class="eco-muted">
+                    See numbered gaps in the preview and approve repairs
+                    individually instead of trusting a blind cleanup process.
+                </p>
+            </article>
+
+            <article class="eco-card">
+                <h3 class="eco-heading">Download and cut</h3>
+                <p class="eco-muted">
+                    Export a validated SVG with the selected paths sealed and
+                    ready for the next step in your CNC workflow.
+                </p>
+            </article>
+        </div>
+
+        <section class="eco-panel eco-panel--accent pathseal-offer">
+    <div>
+        <p class="eco-eyebrow">PathSeal founder access</p>
+
+        <h2 class="eco-heading">
+            Repair SVG paths without rebuilding the artwork.
+        </h2>
+
+        <div class="pathseal-price">
+            <span class="pathseal-price__amount">$9.99</span>
+            <span class="pathseal-price__period">per month</span>
+        </div>
+
+        <p class="eco-muted">
+            Founder launch pricing for PathSeal, with a direct path into
+            the growing SVG Micro Eco repair-tool ecosystem.
+        </p>
+    </div>
+
+    <a class="eco-button pathseal-repair-button" href="#file-input">
+        Try PathSeal
+    </a>
+</section>
+    </div>
+</section>
+
+<footer class="eco-footer">
+    <div class="eco-shell">
+        <p>PathSeal is part of SVG Micro Eco.</p>
+        <p><a href="index.html">Explore all SVG Micro Eco tools</a></p>
+        <p>Produced by Skald and Kreepy Productions.</p>
+    </div>
+</footer>
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
