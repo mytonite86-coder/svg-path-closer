@@ -1,0 +1,77 @@
+.ecosystem-tool-price {
+    margin: var(--space-4) 0;
+    color: var(--text-primary);
+    font-size: 1.4rem;
+    font-weight: 800;
+}
+
+.ecosystem-tool-price span {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.ecosystem-tool-choice {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    margin: var(--space-4) 0;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.ecosystem-tool-choice input {
+    width: 20px;
+    height: 20px;
+}
+
+.ecosystem-tool-choice--disabled {
+    color: var(--text-muted);
+}
+
+.ecosystem-quote {
+    margin-bottom: var(--space-7);
+}
+
+.ecosystem-quote-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
+    margin: var(--space-5) 0;
+}
+
+.ecosystem-quote-grid div {
+    padding: var(--space-4);
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+
+.ecosystem-quote-grid dt {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.ecosystem-quote-grid dd {
+    margin: var(--space-2) 0 0;
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.ecosystem-line-items {
+    margin: 0 0 var(--space-4);
+    color: var(--text-secondary);
+}
+
+@media (max-width: 820px) {
+    .ecosystem-quote-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .ecosystem-quote-grid {
+        grid-template-columns: 1fr;
+    }
+}
