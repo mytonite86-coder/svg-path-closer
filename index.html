@@ -7,6 +7,7 @@
     <link rel="icon" href="assets/svg-micro-eco-badge.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="design-system/pathseal.css" />
+    <link rel="stylesheet" href="design-system/ecosystem.css" />
 </head>
 <body class="eco-page">
     <main class="eco-shell eco-reading-width">
@@ -31,11 +32,16 @@
 
         <section class="eco-section">
             <h2 class="eco-heading">Repair tools</h2>
-            <div class="eco-grid eco-grid--3">
+            <div class="eco-grid eco-grid--three">
                 <article class="eco-card eco-panel--accent">
                     <p class="eco-eyebrow">Tool 1 · Live</p>
                     <h3 class="eco-heading">PathSeal</h3>
                     <p class="eco-muted">Find open contours, review questionable gaps, and seal only the paths you approve.</p>
+                    <p class="ecosystem-tool-price">$9.99 <span>per month</span></p>
+                    <label class="ecosystem-tool-choice" for="select-pathseal">
+                        <input id="select-pathseal" type="checkbox" value="pathseal" />
+                        Add PathSeal
+                    </label>
                     <a class="eco-button pathseal-repair-button" href="pathseal.html">Open PathSeal</a>
                 </article>
 
@@ -43,6 +49,11 @@
                     <p class="eco-eyebrow">Tool 2 · Foundation</p>
                     <h3 class="eco-heading">Duplicate Line Remover</h3>
                     <p class="eco-muted">Find exact duplicate lines and prepare safe removals without touching questionable geometry.</p>
+                    <p class="ecosystem-tool-price">$9.99 <span>per month</span></p>
+                    <label class="ecosystem-tool-choice" for="select-duplicate-geometry">
+                        <input id="select-duplicate-geometry" type="checkbox" value="duplicate_geometry" />
+                        Add Duplicate Line Remover
+                    </label>
                     <a class="eco-button pathseal-repair-button" href="duplicate-geometry.html">Open Duplicate Line Remover</a>
                 </article>
 
@@ -50,20 +61,53 @@
                     <p class="eco-eyebrow">Tool 3 · Planned</p>
                     <h3 class="eco-heading">Stray Node Cleaner</h3>
                     <p class="eco-muted">Remove isolated nodes while preserving intentional drawing geometry.</p>
+                    <p class="ecosystem-tool-price">$9.99 <span>per month when available</span></p>
+                    <label class="ecosystem-tool-choice ecosystem-tool-choice--disabled">
+                        <input type="checkbox" disabled /> Coming later
+                    </label>
                 </article>
 
                 <article class="eco-card">
                     <p class="eco-eyebrow">Tool 4 · Planned</p>
                     <h3 class="eco-heading">Overlapping Shape Repair</h3>
                     <p class="eco-muted">Find and resolve overlapping shapes through a review-first workflow.</p>
+                    <p class="ecosystem-tool-price">$9.99 <span>per month when available</span></p>
+                    <label class="ecosystem-tool-choice ecosystem-tool-choice--disabled">
+                        <input type="checkbox" disabled /> Coming later
+                    </label>
                 </article>
 
                 <article class="eco-card">
                     <p class="eco-eyebrow">Tool 5 · Planned</p>
                     <h3 class="eco-heading">Curve Repair</h3>
                     <p class="eco-muted">Inspect and repair damaged curve geometry without blind simplification.</p>
+                    <p class="ecosystem-tool-price">$9.99 <span>per month when available</span></p>
+                    <label class="ecosystem-tool-choice ecosystem-tool-choice--disabled">
+                        <input type="checkbox" disabled /> Coming later
+                    </label>
                 </article>
             </div>
+        </section>
+
+        <section class="eco-section eco-panel ecosystem-quote" aria-labelledby="subscription-heading">
+            <p class="eco-eyebrow">Build your subscription</p>
+            <h2 id="subscription-heading" class="eco-heading">Your SVG Micro Eco selection</h2>
+            <p class="eco-muted">
+                Every tool is $9.99 per month. Selecting more tools applies the
+                approved discount to the combined subtotal.
+            </p>
+            <p id="subscription-status" class="eco-status" aria-live="polite">
+                Select at least one available tool to see your monthly quote.
+            </p>
+            <dl id="subscription-quote" class="ecosystem-quote-grid" hidden>
+                <div><dt>Tools selected</dt><dd id="quote-tool-count">0</dd></div>
+                <div><dt>Subtotal</dt><dd id="quote-subtotal">$0.00</dd></div>
+                <div><dt>Multi-tool discount</dt><dd id="quote-discount">$0.00</dd></div>
+                <div><dt>Monthly total before tax</dt><dd id="quote-total">$0.00</dd></div>
+            </dl>
+            <ul id="quote-line-items" class="ecosystem-line-items"></ul>
+            <p class="eco-muted">Taxes and any mid-cycle proration will be shown before a future checkout confirmation.</p>
+            <button class="eco-button" type="button" disabled>Checkout connection coming next</button>
         </section>
     </main>
 
@@ -73,5 +117,6 @@
             <p>Produced by Skald and Kreepy Productions.</p>
         </div>
     </footer>
+    <script type="module" src="ecosystem.js?v=selector-20260820"></script>
 </body>
 </html>
