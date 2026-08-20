@@ -78,6 +78,11 @@ overlaps, and tolerance-based matches are left untouched. Unsupported line
 coordinates are reported as skipped. This is not
 an entitlement, checkout, package, or live-product activation.
 
+The review screen identifies the line retained, the duplicate proposed for
+removal, its exact endpoints, and the safety reason. Safe proposals are
+individually selectable. Questionable matches are visible but disabled and
+remain unchanged. Output is generated only after explicit confirmation.
+
 Later tools may add their own engines beside `modules/duplicateGeometry.js`.
 They must not broaden this exact-match contract into stray-node, overlap, or
 curve repair, and must not alter PathSeal's review-before-repair behavior.
