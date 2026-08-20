@@ -61,3 +61,23 @@ Upload → Scan → Fix → Validate → Download
 8. Repair the selected paths.
 9. Preview and validate the repaired SVG.
 10. Download the cleaned SVG.
+
+## Tool 2 foundation: Duplicate Line Remover
+
+`duplicate-geometry.html` is the minimal shared-chassis entry point for the
+reserved `duplicate_geometry` engine. It scans SVG `<line>` elements and
+produces safe-removal proposals that retain the first canonical instance,
+including when a matching line's endpoints are reversed.
+
+The foundation is deliberately conservative. Coordinates must be finite,
+unitless SVG numbers. Lines must share the same parent and have identical
+non-coordinate attributes and have no direct reference attributes. Exact
+geometry with different styling, nesting, metadata, or IDs is reported for
+customer review and is not removed. Paths and curves, near matches, partial
+overlaps, and tolerance-based matches are left untouched. Unsupported line
+coordinates are reported as skipped. This is not
+an entitlement, checkout, package, or live-product activation.
+
+Later tools may add their own engines beside `modules/duplicateGeometry.js`.
+They must not broaden this exact-match contract into stray-node, overlap, or
+curve repair, and must not alter PathSeal's review-before-repair behavior.

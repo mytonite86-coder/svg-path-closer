@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Duplicate Line Remover | SVG Micro Eco</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="design-system/pathseal.css" />
+</head>
+<body class="eco-page">
+    <main class="eco-shell eco-tool-shell eco-panel eco-panel--accent">
+        <header class="eco-header">
+            <div class="eco-brand">
+                <div>
+                    <p class="eco-brand__family">SVG Micro Eco</p>
+                    <p class="eco-brand__tool">Duplicate Line Remover</p>
+                </div>
+            </div>
+        </header>
+
+        <h1 class="eco-title">Find exact duplicate lines without guessing.</h1>
+        <p class="eco-subtitle">
+            This Tool 2 foundation proposes removal only for identical SVG
+            line elements. Close, overlapping, curved, or differently styled
+            geometry is left untouched.
+        </p>
+
+        <section class="eco-upload">
+            <label for="duplicate-file">Choose an SVG file</label>
+            <input id="duplicate-file" type="file" accept=".svg,image/svg+xml" />
+        </section>
+
+        <section id="duplicate-results" class="eco-section" hidden>
+            <h2 class="eco-heading">Duplicate scan</h2>
+            <p id="duplicate-status" class="eco-status eco-status--accent"></p>
+            <p id="duplicate-summary" class="eco-muted"></p>
+            <p id="duplicate-review" class="eco-muted"></p>
+            <div class="eco-actions">
+                <button id="duplicate-download" class="eco-button eco-button--success" type="button" disabled>
+                    Download Proposed SVG
+                </button>
+            </div>
+        </section>
+
+        <p class="eco-muted"><a href="index.html">Return to PathSeal</a></p>
+    </main>
+    <footer class="eco-footer">
+        <div class="eco-shell">
+            <p>Foundation preview for SVG Micro Eco Tool 2.</p>
+            <p>Produced by Skald and Kreepy Productions.</p>
+        </div>
+    </footer>
+    <script type="module" src="duplicate-geometry.js"></script>
+</body>
+</html>

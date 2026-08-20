@@ -54,3 +54,14 @@
 - [x] Allow selections to be changed before repair
 - [x] Show repaired SVG before download
 - [x] Repair and download after final approval
+
+## Duplicate Line Remover foundation
+
+- [x] Preserve the PathSeal engine and production workflow
+- [x] Detect exact duplicate `<line>` geometry in either direction
+- [x] Recommend removal only when parent, presentation, metadata, and reference safety match
+- [x] Surface questionable exact matches for review
+- [x] Prevent the removal helper from applying review-only proposals
+- [x] Add focused automated tests
+- [ ] Connect Tool 2 proposals to the shared review interface
+- [ ] Add transformed and path-command geometry behind explicit review rules
