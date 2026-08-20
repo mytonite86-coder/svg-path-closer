@@ -1,4 +1,7 @@
-import { analyzeDuplicateGeometry, createDuplicateRemovalSvg } from "./modules/duplicateGeometry.js";
+import {
+    analyzeDuplicateGeometry,
+    createDuplicateRemovalSvg,
+} from "./modules/duplicateGeometry.js?v=review-20260820";
 
 const fileInput = document.querySelector("#duplicate-file");
 const results = document.querySelector("#duplicate-results");
