@@ -15,6 +15,16 @@ const fixture = (name) => readFile(
     "utf8"
 );
 
+test("the review page versions its controller and engine together", async () => {
+    const page = await readFile(new URL("../duplicate-geometry.html", import.meta.url), "utf8");
+    const controller = await readFile(new URL("../duplicate-geometry.js", import.meta.url), "utf8");
+    const pageVersion = page.match(/duplicate-geometry\.js\?v=([^\"]+)/)?.[1];
+    const engineVersion = controller.match(/duplicateGeometry\.js\?v=([^\"]+)/)?.[1];
+
+    assert.ok(pageVersion);
+    assert.equal(engineVersion, pageVersion);
+});
+
 function line(attributes, parentNode = {}) {
     const values = new Map(Object.entries(attributes));
     return {
