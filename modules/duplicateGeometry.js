@@ -154,8 +154,6 @@ export function analyzeDuplicateGeometry(svgText, options = {}) {
         .filter((proposal) => proposal.recommendation === "remove")
         .map((proposal) => proposal.duplicateIndex);
 
-    applyDuplicateLineRemovals(proposals);
-
     return {
         productId: DUPLICATE_GEOMETRY_PRODUCT_ID,
         lineCount: lineElements.length,
@@ -163,5 +161,32 @@ export function analyzeDuplicateGeometry(svgText, options = {}) {
         removalIndexes,
         unsupported,
         proposedSvg: new Serializer().serializeToString(svgDocument),
+    };
+}
+
+export function createDuplicateRemovalSvg(svgText, selectedDuplicateIndexes, options = {}) {
+    const Parser = options.DOMParser ?? globalThis.DOMParser;
+    const Serializer = options.XMLSerializer ?? globalThis.XMLSerializer;
+
+    if (!Parser || !Serializer) {
+        throw new Error("SVG parsing is not available in this environment.");
+    }
+
+    const svgDocument = new Parser().parseFromString(svgText, "image/svg+xml");
+    const root = svgDocument.documentElement;
+
+    if (svgDocument.querySelector("parsererror") || root?.localName?.toLowerCase() !== "svg") {
+        throw new Error("The selected file is not a valid SVG.");
+    }
+
+    const selectedIndexes = new Set(selectedDuplicateIndexes);
+    const selectedProposals = findExactDuplicateLines(svgDocument).filter(
+        (proposal) => proposal.recommendation === "remove" && selectedIndexes.has(proposal.duplicateIndex)
+    );
+    const removedCount = applyDuplicateLineRemovals(selectedProposals);
+
+    return {
+        removedCount,
+        svgText: new Serializer().serializeToString(svgDocument),
     };
 }
