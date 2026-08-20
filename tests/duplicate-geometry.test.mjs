@@ -5,6 +5,7 @@ import {
     DUPLICATE_GEOMETRY_PRODUCT_ID,
     analyzeDuplicateGeometry,
     applyDuplicateLineRemovals,
+    createDuplicateRemovalSvg,
     findExactDuplicateLines,
     getExactLineKey,
 } from "../modules/duplicateGeometry.js";
@@ -115,4 +116,45 @@ test("rejects malformed SVG reported by the XML parser", () => {
         }),
         /not a valid SVG/
     );
+});
+
+test("analysis does not remove geometry before customer confirmation", () => {
+    const parent = {};
+    const kept = line({ x1: 0, y1: 0, x2: 5, y2: 5 }, parent);
+    const duplicate = line({ x1: 0, y1: 0, x2: 5, y2: 5 }, parent);
+    const svgDocument = {
+        documentElement: { localName: "svg" },
+        querySelector: () => null,
+        querySelectorAll: () => [kept, duplicate],
+    };
+    class Parser { parseFromString() { return svgDocument; } }
+    class Serializer { serializeToString() { return "<svg />"; } }
+
+    analyzeDuplicateGeometry("<svg />", { DOMParser: Parser, XMLSerializer: Serializer });
+
+    assert.equal(duplicate.removed, false);
+});
+
+test("creates output from only the safe removals explicitly selected", () => {
+    const parent = {};
+    const kept = line({ x1: 0, y1: 0, x2: 5, y2: 5 }, parent);
+    const selected = line({ x1: 5, y1: 5, x2: 0, y2: 0 }, parent);
+    const unselected = line({ x1: 0, y1: 0, x2: 5, y2: 5 }, parent);
+    const svgDocument = {
+        documentElement: { localName: "svg" },
+        querySelector: () => null,
+        querySelectorAll: () => [kept, selected, unselected],
+    };
+    class Parser { parseFromString() { return svgDocument; } }
+    class Serializer { serializeToString() { return "<svg reviewed=\"true\" />"; } }
+
+    const result = createDuplicateRemovalSvg("<svg />", [1], {
+        DOMParser: Parser,
+        XMLSerializer: Serializer,
+    });
+
+    assert.equal(result.removedCount, 1);
+    assert.equal(selected.removed, true);
+    assert.equal(unselected.removed, false);
+    assert.match(result.svgText, /reviewed/);
 });
