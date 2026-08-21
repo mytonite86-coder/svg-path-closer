@@ -128,6 +128,23 @@ test("rejects malformed SVG reported by the XML parser", () => {
     );
 });
 
+test("Tool 2 uses its own badge instead of the SVG Micro Eco family emblem", async () => {
+    const page = await readFile(
+        new URL("../duplicate-geometry.html", import.meta.url),
+        "utf8"
+    );
+    const badge = await readFile(
+        new URL("../assets/duplicate-line-remover-badge.svg", import.meta.url),
+        "utf8"
+    );
+
+    assert.match(page, /assets\/duplicate-line-remover-badge\.svg/);
+    assert.doesNotMatch(page, /rel="icon" href="assets\/svg-micro-eco-badge\.svg/);
+    assert.match(badge, /two exact duplicate lines reduced to one retained line/);
+    assert.match(badge, />DUPLICATE</);
+    assert.match(badge, />LINE REMOVER</);
+});
+
 test("analysis does not remove geometry before customer confirmation", () => {
     const parent = {};
     const kept = line({ x1: 0, y1: 0, x2: 5, y2: 5 }, parent);
