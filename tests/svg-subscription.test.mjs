@@ -1,9 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
     formatUsd,
     requestSvgSubscriptionQuote,
 } from "../modules/svgSubscription.js";
+
+test("ecosystem tool cards contain long labels without overlapping", async () => {
+    const page = await readFile(new URL("../index.html", import.meta.url), "utf8");
+    const styles = await readFile(
+        new URL("../design-system/ecosystem.css", import.meta.url),
+        "utf8"
+    );
+
+    assert.match(page, /class="eco-shell ecosystem-shell"/);
+    assert.match(page, /ecosystem-tool-grid/);
+    assert.match(styles, /\.ecosystem-tool-grid \.eco-button[\s\S]*width:\s*100%/);
+    assert.match(styles, /overflow-wrap:\s*anywhere/);
+    assert.match(styles, /white-space:\s*normal/);
+});
 
 test("formats quote cents as customer-facing USD", () => {
     assert.equal(formatUsd(999), "$9.99");
