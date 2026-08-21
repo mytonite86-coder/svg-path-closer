@@ -1,3 +1,33 @@
+.ecosystem-shell {
+    max-width: 1180px;
+}
+
+.ecosystem-tool-grid .eco-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.ecosystem-tool-grid .eco-heading,
+.ecosystem-tool-grid .eco-muted,
+.ecosystem-tool-choice {
+    overflow-wrap: anywhere;
+}
+
+.ecosystem-tool-grid .eco-heading {
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+}
+
+.ecosystem-tool-grid .eco-button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    margin-top: auto;
+    text-align: center;
+    white-space: normal;
+}
+
 .ecosystem-tool-price {
     margin: var(--space-4) 0;
     color: var(--text-primary);
@@ -14,13 +44,14 @@
 .ecosystem-tool-choice {
     display: flex;
     gap: var(--space-2);
-    align-items: center;
+    align-items: flex-start;
     margin: var(--space-4) 0;
     color: var(--text-primary);
     font-weight: 700;
 }
 
 .ecosystem-tool-choice input {
+    flex: 0 0 auto;
     width: 20px;
     height: 20px;
 }
