@@ -150,10 +150,10 @@
     .eco-footer .eco-shell {
         align-items: stretch;
         flex-direction: column;
+    }
 
-        .pathseal-benefits {
-            grid-template-columns: 1fr;
-        }
+    .pathseal-benefits {
+        grid-template-columns: 1fr;
     }
 
     .pathseal-offer .eco-button {
