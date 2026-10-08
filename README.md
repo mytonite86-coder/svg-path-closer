@@ -1,5 +1,22 @@
 # SVG Path Closer
 
+## Shared customer-access foundation
+
+`index.html` is the GitHub Pages-compatible SVG Micro Eco hub. It restores the
+same browser session used by PathSeal, renders tool cards from
+`modules/productManifest.js`, and derives presentation states in
+`modules/accessFoundation.js`. Only implemented, production-enabled manifest
+entries may appear in selection/quote controls. A manifest entry never enables
+backend checkout by itself.
+
+Focused tool links are physical `.html` files. Login return destinations are
+accepted only when they exactly match the implemented route registry; invalid,
+external, encoded, planned, or query-bearing destinations fall back to the hub.
+Tool 2's existing scan/removal/download behavior is intentionally unchanged in
+Phase 1. The common repair/download gating boundary remains a Phase 2 policy
+decision. No subscription-management link is shown until its destination is
+verified.
+
 SVG Path Closer is a browser-based CNC utility that detects and repairs open paths in SVG files.
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.

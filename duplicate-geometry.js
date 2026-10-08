@@ -1,7 +1,10 @@
 import {
     analyzeDuplicateGeometry,
     createDuplicateRemovalSvg,
-} from "./modules/duplicateGeometry.js?v=review-20260820";
+} from "./modules/duplicateGeometry.js?v=access-foundation-1";
+import { initializeCompactAccount } from "./modules/compactAccount.js";
+
+void initializeCompactAccount("duplicate_geometry");
 
 const fileInput = document.querySelector("#duplicate-file");
 const results = document.querySelector("#duplicate-results");
