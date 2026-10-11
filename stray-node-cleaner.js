@@ -3,6 +3,12 @@ import {
     presentStrayNodeFinding,
     readLocalSvgFile,
 } from "./modules/strayNodeBrowserAdapter.js";
+import {
+    createStrayNodePreviewModel,
+    getFindingPreviewKey,
+    renderStrayNodePreview,
+    setPreviewHighlight,
+} from "./modules/strayNodePreview.js";
 
 const CATEGORY_LABELS = Object.freeze({
     "coincident-node": "Coincident nodes",
@@ -81,6 +87,9 @@ if (typeof document !== "undefined") {
     const summary = document.querySelector("#stray-node-summary");
     const categories = document.querySelector("#stray-node-categories");
     const categoryList = document.querySelector("#stray-node-category-list");
+    const previewPanel = document.querySelector("#stray-node-preview-panel");
+    const previewStatus = document.querySelector("#stray-node-preview-status");
+    const previewSvg = document.querySelector("#stray-node-preview");
     const findings = document.querySelector("#stray-node-findings");
 
     function setReviewState(state, message) {
@@ -89,7 +98,7 @@ if (typeof document !== "undefined") {
         status.textContent = message;
     }
 
-    function renderFinding(finding) {
+    function renderFinding(finding, previewModel, renderedGeometry) {
         const presentation = buildFindingPresentation(finding);
         const card = document.createElement("article");
         card.className = "eco-card";
@@ -109,7 +118,21 @@ if (typeof document !== "undefined") {
         const confidence = document.createElement("p");
         confidence.className = "eco-muted";
         confidence.textContent = `Analyzer confidence: ${presentation.confidence}. Review only; no automatic repair.`;
-        card.append(title, certainty, geometry, location, reason, confidence);
+        const mappingKey = previewModel ? getFindingPreviewKey(finding, previewModel) : null;
+        const previewAction = document.createElement(mappingKey ? "button" : "p");
+        if (mappingKey) {
+            previewAction.type = "button";
+            previewAction.className = "eco-button eco-button--secondary";
+            previewAction.textContent = "Highlight affected geometry";
+            previewAction.addEventListener("click", () => {
+                setPreviewHighlight(renderedGeometry, mappingKey);
+                previewStatus.textContent = `Highlighted ${presentation.geometry}. The preview remains read-only.`;
+            });
+        } else {
+            previewAction.className = "eco-muted";
+            previewAction.textContent = "Preview mapping: text-only because no unique supported geometry mapping is available.";
+        }
+        card.append(title, certainty, geometry, location, reason, confidence, previewAction);
         return card;
     }
 
@@ -125,14 +148,28 @@ if (typeof document !== "undefined") {
     fileInput.addEventListener("change", async () => {
         findings.replaceChildren();
         renderCategories([]);
+        previewSvg.replaceChildren();
+        previewPanel.hidden = true;
+        previewStatus.textContent = "Select a mapped finding to highlight its geometry.";
         summary.textContent = "";
         setReviewState("loading", "Inspecting the local SVG…");
 
         try {
             const source = await readLocalSvgFile(fileInput.files?.[0]);
             const inspection = inspectStrayNodeSvg(source);
+            let previewModel = null;
+            let renderedGeometry = new Map();
+            try {
+                previewModel = createStrayNodePreviewModel(source);
+                renderedGeometry = renderStrayNodePreview(previewSvg, previewModel);
+                previewPanel.hidden = false;
+            } catch {
+                previewStatus.textContent = "No safely renderable geometry is available. Findings remain text-only.";
+            }
             renderCategories(summarizeFindingCategories(inspection.findings));
-            findings.replaceChildren(...inspection.findings.map(renderFinding));
+            findings.replaceChildren(...inspection.findings.map((finding) =>
+                renderFinding(finding, previewModel, renderedGeometry)
+            ));
             setReviewState(
                 "complete",
                 inspection.findings.length
