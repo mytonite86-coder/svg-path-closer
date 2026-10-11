@@ -2,6 +2,8 @@ import {
     analyzeDuplicateGeometry,
     createDuplicateRemovalSvg,
 } from "./modules/duplicateGeometry.js?v=review-20260820";
+import { refreshSession } from "./modules/auth.js";
+import { runWithFreshDuplicateGeometryAccess } from "./modules/duplicateGeometryAccess.js";
 
 const fileInput = document.querySelector("#duplicate-file");
 const results = document.querySelector("#duplicate-results");
@@ -38,6 +40,14 @@ function updateSelection() {
     confirmButton.disabled = selectedCount === 0;
     downloadButton.disabled = true;
     proposedSvg = "";
+}
+
+function denyProtectedAction(error) {
+    proposedSvg = "";
+    downloadButton.disabled = true;
+    confirmButton.disabled = getSelectedIndexes().length === 0;
+    selectionSummary.textContent = error?.message
+        || "Tool access could not be verified. Sign in and try again.";
 }
 
 function renderProposals(result) {
@@ -113,29 +123,44 @@ fileInput.addEventListener("change", async () => {
     }
 });
 
-confirmButton.addEventListener("click", () => {
+confirmButton.addEventListener("click", async () => {
     if (!sourceSvg || !currentResult) {
         return;
     }
 
-    const result = createDuplicateRemovalSvg(sourceSvg, getSelectedIndexes());
-    proposedSvg = result.svgText;
-    downloadButton.disabled = result.removedCount === 0;
     confirmButton.disabled = true;
-    selectionSummary.textContent = `${result.removedCount} selected duplicate line${result.removedCount === 1 ? "" : "s"} prepared for removal. Review complete; the original file remains unchanged.`;
+    try {
+        const result = await runWithFreshDuplicateGeometryAccess(
+            refreshSession,
+            () => createDuplicateRemovalSvg(sourceSvg, getSelectedIndexes())
+        );
+        proposedSvg = result.svgText;
+        downloadButton.disabled = result.removedCount === 0;
+        selectionSummary.textContent = `${result.removedCount} selected duplicate line${result.removedCount === 1 ? "" : "s"} prepared for removal. Review complete; the original file remains unchanged.`;
+    } catch (error) {
+        denyProtectedAction(error);
+    }
 });
 
-downloadButton.addEventListener("click", () => {
+downloadButton.addEventListener("click", async () => {
     if (!proposedSvg) {
         return;
     }
 
-    const url = URL.createObjectURL(
-        new Blob([proposedSvg], { type: "image/svg+xml" })
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = originalFileName.replace(/\.svg$/i, "-duplicates-removed.svg");
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadButton.disabled = true;
+    try {
+        await runWithFreshDuplicateGeometryAccess(refreshSession, () => {
+            const url = URL.createObjectURL(
+                new Blob([proposedSvg], { type: "image/svg+xml" })
+            );
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = originalFileName.replace(/\.svg$/i, "-duplicates-removed.svg");
+            link.click();
+            URL.revokeObjectURL(url);
+        });
+        downloadButton.disabled = false;
+    } catch (error) {
+        denyProtectedAction(error);
+    }
 });
