@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stray Node Cleaner | SVG Micro Eco</title>
+    <link rel="icon" href="assets/svg-micro-eco-badge.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="design-system/pathseal.css" />
+</head>
+<body class="eco-page">
+    <p class="eco-shell eco-muted"><a href="index.html">← SVG Micro Eco tools</a></p>
+    <main class="eco-shell eco-tool-shell eco-panel eco-panel--accent">
+        <header class="eco-header">
+            <div class="eco-brand">
+                <img class="eco-brand__badge" src="assets/svg-micro-eco-badge.svg" alt="SVG Micro Eco" />
+                <div>
+                    <p class="eco-brand__family">SVG Micro Eco</p>
+                    <p class="eco-brand__tool">Stray Node Cleaner</p>
+                </div>
+            </div>
+        </header>
+
+        <p class="eco-eyebrow">Tool 3 review foundation</p>
+        <h1 class="eco-title">Inspect suspicious SVG nodes before changing anything.</h1>
+        <p class="eco-subtitle">
+            Review coincident nodes, near-coincident nodes, microscopic segments,
+            open endpoints, and possible malformed closures. Your SVG stays in
+            this browser and is never uploaded by this page.
+        </p>
+
+        <section class="eco-upload">
+            <label for="stray-node-file">Choose an SVG file</label>
+            <input id="stray-node-file" type="file" accept=".svg,image/svg+xml" />
+        </section>
+
+        <section id="stray-node-results" class="eco-section" hidden>
+            <h2 class="eco-heading">Inspection results</h2>
+            <p id="stray-node-status" class="eco-status eco-status--accent" aria-live="polite"></p>
+            <p id="stray-node-summary" class="eco-muted"></p>
+            <div id="stray-node-findings" class="eco-review-list"></div>
+        </section>
+
+        <section class="eco-section eco-panel">
+            <h2 class="eco-heading">Review only</h2>
+            <p class="eco-muted">
+                Automatic and manual repairs are not available in this foundation.
+                No geometry is altered, and no repaired file is generated or downloaded.
+            </p>
+        </section>
+
+        <p class="eco-muted"><a href="index.html">Return to SVG Micro Eco tools</a></p>
+    </main>
+    <footer class="eco-footer">
+        <div class="eco-shell">
+            <p>Review-only foundation for SVG Micro Eco Tool 3.</p>
+            <p>Produced by Skald and Kreepy Productions.</p>
+        </div>
+    </footer>
+    <script type="module" src="stray-node-cleaner.js?v=review-foundation-1"></script>
+</body>
+</html>
