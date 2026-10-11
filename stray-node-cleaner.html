@@ -34,11 +34,20 @@
             <input id="stray-node-file" type="file" accept=".svg,image/svg+xml" />
         </section>
 
-        <section id="stray-node-results" class="eco-section" hidden>
+        <section id="stray-node-results" class="eco-section" data-state="empty" aria-busy="false">
             <h2 class="eco-heading">Inspection results</h2>
-            <p id="stray-node-status" class="eco-status eco-status--accent" aria-live="polite"></p>
+            <p id="stray-node-status" class="eco-status eco-status--accent" role="status" aria-live="polite">
+                Choose a local SVG file to begin a review-only inspection.
+            </p>
             <p id="stray-node-summary" class="eco-muted"></p>
-            <div id="stray-node-findings" class="eco-review-list"></div>
+            <section id="stray-node-categories" class="eco-panel" aria-labelledby="stray-node-categories-heading" hidden>
+                <h3 id="stray-node-categories-heading" class="eco-heading">Findings by category</h3>
+                <ul id="stray-node-category-list"></ul>
+            </section>
+            <section aria-labelledby="stray-node-details-heading">
+                <h3 id="stray-node-details-heading" class="eco-heading">Detailed findings</h3>
+                <div id="stray-node-findings" class="eco-review-list"></div>
+            </section>
         </section>
 
         <section class="eco-section eco-panel">
@@ -57,6 +66,6 @@
             <p>Produced by Skald and Kreepy Productions.</p>
         </div>
     </footer>
-    <script type="module" src="stray-node-cleaner.js?v=review-foundation-1"></script>
+    <script type="module" src="stray-node-cleaner.js?v=review-presentation-1"></script>
 </body>
 </html>
