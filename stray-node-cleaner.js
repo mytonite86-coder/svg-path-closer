@@ -9,6 +9,7 @@ import {
     renderStrayNodePreview,
     setPreviewHighlight,
 } from "./modules/strayNodePreview.js";
+import { planExactCoincidentNodeRepairs } from "./modules/strayNodeRepairPlanner.js";
 
 const CATEGORY_LABELS = Object.freeze({
     "coincident-node": "Coincident nodes",
@@ -80,6 +81,44 @@ export function buildFindingPresentation(finding) {
     };
 }
 
+export function previewModelToPlannerElements(previewModel) {
+    if (!Array.isArray(previewModel?.shapes)) return [];
+    return previewModel.shapes.map((shape) => ({
+        id: shape.elementId,
+        type: shape.sourceType,
+        closed: shape.shapeType === "polygon",
+        nodes: shape.nodes.map(({ x, y }) => ({ x, y })),
+    }));
+}
+
+export function buildRepairProposalPresentation(proposal) {
+    return {
+        id: proposal.id,
+        geometry: `${proposal.elementRef.type} #${proposal.elementRef.id}`,
+        location: `Segment ${proposal.sourceRef.segmentIndex + 1}; redundant node ${proposal.sourceRef.redundantNodeIndex + 1}`,
+        coordinate: formatPoint(proposal.before.coordinate),
+        before: proposal.before.description,
+        after: proposal.after.description,
+        beforeNodeCount: proposal.before.nodeCount,
+        afterNodeCount: proposal.after.nodeCount,
+        reviewLabel: "Requires customer review — this proposal has not been applied.",
+        requiresReview: proposal.requiresReview === true,
+        applied: false,
+    };
+}
+
+export function summarizeRepairRejections(rejections) {
+    const groups = new Map();
+    for (const item of Array.isArray(rejections) ? rejections : []) {
+        const key = `${item.code}\u0000${item.reason}`;
+        const existing = groups.get(key);
+        groups.set(key, existing
+            ? { ...existing, count: existing.count + 1 }
+            : { code: item.code, reason: item.reason, count: 1 });
+    }
+    return [...groups.values()];
+}
+
 if (typeof document !== "undefined") {
     const fileInput = document.querySelector("#stray-node-file");
     const results = document.querySelector("#stray-node-results");
@@ -90,6 +129,11 @@ if (typeof document !== "undefined") {
     const previewPanel = document.querySelector("#stray-node-preview-panel");
     const previewStatus = document.querySelector("#stray-node-preview-status");
     const previewSvg = document.querySelector("#stray-node-preview");
+    const repairReview = document.querySelector("#stray-node-repair-review");
+    const repairStatus = document.querySelector("#stray-node-repair-status");
+    const repairProposals = document.querySelector("#stray-node-repair-proposals");
+    const repairRejections = document.querySelector("#stray-node-repair-rejections");
+    const repairRejectionList = document.querySelector("#stray-node-repair-rejection-list");
     const findings = document.querySelector("#stray-node-findings");
 
     function setReviewState(state, message) {
@@ -145,12 +189,59 @@ if (typeof document !== "undefined") {
         categories.hidden = items.length === 0;
     }
 
+    function renderRepairProposal(proposal) {
+        const presentation = buildRepairProposalPresentation(proposal);
+        const card = document.createElement("article");
+        card.className = "eco-card";
+        card.dataset.proposalId = presentation.id;
+        const title = document.createElement("h4");
+        title.className = "eco-heading";
+        title.textContent = "Proposed exact coincident-node cleanup";
+        const review = document.createElement("p");
+        review.className = "eco-status eco-status--accent";
+        review.textContent = presentation.reviewLabel;
+        const geometry = document.createElement("p");
+        geometry.textContent = `Affected geometry: ${presentation.geometry}`;
+        const location = document.createElement("p");
+        location.textContent = `Source location: ${presentation.location}; coordinate ${presentation.coordinate}.`;
+        const before = document.createElement("p");
+        before.textContent = `Before (${presentation.beforeNodeCount} nodes): ${presentation.before}`;
+        const after = document.createElement("p");
+        after.textContent = `Proposed result (${presentation.afterNodeCount} nodes): ${presentation.after}`;
+        card.append(title, review, geometry, location, before, after);
+        return card;
+    }
+
+    function clearRepairReview() {
+        repairProposals.replaceChildren();
+        repairRejectionList.replaceChildren();
+        repairRejections.hidden = true;
+        repairReview.hidden = true;
+        repairStatus.textContent = "";
+    }
+
+    function renderRepairPlan(plan) {
+        repairReview.hidden = false;
+        repairProposals.replaceChildren(...plan.proposals.map(renderRepairProposal));
+        repairStatus.textContent = plan.proposals.length
+            ? `${plan.proposals.length} planner-approved proposal${plan.proposals.length === 1 ? "" : "s"} available for customer review. Nothing has been applied.`
+            : "No eligible exact coincident-node repair proposals are available. Nothing has been applied.";
+        const rejectionGroups = summarizeRepairRejections(plan.rejections);
+        repairRejectionList.replaceChildren(...rejectionGroups.map(({ reason, count }) => {
+            const item = document.createElement("li");
+            item.textContent = `${reason} (${count} finding${count === 1 ? "" : "s"})`;
+            return item;
+        }));
+        repairRejections.hidden = rejectionGroups.length === 0;
+    }
+
     fileInput.addEventListener("change", async () => {
         findings.replaceChildren();
         renderCategories([]);
         previewSvg.replaceChildren();
         previewPanel.hidden = true;
         previewStatus.textContent = "Select a mapped finding to highlight its geometry.";
+        clearRepairReview();
         summary.textContent = "";
         setReviewState("loading", "Inspecting the local SVG…");
 
@@ -166,7 +257,12 @@ if (typeof document !== "undefined") {
             } catch {
                 previewStatus.textContent = "No safely renderable geometry is available. Findings remain text-only.";
             }
+            const repairPlan = planExactCoincidentNodeRepairs(
+                previewModelToPlannerElements(previewModel),
+                inspection
+            );
             renderCategories(summarizeFindingCategories(inspection.findings));
+            renderRepairPlan(repairPlan);
             findings.replaceChildren(...inspection.findings.map((finding) =>
                 renderFinding(finding, previewModel, renderedGeometry)
             ));
@@ -180,6 +276,7 @@ if (typeof document !== "undefined") {
         } catch (error) {
             findings.replaceChildren();
             renderCategories([]);
+            clearRepairReview();
             setReviewState("error", error?.message || "The SVG could not be inspected.");
             summary.textContent = "Inspection stopped safely. No geometry was changed.";
         }
