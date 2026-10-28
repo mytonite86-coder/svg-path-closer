@@ -1,5 +1,32 @@
 # SVG Path Closer Build Checklist
 
+## Tool 3 — QA Bug Report 001: direct local-file upload
+
+Verified 2026-10-28 on `work/block19-tool3-validation-download`, base `52a3130`.
+Root cause: opening the HTML as `file://` in Chrome blocks the external ES
+module with an origin-null CORS error, so its upload handler never registers.
+Prior Block 19 browser checks used HTTP and did not cover direct-file launch.
+
+- [x] Reproduce unchanged initial status with the exact owner-supplied fixture:
+  `C:\Users\Kreepy\Desktop\tool3-stray-node-manual-test.svg`
+- [x] Load a generated classic script (`stray-node-cleaner.local.js`) for both
+  direct-file and hosted use; existing source modules remain authoritative
+- [x] Add deterministic generator: `node scripts/build-tool3-local.mjs`
+  (regenerate after changing Tool 3 or its imported source dependencies)
+- [x] Regression checks classic entry, current bundle/source equality, syntax,
+  and runtime registration of the upload change handler
+- [x] 30 relevant entry/review/selection/preview tests passed; generator and
+  generated bundle syntax checks and whitespace checks passed
+- [x] Chrome direct `file://` acceptance passed with the supplied SVG: two
+  findings, one eligible proposal, repair, final validation, completed download,
+  exact retained coordinates, both rectangles unchanged, original file unchanged,
+  and upload reset; zero browser errors
+- [x] No repair engine/shared chassis source, billing, deployment, push or merge changes
+
+Status: fixed locally. Completion commit is the commit adding this QA entry.
+Stop after QA001; next single action is owner recheck by opening the existing
+`stray-node-cleaner.html` directly in Chrome and choosing the same fixture.
+
 ## Tool 3 — Block 19 final validation and download
 
 Last checked: 2026-10-28. Branch: `work/block19-tool3-validation-download`.
