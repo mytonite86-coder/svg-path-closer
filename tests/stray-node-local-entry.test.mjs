@@ -15,6 +15,7 @@ test("direct-file entry uses a classic script containing the current Tool 3 modu
     assert.match(bundle, /fileInput\.addEventListener\("change"/);
     const listeners = new Map();
     new Script(bundle).runInNewContext({
+        localStorage: { getItem: () => null },
         document: { querySelector: (selector) => ({ addEventListener: (event, handler) => listeners.set(`${selector}:${event}`, handler) }) },
     });
     assert.equal(typeof listeners.get("#stray-node-file:change"), "function", "The direct-file bundle must register the upload handler.");

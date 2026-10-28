@@ -1,5 +1,32 @@
 # SVG Path Closer Build Checklist
 
+## Tool 3 — Block 20 shared hub and access integration
+
+Last checked: 2026-10-28. Branch: `work/block20-tool3-hub-access`.
+Clean starting point: QA001 `93fd0e6` after Block 19 `52a3130`; preserve both.
+README holds the current checkpoint, completion commit locator and resume anchors.
+
+- [x] Existing hub opens implemented Tool 3 workspace; purchases remain disabled
+- [x] Existing account hub accepts the registered Tool 3 return route
+- [x] Free local upload, scan, review, preview and selection
+- [x] Fresh shared session check before both Repair Selected and Download
+- [x] Require `stray_node_cleaner` or `all_products_lifetime` grants
+- [x] Deny signed-out, unentitled, expired, malformed and unavailable states
+- [x] Preserve lifetime access; recheck revocation before download
+- [x] Ignore stale checks after upload/selection changes; prevent concurrent actions
+- [x] Retain validated engine, original SVG protection and one-batch rule
+- [x] Regenerate classic bundle; preserve QA001 direct-file free inspection
+- [x] 26 focused integration/controller/hub tests passed; syntax/whitespace checks
+- [x] Chrome mocked-session integration passed all four access states, actual
+  authorized downloads, revocation denial, fixture preservation and file:// review
+- [x] Engine/auth/Tool 1/Tool 2 sources and commercial release flags unchanged
+- [x] No production calls, checkout changes, dependencies, clones, push or deployment
+
+Shared account handoff requires the existing hub on the same HTTP(S) origin;
+the existing hub does not load ES modules via file://. No hosting change made.
+Blockers: none for local integration. Next single action: owner acceptance of
+the shared-hub Tool 3 access flow. STOP after Block 20.
+
 ## Tool 3 — QA Bug Report 001: direct local-file upload
 
 Verified 2026-10-28 on `work/block19-tool3-validation-download`, base `52a3130`.

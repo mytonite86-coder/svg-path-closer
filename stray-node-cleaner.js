@@ -12,6 +12,7 @@ import {
 import { planExactCoincidentNodeRepairs } from "./modules/strayNodeRepairPlanner.js";
 import { createStrayNodeRepairSession } from "./modules/strayNodeRepairExecution.js";
 import { downloadCleanedSvg } from "./modules/strayNodeDownload.js";
+import { runWithFreshStrayNodeAccess } from "./modules/strayNodeAccess.js";
 
 const CATEGORY_LABELS = Object.freeze({
     "coincident-node": "Coincident nodes",
@@ -121,7 +122,7 @@ export function summarizeRepairRejections(rejections) {
     return [...groups.values()];
 }
 
-if (typeof document !== "undefined") {
+export function initializeStrayNodePage({ refreshSession } = {}) {
     const fileInput = document.querySelector("#stray-node-file");
     const results = document.querySelector("#stray-node-results");
     const status = document.querySelector("#stray-node-status");
@@ -141,12 +142,38 @@ if (typeof document !== "undefined") {
     const executionStatus = document.querySelector("#stray-node-execution-status");
     const downloadButton = document.querySelector("#stray-node-download");
     const validationStatus = document.querySelector("#stray-node-validation-status");
+    const accessStatus = document.querySelector("#stray-node-access-status");
     let currentRepairPlan = null;
     let repairSession = null;
     let repaired = false;
     let successfulRepairCount = 0;
     let originalFileName = "drawing.svg";
     let uploadVersion = 0;
+    let accessPending = false;
+    let downloadReady = false;
+
+    async function withToolAccess(action) {
+        if (accessPending || !repairSession) return;
+        const version = uploadVersion;
+        const session = repairSession;
+        accessPending = true;
+        accessStatus.textContent = "Checking shared account access…";
+        updateRepairSelection();
+        try {
+            await runWithFreshStrayNodeAccess(refreshSession, () => {
+                if (version !== uploadVersion || session !== repairSession) return;
+                accessStatus.textContent = "Stray Node Cleaner access verified.";
+                return action();
+            });
+        } catch (error) {
+            if (version === uploadVersion && session === repairSession) accessStatus.textContent = error.message;
+        } finally {
+            if (version === uploadVersion && session === repairSession) {
+                accessPending = false;
+                updateRepairSelection();
+            }
+        }
+    }
 
     function selectedRepairIds() {
         const eligibleIds = new Set(currentRepairPlan?.proposals.map(({ id }) => id) || []);
@@ -158,7 +185,8 @@ if (typeof document !== "undefined") {
     function updateRepairSelection() {
         const eligibleIds = new Set(currentRepairPlan?.proposals.map(({ id }) => id) || []);
         const selectedIds = new Set(selectedRepairIds());
-        repairButton.disabled = repaired || !repairSession || selectedIds.size === 0;
+        repairButton.disabled = accessPending || repaired || !repairSession || selectedIds.size === 0;
+        downloadButton.disabled = accessPending || !downloadReady;
         if (repaired) {
             repairStatus.textContent = "0 proposed repairs selected. This review is complete; upload an SVG to start a new review.";
             return;
@@ -255,6 +283,9 @@ if (typeof document !== "undefined") {
         repairSession = null;
         repaired = false;
         successfulRepairCount = 0;
+        accessPending = false;
+        downloadReady = false;
+        accessStatus.textContent = "Upload, scan and review are free. Repair and download require verified Tool 3 or universal lifetime access.";
         downloadButton.disabled = true;
         validationStatus.textContent = "Download requires a successful repair and final validation.";
         repairButton.disabled = true;
@@ -282,54 +313,65 @@ if (typeof document !== "undefined") {
     }
 
     repairButton.addEventListener("click", () => {
-        if (!repairSession || repaired) return;
+        if (!repairSession || repaired || accessPending) return;
         const selectedIds = selectedRepairIds();
-        const outcome = repairSession.execute(selectedIds, (_working, { previewModel }) => {
-            // Stage rendering before accepting the batch; a failure leaves the displayed review intact.
-            const staged = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            renderStrayNodePreview(staged, previewModel);
-            return true;
+        if (!selectedIds.length) return;
+        return withToolAccess(() => {
+            if (JSON.stringify(selectedIds) !== JSON.stringify(selectedRepairIds())) {
+                throw new Error("Selection changed while access was checked. Review your selections and try again.");
+            }
+            const outcome = repairSession.execute(selectedIds, (_working, { previewModel }) => {
+                // Stage rendering before accepting the batch; a failure leaves the displayed review intact.
+                const staged = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                renderStrayNodePreview(staged, previewModel);
+                return true;
+            });
+            executionStatus.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.ok ? "Working copy validated. Original upload preserved." : `${outcome.reason} Working copy discarded; original upload preserved.`}`;
+            if (!outcome.ok) return;
+            repaired = true;
+            const rendered = renderStrayNodePreview(previewSvg, outcome.previewModel);
+            previewStatus.textContent = "Validated repaired working copy. Select a remaining finding to highlight its geometry.";
+            renderCategories(summarizeFindingCategories(outcome.inspection.findings));
+            findings.replaceChildren(...outcome.inspection.findings.map((finding) => renderFinding(finding, outcome.previewModel, rendered)));
+            for (const checkbox of repairProposals.querySelectorAll('input[type="checkbox"]')) {
+                checkbox.checked = false;
+                checkbox.disabled = true;
+            }
+            repairProposals.replaceChildren();
+            repairRejectionList.replaceChildren();
+            repairRejections.hidden = true;
+            currentRepairPlan = null;
+            updateRepairSelection();
+            setReviewState("repaired", "Selected repairs completed on a validated working copy.");
+            summary.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.inspection.findings.length} findings remain. Original upload preserved.`;
+            successfulRepairCount = outcome.executedCount;
+            try {
+                repairSession.prepareDownload(successfulRepairCount);
+                validationStatus.textContent = "Final validation passed. The cleaned SVG is ready to download.";
+                downloadButton.disabled = false;
+                downloadReady = true;
+            } catch (error) {
+                downloadButton.disabled = true;
+                downloadReady = false;
+                validationStatus.textContent = `Download blocked: ${error.message}`;
+            }
         });
-        executionStatus.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.ok ? "Working copy validated. Original upload preserved." : `${outcome.reason} Working copy discarded; original upload preserved.`}`;
-        if (!outcome.ok) return;
-        repaired = true;
-        const rendered = renderStrayNodePreview(previewSvg, outcome.previewModel);
-        previewStatus.textContent = "Validated repaired working copy. Select a remaining finding to highlight its geometry.";
-        renderCategories(summarizeFindingCategories(outcome.inspection.findings));
-        findings.replaceChildren(...outcome.inspection.findings.map((finding) => renderFinding(finding, outcome.previewModel, rendered)));
-        for (const checkbox of repairProposals.querySelectorAll('input[type="checkbox"]')) {
-            checkbox.checked = false;
-            checkbox.disabled = true;
-        }
-        repairProposals.replaceChildren();
-        repairRejectionList.replaceChildren();
-        repairRejections.hidden = true;
-        currentRepairPlan = null;
-        updateRepairSelection();
-        setReviewState("repaired", "Selected repairs completed on a validated working copy.");
-        summary.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.inspection.findings.length} findings remain. Original upload preserved.`;
-        successfulRepairCount = outcome.executedCount;
-        try {
-            repairSession.prepareDownload(successfulRepairCount);
-            validationStatus.textContent = "Final validation passed. The cleaned SVG is ready to download.";
-            downloadButton.disabled = false;
-        } catch (error) {
-            downloadButton.disabled = true;
-            validationStatus.textContent = `Download blocked: ${error.message}`;
-        }
     });
 
     downloadButton.addEventListener("click", () => {
-        if (downloadButton.disabled || !repaired || !repairSession || !successfulRepairCount) return;
+        if (downloadButton.disabled || !repaired || !repairSession || !successfulRepairCount || accessPending) return;
         downloadButton.disabled = true;
-        try {
-            const { svgText } = repairSession.prepareDownload(successfulRepairCount);
-            downloadCleanedSvg(svgText, originalFileName);
-            validationStatus.textContent = "Final validation passed. Cleaned SVG download started; original upload preserved.";
-            downloadButton.disabled = false;
-        } catch (error) {
-            validationStatus.textContent = `Download blocked: ${error.message}`;
-        }
+        return withToolAccess(() => {
+            try {
+                const { svgText } = repairSession.prepareDownload(successfulRepairCount);
+                downloadCleanedSvg(svgText, originalFileName);
+                validationStatus.textContent = "Final validation passed. Cleaned SVG download started; original upload preserved.";
+                downloadButton.disabled = false;
+            } catch (error) {
+                downloadReady = false;
+                validationStatus.textContent = `Download blocked: ${error.message}`;
+            }
+        });
     });
 
     fileInput.addEventListener("change", async () => {

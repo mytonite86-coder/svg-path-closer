@@ -10,7 +10,8 @@ const tool = (id) => PRODUCT_MANIFEST.find((product) => product.id === id);
 test("manifest keeps stable IDs and planned products out of production selection", () => {
     assert.deepEqual(PRODUCT_MANIFEST.map(({ id }) => id), ["pathseal", "duplicate_geometry", "stray_node_cleaner", "overlapping_shape_repair", "curve_repair"]);
     assert.deepEqual(getProductionSelectableProductIds(), ["pathseal"]);
-    assert.equal(tool("stray_node_cleaner").route, null);
+    assert.equal(tool("stray_node_cleaner").route, "stray-node-cleaner.html");
+    assert.equal(tool("stray_node_cleaner").productionEnabled, false);
 });
 
 test("derives signed-out, owned, available, grace, expired, and unavailable states", () => {
@@ -26,13 +27,15 @@ test("universal lifetime unlocks every implemented tool but does not publish pla
     const user = { entitlements: ["all_products_lifetime"] };
     assert.equal(deriveToolAccessState(tool("pathseal"), user).key, "lifetime");
     assert.equal(deriveToolAccessState(tool("duplicate_geometry"), user).key, "lifetime");
-    assert.equal(deriveToolAccessState(tool("stray_node_cleaner"), user).key, "planned");
+    assert.equal(deriveToolAccessState(tool("stray_node_cleaner"), user).key, "lifetime");
+    assert.equal(deriveToolAccessState(tool("curve_repair"), user).key, "planned");
 });
 
 test("return destinations accept only registered implemented internal pages", () => {
     assert.equal(validateReturnDestination("pathseal.html"), "pathseal.html");
     assert.equal(validateReturnDestination("duplicate-geometry.html"), "duplicate-geometry.html");
-    for (const unsafe of ["https://evil.example", "//evil.example", "/pathseal.html", "..\\pathseal.html", "pathseal.html?x=1", "stray-node-cleaner.html", "%2F%2Fevil.example"]) {
+    assert.equal(validateReturnDestination("stray-node-cleaner.html"), "stray-node-cleaner.html");
+    for (const unsafe of ["https://evil.example", "//evil.example", "/pathseal.html", "..\\pathseal.html", "pathseal.html?x=1", "curve-repair.html", "%2F%2Fevil.example"]) {
         assert.equal(validateReturnDestination(unsafe), null);
     }
 });

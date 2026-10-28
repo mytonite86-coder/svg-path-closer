@@ -2,8 +2,255 @@
 // Classic script for direct file:// use; source modules remain authoritative.
 (() => {
 "use strict";
+// Source: modules/auth.js
+const module1 = (() => {
+const API_BASE_URL =
+    "https://mab-path-editor.onrender.com/api";
+
+const TOKEN_STORAGE_KEY =
+    "svg-micro-eco-access-token";
+
+const USER_STORAGE_KEY =
+    "svg-micro-eco-user";
+
+function readStoredUser() {
+    const storedUser =
+        localStorage.getItem(USER_STORAGE_KEY);
+
+    if (!storedUser) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(storedUser);
+    } catch {
+        localStorage.removeItem(USER_STORAGE_KEY);
+        return null;
+    }
+}
+
+let accessToken =
+    localStorage.getItem(TOKEN_STORAGE_KEY) || "";
+
+let currentUser = readStoredUser();
+
+async function apiRequest(
+    path,
+    {
+        method = "GET",
+        body = null,
+        requiresAuth = false,
+    } = {}
+) {
+    const headers = {
+        Accept: "application/json",
+    };
+
+    if (body !== null) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    if (requiresAuth) {
+        if (!accessToken) {
+            throw new Error("Sign in required.");
+        }
+
+        headers.Authorization =
+            `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(
+        `${API_BASE_URL}${path}`,
+        {
+            method,
+            headers,
+            body:
+                body === null
+                    ? undefined
+                    : JSON.stringify(body),
+        }
+    );
+
+    let responseData = null;
+
+    try {
+        responseData = await response.json();
+    } catch {
+        responseData = null;
+    }
+
+    if (!response.ok) {
+        if (
+            response.status === 401 &&
+            requiresAuth
+        ) {
+            clearSession();
+        }
+
+        throw new Error(
+            responseData?.detail ||
+                "The request could not be completed."
+        );
+    }
+
+    return responseData;
+}
+
+async function login(email, password) {
+    const session = await apiRequest(
+        "/auth/login",
+        {
+            method: "POST",
+            body: {
+                email,
+                password,
+            },
+        }
+    );
+
+    saveSession(
+        session.access_token,
+        session.user
+    );
+
+    return session.user;
+}
+
+async function registerAccount(
+    email,
+    username,
+    password
+) {
+    const session = await apiRequest(
+        "/auth/register",
+        {
+            method: "POST",
+            body: {
+                email,
+                username,
+                password,
+            },
+        }
+    );
+
+    saveSession(
+        session.access_token,
+        session.user
+    );
+
+    return session.user;
+}
+
+async function refreshSession() {
+    if (!accessToken) {
+        return null;
+    }
+
+    const user = await apiRequest(
+        "/auth/me",
+        {
+            requiresAuth: true,
+        }
+    );
+
+    saveSession(
+        accessToken,
+        user
+    );
+
+    return user;
+}
+
+async function startPathSealCheckout(
+    attribution = {}
+) {
+    const checkout = await apiRequest(
+        "/payments/checkout/session",
+        {
+            method: "POST",
+            requiresAuth: true,
+            body: {
+                package_id: "pathseal_monthly",
+                origin_url:
+                    window.location.origin +
+                    window.location.pathname,
+                visitor_id: attribution.visitorId || "",
+                source: attribution.source || "direct",
+                medium: attribution.medium || "",
+                campaign: attribution.campaign || "",
+            },
+        }
+    );
+
+    window.location.assign(checkout.url);
+}
+
+async function confirmPathSealCheckout(
+    sessionId
+) {
+    const checkoutStatus = await apiRequest(
+        `/payments/checkout/status/${
+            encodeURIComponent(sessionId)
+        }`,
+        {
+            requiresAuth: true,
+        }
+    );
+
+    const user = await refreshSession();
+
+    return {
+        checkoutStatus,
+        user,
+    };
+}
+
+
+
+function saveSession(token, user) {
+    accessToken = token;
+    currentUser = user;
+
+    localStorage.setItem(
+        TOKEN_STORAGE_KEY,
+        token
+    );
+
+    localStorage.setItem(
+        USER_STORAGE_KEY,
+        JSON.stringify(user)
+    );
+}
+
+function clearSession() {
+    accessToken = "";
+    currentUser = null;
+
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(USER_STORAGE_KEY);
+}
+
+function getAccessToken() {
+    return accessToken;
+}
+
+function getCurrentUser() {
+    return currentUser;
+}
+
+function hasEntitlement(productId) {
+    const entitlements = currentUser?.entitlements || [];
+
+    return Boolean(
+        entitlements.includes(productId) ||
+        entitlements.includes("all_products_lifetime")
+    );
+}
+return { API_BASE_URL, login, registerAccount, refreshSession, startPathSealCheckout, confirmPathSealCheckout, saveSession, clearSession, getAccessToken, getCurrentUser, hasEntitlement };
+})();
+
 // Source: modules/strayNodeAnalyzer.js
-const module2 = (() => {
+const module4 = (() => {
 const STRAY_NODE_CLEANER_PRODUCT_ID = "stray_node_cleaner";
 
 const DEFAULTS = Object.freeze({
@@ -203,12 +450,12 @@ return { STRAY_NODE_CLEANER_PRODUCT_ID, parsePointsAttribute, parseLinearPathDat
 })();
 
 // Source: modules/strayNodeBrowserAdapter.js
-const module1 = (() => {
+const module3 = (() => {
 const {
     analyzeStrayNodes,
     parseLinearPathData,
     parsePointsAttribute,
-} = module2;
+} = module4;
 
 const SUPPORTED_SELECTOR = "line,polyline,polygon,path";
 
@@ -355,8 +602,8 @@ return { StrayNodeSvgInputError, normalizeSvgGeometry, readLocalSvgFile, inspect
 })();
 
 // Source: modules/strayNodePreview.js
-const module3 = (() => {
-const { normalizeSvgGeometry } = module1;
+const module5 = (() => {
+const { normalizeSvgGeometry } = module3;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const SAFE_GEOMETRY_SELECTOR = "line,polyline,polygon,path";
@@ -478,7 +725,7 @@ return { createStrayNodePreviewModel, getFindingPreviewKey, renderStrayNodePrevi
 })();
 
 // Source: modules/strayNodeRepairPlanner.js
-const module4 = (() => {
+const module6 = (() => {
 const SUPPORTED_ELEMENT_TYPES = new Set(["polyline", "polygon"]);
 
 function finitePoint(point) {
@@ -657,7 +904,7 @@ return { planExactCoincidentNodeRepairs };
 })();
 
 // Source: modules/pathCloser.js
-const module6 = (() => {
+const module8 = (() => {
 function parseSvg(svgText) {
     const parser = new DOMParser();
 
@@ -1464,11 +1711,11 @@ return { parseSvg, getPathElements, getPathData, isPathExplicitlyClosed, tokeniz
 })();
 
 // Source: modules/strayNodeRepairExecution.js
-const module5 = (() => {
-const { inspectStrayNodeSvg, normalizeSvgGeometry } = module1;
-const { createStrayNodePreviewModel } = module3;
-const { planExactCoincidentNodeRepairs } = module4;
-const { parseSvg, serializeSvg, validateSvgText } = module6;
+const module7 = (() => {
+const { inspectStrayNodeSvg, normalizeSvgGeometry } = module3;
+const { createStrayNodePreviewModel } = module5;
+const { planExactCoincidentNodeRepairs } = module6;
+const { parseSvg, serializeSvg, validateSvgText } = module8;
 
 // Adapt an in-memory document to the existing analysis/preview APIs. No serialization.
 function inspectWorkingDocument(document) {
@@ -1630,7 +1877,7 @@ return { inspectWorkingDocument, createStrayNodeRepairSession };
 })();
 
 // Source: modules/strayNodeDownload.js
-const module7 = (() => {
+const module9 = (() => {
 function cleanedSvgFilename(originalName) {
     const basename = String(originalName || "drawing.svg").split(/[\\/]/).pop();
     const stem = basename.replace(/\.svg$/i, "").replace(/[<>:"|?*\x00-\x1f]/g, "_").trim() || "drawing";
@@ -1659,22 +1906,128 @@ function downloadCleanedSvg(svgText, originalName, {
 return { cleanedSvgFilename, downloadCleanedSvg };
 })();
 
+// Source: modules/productManifest.js
+const module12 = (() => {
+const UNIVERSAL_ENTITLEMENT_ID = "all_products_lifetime";
+
+const PRODUCT_MANIFEST = Object.freeze([
+    Object.freeze({ id: "pathseal", name: "PathSeal", order: 1, lifecycle: "implemented", productionEnabled: true, route: "pathseal.html", description: "Find open contours, review questionable gaps, and seal only the paths you approve." }),
+    Object.freeze({ id: "duplicate_geometry", name: "Duplicate Line Remover", order: 2, lifecycle: "implemented", productionEnabled: false, route: "duplicate-geometry.html", description: "Find exact duplicate lines and prepare safe removals without touching questionable geometry." }),
+    Object.freeze({ id: "stray_node_cleaner", name: "Stray Node Cleaner", order: 3, lifecycle: "implemented", productionEnabled: false, route: "stray-node-cleaner.html", description: "Review stray-node findings and remove selected exact coincident nodes while preserving original geometry." }),
+    Object.freeze({ id: "overlapping_shape_repair", name: "Overlapping Shape Repair", order: 4, lifecycle: "planned", productionEnabled: false, route: null, description: "Find and resolve overlapping shapes through a review-first workflow." }),
+    Object.freeze({ id: "curve_repair", name: "Curve Repair", order: 5, lifecycle: "planned", productionEnabled: false, route: null, description: "Inspect and repair damaged curve geometry without blind simplification." }),
+]);
+
+function getProduct(productId) {
+    return PRODUCT_MANIFEST.find(({ id }) => id === productId) || null;
+}
+
+function getProductionSelectableProductIds() {
+    return PRODUCT_MANIFEST.filter(({ lifecycle, productionEnabled }) => lifecycle === "implemented" && productionEnabled).map(({ id }) => id);
+}
+
+return { UNIVERSAL_ENTITLEMENT_ID, PRODUCT_MANIFEST, getProduct, getProductionSelectableProductIds };
+})();
+
+// Source: modules/accessFoundation.js
+const module11 = (() => {
+const { PRODUCT_MANIFEST, UNIVERSAL_ENTITLEMENT_ID } = module12;
+
+const HUB_ROUTE = "index.html";
+const SAFE_RETURN_ROUTES = new Set(PRODUCT_MANIFEST.filter(({ lifecycle, route }) => lifecycle === "implemented" && route).map(({ route }) => route));
+
+function subscriptionStatusFor(user, productId) {
+    return user?.subscription_statuses?.[productId] || user?.subscriptionStatusByProduct?.[productId] || (productId === "pathseal" ? user?.subscription_status : null) || null;
+}
+
+function validateReturnDestination(value) {
+    if (typeof value !== "string" || !value || value.length > 120) return null;
+    let decoded;
+    try { decoded = decodeURIComponent(value); } catch { return null; }
+    if (decoded !== value || /[\\\u0000-\u001f\u007f]/.test(value) || value.startsWith("/") || value.includes(":") || value.includes("?") || value.includes("#") || value.includes("..")) return null;
+    return SAFE_RETURN_ROUTES.has(value) ? value : null;
+}
+
+function deriveToolAccessState(tool, user, { authorityAvailable = true } = {}) {
+    if (tool.lifecycle === "planned") return { key: "planned", label: "Planned", canOpen: false, canSelect: false };
+    if (!authorityAvailable && user) return { key: "unavailable", label: "Status unavailable", canOpen: true, canSelect: false };
+    if (!user) return { key: "signed_out", label: "Signed out", canOpen: true, canSelect: false };
+    const entitlements = Array.isArray(user.entitlements) ? user.entitlements : [];
+    if (entitlements.includes(UNIVERSAL_ENTITLEMENT_ID)) return { key: "lifetime", label: "Lifetime access", canOpen: true, canSelect: false };
+    const status = subscriptionStatusFor(user, tool.id);
+    const entitled = entitlements.includes(tool.id);
+    if (entitled && status === "past_due") return { key: "grace", label: "Payment retry — access remains on", canOpen: true, canSelect: false };
+    if (entitled) return { key: "owned", label: "Owned", canOpen: true, canSelect: false };
+    if (["canceled", "unpaid", "incomplete_expired", "paused"].includes(status)) return { key: "expired", label: "Access ended", canOpen: true, canSelect: tool.productionEnabled };
+    if (tool.productionEnabled) return { key: "available", label: "Available to add", canOpen: true, canSelect: true };
+    return { key: "preview", label: "Workspace preview", canOpen: true, canSelect: false };
+}
+
+return { HUB_ROUTE, validateReturnDestination, deriveToolAccessState };
+})();
+
+// Source: modules/strayNodeAccess.js
+const module10 = (() => {
+const { deriveToolAccessState } = module11;
+const { getProduct } = module12;
+
+const PRODUCT_ID = "stray_node_cleaner";
+const EXPIRED = new Set(["canceled", "cancelled", "expired", "incomplete_expired", "paused", "unpaid"]);
+
+class StrayNodeAccessError extends Error {
+    constructor(code) {
+        super(code === "signed_out"
+            ? "Sign in through the shared hub to verify Stray Node Cleaner access. Upload, scan and review remain free."
+            : code === "unentitled" || code === "expired"
+                ? "Your account does not have active Stray Node Cleaner access. Tool purchases are not enabled yet."
+                : "Tool access could not be verified. Try again through the shared hub.");
+        this.name = "StrayNodeAccessError";
+        this.code = code;
+    }
+}
+
+async function runWithFreshStrayNodeAccess(refreshSession, action) {
+    let user;
+    try {
+        user = await refreshSession();
+    } catch {
+        throw new StrayNodeAccessError("unavailable");
+    }
+    if (user === null) throw new StrayNodeAccessError("signed_out");
+    if (!user || !Array.isArray(user.entitlements) || !user.entitlements.every((id) => typeof id === "string")) {
+        throw new StrayNodeAccessError("malformed");
+    }
+    const state = deriveToolAccessState(getProduct(PRODUCT_ID), user);
+    if (state.key !== "lifetime") {
+        const status = user.subscription_statuses?.[PRODUCT_ID] ?? user.subscriptionStatusByProduct?.[PRODUCT_ID] ?? null;
+        if (status !== null && typeof status !== "string") throw new StrayNodeAccessError("malformed");
+        if (EXPIRED.has(status?.toLowerCase())) throw new StrayNodeAccessError("expired");
+        if (!["owned", "grace"].includes(state.key)) throw new StrayNodeAccessError("unentitled");
+    }
+    if (typeof action !== "function") throw new StrayNodeAccessError("malformed");
+    return action(user);
+}
+
+return { StrayNodeAccessError, runWithFreshStrayNodeAccess };
+})();
+
 // Source: stray-node-cleaner.js
-const module0 = (() => {
+const module2 = (() => {
 const {
     inspectStrayNodeSvg,
     presentStrayNodeFinding,
     readLocalSvgFile,
-} = module1;
+} = module3;
 const {
     createStrayNodePreviewModel,
     getFindingPreviewKey,
     renderStrayNodePreview,
     setPreviewHighlight,
-} = module3;
-const { planExactCoincidentNodeRepairs } = module4;
-const { createStrayNodeRepairSession } = module5;
-const { downloadCleanedSvg } = module7;
+} = module5;
+const { planExactCoincidentNodeRepairs } = module6;
+const { createStrayNodeRepairSession } = module7;
+const { downloadCleanedSvg } = module9;
+const { runWithFreshStrayNodeAccess } = module10;
 
 const CATEGORY_LABELS = Object.freeze({
     "coincident-node": "Coincident nodes",
@@ -1784,7 +2137,7 @@ function summarizeRepairRejections(rejections) {
     return [...groups.values()];
 }
 
-if (typeof document !== "undefined") {
+function initializeStrayNodePage({ refreshSession } = {}) {
     const fileInput = document.querySelector("#stray-node-file");
     const results = document.querySelector("#stray-node-results");
     const status = document.querySelector("#stray-node-status");
@@ -1804,12 +2157,38 @@ if (typeof document !== "undefined") {
     const executionStatus = document.querySelector("#stray-node-execution-status");
     const downloadButton = document.querySelector("#stray-node-download");
     const validationStatus = document.querySelector("#stray-node-validation-status");
+    const accessStatus = document.querySelector("#stray-node-access-status");
     let currentRepairPlan = null;
     let repairSession = null;
     let repaired = false;
     let successfulRepairCount = 0;
     let originalFileName = "drawing.svg";
     let uploadVersion = 0;
+    let accessPending = false;
+    let downloadReady = false;
+
+    async function withToolAccess(action) {
+        if (accessPending || !repairSession) return;
+        const version = uploadVersion;
+        const session = repairSession;
+        accessPending = true;
+        accessStatus.textContent = "Checking shared account access…";
+        updateRepairSelection();
+        try {
+            await runWithFreshStrayNodeAccess(refreshSession, () => {
+                if (version !== uploadVersion || session !== repairSession) return;
+                accessStatus.textContent = "Stray Node Cleaner access verified.";
+                return action();
+            });
+        } catch (error) {
+            if (version === uploadVersion && session === repairSession) accessStatus.textContent = error.message;
+        } finally {
+            if (version === uploadVersion && session === repairSession) {
+                accessPending = false;
+                updateRepairSelection();
+            }
+        }
+    }
 
     function selectedRepairIds() {
         const eligibleIds = new Set(currentRepairPlan?.proposals.map(({ id }) => id) || []);
@@ -1821,7 +2200,8 @@ if (typeof document !== "undefined") {
     function updateRepairSelection() {
         const eligibleIds = new Set(currentRepairPlan?.proposals.map(({ id }) => id) || []);
         const selectedIds = new Set(selectedRepairIds());
-        repairButton.disabled = repaired || !repairSession || selectedIds.size === 0;
+        repairButton.disabled = accessPending || repaired || !repairSession || selectedIds.size === 0;
+        downloadButton.disabled = accessPending || !downloadReady;
         if (repaired) {
             repairStatus.textContent = "0 proposed repairs selected. This review is complete; upload an SVG to start a new review.";
             return;
@@ -1918,6 +2298,9 @@ if (typeof document !== "undefined") {
         repairSession = null;
         repaired = false;
         successfulRepairCount = 0;
+        accessPending = false;
+        downloadReady = false;
+        accessStatus.textContent = "Upload, scan and review are free. Repair and download require verified Tool 3 or universal lifetime access.";
         downloadButton.disabled = true;
         validationStatus.textContent = "Download requires a successful repair and final validation.";
         repairButton.disabled = true;
@@ -1945,54 +2328,65 @@ if (typeof document !== "undefined") {
     }
 
     repairButton.addEventListener("click", () => {
-        if (!repairSession || repaired) return;
+        if (!repairSession || repaired || accessPending) return;
         const selectedIds = selectedRepairIds();
-        const outcome = repairSession.execute(selectedIds, (_working, { previewModel }) => {
-            // Stage rendering before accepting the batch; a failure leaves the displayed review intact.
-            const staged = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            renderStrayNodePreview(staged, previewModel);
-            return true;
+        if (!selectedIds.length) return;
+        return withToolAccess(() => {
+            if (JSON.stringify(selectedIds) !== JSON.stringify(selectedRepairIds())) {
+                throw new Error("Selection changed while access was checked. Review your selections and try again.");
+            }
+            const outcome = repairSession.execute(selectedIds, (_working, { previewModel }) => {
+                // Stage rendering before accepting the batch; a failure leaves the displayed review intact.
+                const staged = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                renderStrayNodePreview(staged, previewModel);
+                return true;
+            });
+            executionStatus.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.ok ? "Working copy validated. Original upload preserved." : `${outcome.reason} Working copy discarded; original upload preserved.`}`;
+            if (!outcome.ok) return;
+            repaired = true;
+            const rendered = renderStrayNodePreview(previewSvg, outcome.previewModel);
+            previewStatus.textContent = "Validated repaired working copy. Select a remaining finding to highlight its geometry.";
+            renderCategories(summarizeFindingCategories(outcome.inspection.findings));
+            findings.replaceChildren(...outcome.inspection.findings.map((finding) => renderFinding(finding, outcome.previewModel, rendered)));
+            for (const checkbox of repairProposals.querySelectorAll('input[type="checkbox"]')) {
+                checkbox.checked = false;
+                checkbox.disabled = true;
+            }
+            repairProposals.replaceChildren();
+            repairRejectionList.replaceChildren();
+            repairRejections.hidden = true;
+            currentRepairPlan = null;
+            updateRepairSelection();
+            setReviewState("repaired", "Selected repairs completed on a validated working copy.");
+            summary.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.inspection.findings.length} findings remain. Original upload preserved.`;
+            successfulRepairCount = outcome.executedCount;
+            try {
+                repairSession.prepareDownload(successfulRepairCount);
+                validationStatus.textContent = "Final validation passed. The cleaned SVG is ready to download.";
+                downloadButton.disabled = false;
+                downloadReady = true;
+            } catch (error) {
+                downloadButton.disabled = true;
+                downloadReady = false;
+                validationStatus.textContent = `Download blocked: ${error.message}`;
+            }
         });
-        executionStatus.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.ok ? "Working copy validated. Original upload preserved." : `${outcome.reason} Working copy discarded; original upload preserved.`}`;
-        if (!outcome.ok) return;
-        repaired = true;
-        const rendered = renderStrayNodePreview(previewSvg, outcome.previewModel);
-        previewStatus.textContent = "Validated repaired working copy. Select a remaining finding to highlight its geometry.";
-        renderCategories(summarizeFindingCategories(outcome.inspection.findings));
-        findings.replaceChildren(...outcome.inspection.findings.map((finding) => renderFinding(finding, outcome.previewModel, rendered)));
-        for (const checkbox of repairProposals.querySelectorAll('input[type="checkbox"]')) {
-            checkbox.checked = false;
-            checkbox.disabled = true;
-        }
-        repairProposals.replaceChildren();
-        repairRejectionList.replaceChildren();
-        repairRejections.hidden = true;
-        currentRepairPlan = null;
-        updateRepairSelection();
-        setReviewState("repaired", "Selected repairs completed on a validated working copy.");
-        summary.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.inspection.findings.length} findings remain. Original upload preserved.`;
-        successfulRepairCount = outcome.executedCount;
-        try {
-            repairSession.prepareDownload(successfulRepairCount);
-            validationStatus.textContent = "Final validation passed. The cleaned SVG is ready to download.";
-            downloadButton.disabled = false;
-        } catch (error) {
-            downloadButton.disabled = true;
-            validationStatus.textContent = `Download blocked: ${error.message}`;
-        }
     });
 
     downloadButton.addEventListener("click", () => {
-        if (downloadButton.disabled || !repaired || !repairSession || !successfulRepairCount) return;
+        if (downloadButton.disabled || !repaired || !repairSession || !successfulRepairCount || accessPending) return;
         downloadButton.disabled = true;
-        try {
-            const { svgText } = repairSession.prepareDownload(successfulRepairCount);
-            downloadCleanedSvg(svgText, originalFileName);
-            validationStatus.textContent = "Final validation passed. Cleaned SVG download started; original upload preserved.";
-            downloadButton.disabled = false;
-        } catch (error) {
-            validationStatus.textContent = `Download blocked: ${error.message}`;
-        }
+        return withToolAccess(() => {
+            try {
+                const { svgText } = repairSession.prepareDownload(successfulRepairCount);
+                downloadCleanedSvg(svgText, originalFileName);
+                validationStatus.textContent = "Final validation passed. Cleaned SVG download started; original upload preserved.";
+                downloadButton.disabled = false;
+            } catch (error) {
+                downloadReady = false;
+                validationStatus.textContent = `Download blocked: ${error.message}`;
+            }
+        });
     });
 
     fileInput.addEventListener("change", async () => {
@@ -2048,6 +2442,16 @@ if (typeof document !== "undefined") {
     });
 }
 
-return { describeFindingCertainty, describeFindingLocation, summarizeFindingCategories, buildFindingPresentation, previewModelToPlannerElements, buildRepairProposalPresentation, summarizeRepairRejections };
+return { describeFindingCertainty, describeFindingLocation, summarizeFindingCategories, buildFindingPresentation, previewModelToPlannerElements, buildRepairProposalPresentation, summarizeRepairRejections, initializeStrayNodePage };
+})();
+
+// Source: stray-node-cleaner-entry.js
+const module0 = (() => {
+const { refreshSession } = module1;
+const { initializeStrayNodePage } = module2;
+
+initializeStrayNodePage({ refreshSession });
+
+return {  };
 })();
 })();

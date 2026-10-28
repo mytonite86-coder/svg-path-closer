@@ -4,7 +4,49 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
-## Tool 3 — Block 19 checkpoint (2026-10-28)
+## Tool 3 — Block 20 checkpoint (2026-10-28)
+
+VERIFIED: `mytonite86-coder/svg-path-closer`, branch
+`work/block20-tool3-hub-access`. Started clean at `93fd0e6`, preserving the QA001
+local-file fix after requested Block 19 base `52a3130`. Completion commit is the
+local commit adding this checkpoint (`git log -1` on this branch). Deployment:
+UNKNOWN; no push, merge or deployment. The owner accepted the completed Tool 3
+repair workflow before this integration; its repair engine was not changed.
+
+Tool 3 is now an implemented workspace in the existing product manifest, with
+the shared hub's Open Stray Node Cleaner link and registered account return route.
+`productionEnabled` stays false: no Tool 3 purchase selection or checkout is
+enabled. Upload, scan, preview, review and selection stay free and browser-local.
+
+Repair Selected and Download each require a fresh shared `auth.js` session check.
+The Tool 3 adapter reuses shared access-state/manifest components and accepts
+`stray_node_cleaner` or `all_products_lifetime`. Signed-out, unentitled, expired,
+malformed and unavailable authority states fail closed. Universal lifetime access
+is preserved. A prior repair grant cannot authorize a later download. In-flight
+checks cannot apply to a newer upload or a changed selection; repeated clicks
+cannot execute concurrent batches. The validated engine and one-batch rule remain
+unchanged, as do PathSeal, Tool 2, auth, billing and release flags.
+
+`stray-node-cleaner-entry.js` supplies the existing session component to the page.
+Regenerate the committed classic entry with `node scripts/build-tool3-local.mjs`
+after changing its sources. Direct `file://` opening still supports free review.
+Shared sign-in/return navigation uses the existing hub on a common HTTP(S)
+origin; the existing hub's ES modules do not support direct-file account handoff.
+
+SESSION HANDOFF — Block 20 COMPLETE. Verified: 26 focused hub/access/controller
+tests; syntax, generated-entry/source consistency and whitespace checks. Chrome
+integration with mocked shared-session responses passed all four access states,
+authorized actual downloads, denial/revocation checks, preserved manual-fixture
+control geometry/original file, and direct-file free review. No live account,
+customer, checkout or entitlement requests were made. No repair-engine suites
+or unrelated audits were repeated; no dependencies/clones/large temporary files.
+Actual blockers: none for local integration. Live commercial configuration is
+separately gated, not verified by these tests. Resume in `modules/strayNodeAccess.js`,
+`stray-node-cleaner-entry.js`, `stray-node-cleaner.js`, and the focused access tests.
+Next single action: owner acceptance of the shared-hub Tool 3 access flow.
+STOP after Block 20; no follow-on development or activation is authorized.
+
+## Historical Tool 3 — Block 19 checkpoint (2026-10-28)
 
 VERIFIED: `mytonite86-coder/svg-path-closer`, clean Block 18 base
 `7b338db99369babbf5a1978b11d70d1d47ef56d6`. Development branch:

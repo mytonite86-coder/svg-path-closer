@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 // Exercise the actual page controller and its event handlers without adding a DOM dependency.
-async function page(t) {
+async function page(t, { refreshSession = async () => ({ entitlements: ["stray_node_cleaner"] }) } = {}) {
     const fixtures = new Map();
     const elements = new Map();
     const doc = {
@@ -36,7 +36,7 @@ async function page(t) {
         all() { return this.children.filter((child) => typeof child !== "string").flatMap((child) => [child, ...child.all()]); }
         querySelectorAll() { return this.all().filter((node) => node.type === "checkbox" && node.checked); }
     }
-    for (const name of ["file", "results", "status", "summary", "categories", "category-list", "preview-panel", "preview-status", "preview", "repair-review", "repair-status", "repair-proposals", "repair-rejections", "repair-rejection-list", "findings", "repair-selected", "execution-status", "download", "validation-status"]) {
+    for (const name of ["file", "results", "status", "summary", "categories", "category-list", "preview-panel", "preview-status", "preview", "repair-review", "repair-status", "repair-proposals", "repair-rejections", "repair-rejection-list", "findings", "repair-selected", "execution-status", "download", "validation-status", "access-status"]) {
         elements.set(`#stray-node-${name}`, new Node("div"));
     }
     const oldDocument = globalThis.document;
@@ -65,7 +65,8 @@ async function page(t) {
         }
     };
     t.after(() => { globalThis.document = oldDocument; globalThis.DOMParser = oldParser; globalThis.XMLSerializer = oldSerializer; });
-    await import(`../stray-node-cleaner.js?selection-test=${Math.random()}`);
+    const { initializeStrayNodePage } = await import(`../stray-node-cleaner.js?selection-test=${Math.random()}`);
+    initializeStrayNodePage({ refreshSession });
     const get = (name) => elements.get(`#stray-node-${name}`);
     const geometry = (id, points, tag = "polyline", extra = {}) => {
         const node = new Node(tag);
@@ -211,4 +212,72 @@ test("failed final validation blocks downloads while preserving completed repair
     assert.match(p.get("validation-status").textContent, /Download blocked/);
     await p.get("download").fire("click");
     assert.equal(p.get("download").disabled, true);
+});
+
+test("signed-out and unentitled customers can scan/review but cannot repair", async (t) => {
+    for (const user of [null, { entitlements: [] }]) {
+        await t.test(user ? "unentitled" : "signed out", async (t) => {
+            let refreshCalls = 0;
+            const p = await page(t, { refreshSession: async () => { refreshCalls++; return user; } });
+            await p.upload("<svg data-fixture='free'/>", [p.geometry("safe", "0,0 5,0 5,0 10,0")]);
+            assert.equal(p.get("results").dataset.state, "complete");
+            assert.equal(refreshCalls, 0);
+            assert.equal(p.boxes().length, 1);
+            await p.toggle(p.boxes()[0], true);
+            await p.get("repair-selected").fire("click");
+            assert.equal(refreshCalls, 1);
+            assert.equal(p.get("results").dataset.state, "complete");
+            assert.equal(p.get("preview").children[0].getAttribute("points"), "0,0 5,0 5,0 10,0");
+            assert.equal(p.get("download").disabled, true);
+            assert.match(p.get("access-status").textContent, user ? /does not have active/ : /Sign in through the shared hub/);
+        });
+    }
+});
+
+test("lifetime access repairs successfully and a revoked grant blocks subsequent download", async (t) => {
+    let refreshCalls = 0;
+    const p = await page(t, { refreshSession: async () => ++refreshCalls === 1 ? { entitlements: ["all_products_lifetime"] } : { entitlements: [] } });
+    await p.upload("<svg data-fixture='lifetime'/>", [p.geometry("safe", "0,0 5,0 5,0 10,0")]);
+    await p.toggle(p.boxes()[0], true);
+    await p.get("repair-selected").fire("click");
+    assert.equal(p.get("results").dataset.state, "repaired");
+    assert.equal(p.get("download").disabled, false);
+    await p.get("download").fire("click");
+    assert.equal(refreshCalls, 2);
+    assert.match(p.get("access-status").textContent, /does not have active/);
+    assert.match(p.get("validation-status").textContent, /ready to download/);
+});
+
+test("new upload invalidates an in-flight access check without touching the new SVG", async (t) => {
+    let allow;
+    const p = await page(t, { refreshSession: () => new Promise((resolve) => { allow = resolve; }) });
+    await p.upload("<svg data-fixture='old-check'/>", [p.geometry("safe", "0,0 5,0 5,0 10,0")]);
+    await p.toggle(p.boxes()[0], true);
+    const pending = p.get("repair-selected").fire("click");
+    assert.equal(p.get("repair-selected").disabled, true);
+    await p.upload("<svg data-fixture='new-check'/>", [p.geometry("new", "0,0 6,0 6,0 12,0")]);
+    allow({ entitlements: ["stray_node_cleaner"] });
+    await pending;
+    assert.equal(p.get("results").dataset.state, "complete");
+    assert.equal(p.boxes()[0].checked, false);
+    assert.equal(p.get("download").disabled, true);
+    assert.equal(p.get("preview").children[0].getAttribute("points"), "0,0 6,0 6,0 12,0");
+    assert.match(p.get("access-status").textContent, /review are free/);
+});
+
+test("selection changes and repeated clicks during an access check cannot execute stale repairs", async (t) => {
+    let allow;
+    let refreshCalls = 0;
+    const p = await page(t, { refreshSession: () => { refreshCalls++; return new Promise((resolve) => { allow = resolve; }); } });
+    await p.upload("<svg data-fixture='changed-selection'/>", [p.geometry("safe", "0,0 5,0 5,0 10,0")]);
+    await p.toggle(p.boxes()[0], true);
+    const pending = p.get("repair-selected").fire("click");
+    await p.get("repair-selected").fire("click");
+    await p.toggle(p.boxes()[0], false);
+    allow({ entitlements: ["stray_node_cleaner"] });
+    await pending;
+    assert.equal(refreshCalls, 1);
+    assert.equal(p.get("results").dataset.state, "complete");
+    assert.equal(p.get("download").disabled, true);
+    assert.match(p.get("access-status").textContent, /Selection changed/);
 });
