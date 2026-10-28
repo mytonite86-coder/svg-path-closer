@@ -1,5 +1,29 @@
 # SVG Path Closer Build Checklist
 
+## Tool 3 — Block 17 proposal selection
+
+Last checked: 2026-10-28. Branch: `work/block17-tool3-proposal-selection`.
+Base: Block 16 `eea5760fd23130c6b917af6403f74d7a94cced98`.
+See the existing README checkpoint for source precedence, shared restart link,
+resume anchors, and the local completion commit locator. Deployed version UNKNOWN.
+
+- [x] Individual labeled checkboxes on existing planner-approved proposal cards
+- [x] Select/deselect independently with a live selected/eligible count
+- [x] Keep unsafe and review-only findings outside selection
+- [x] Start unselected and reset on every upload, including failed/cancelled input
+- [x] Ignore stale upload reads to preserve the current review
+- [x] Preserve before/after descriptions, findings, highlighting and preview
+- [x] Leave original geometry unchanged; no repair/output/download
+- [x] Focused Tool 3 verification: 39 passed, 0 failed (five new selection tests)
+- [x] JavaScript syntax check passed; Windows-aware diff whitespace check passed
+
+Verification uses all seven Tool 3 suites, including existing review/preview
+safety guards. Unrelated project-wide tests were not repeated. Source changes
+are limited to the Tool 3 controller/page, focused tests, and these existing docs.
+
+Next single development action: define a separately authorized bounded repair-
+execution block. STOP after Block 17; no Block 18 implementation is authorized.
+
 ## Project Setup
 
 * [x] Create project folder

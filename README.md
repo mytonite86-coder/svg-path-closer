@@ -4,6 +4,31 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
+## Tool 3 — Block 17 checkpoint (2026-10-28)
+
+Repository: `mytonite86-coder/svg-path-closer`. Verified Block 16 base:
+`work/block16-tool3-repair-review` at `eea5760fd23130c6b917af6403f74d7a94cced98`.
+Block 17 branch: `work/block17-tool3-proposal-selection`; its local completion
+commit is the commit adding this checkpoint (`git log -1` on that branch).
+Shared restart rules: [SVG current status and next action, v1.1](https://drive.google.com/file/d/1wPirXUwHGBeV1OfBiLLTLyQmuHx9PMYP/view).
+Local authority read: `SVG-MICRO-ECO-MASTER-2026-10-11.2`; implementation facts
+here were verified against the Block 16 source on 2026-10-28. Deployment: UNKNOWN.
+
+`stray-node-cleaner.html` now lets customers select and deselect each existing
+planner-approved exact coincident-node proposal. All proposals start unselected.
+The live count reports selected versus eligible repairs. Rejected, unsupported,
+and review-only findings remain outside selection. Proposal details and finding
+highlighting remain available. Every upload clears the previous selection;
+late reads from an older upload cannot replace the current review.
+Selection changes only checkbox state: no repair, source geometry change,
+serialization, output generation, or download is performed.
+
+Resume in `stray-node-cleaner.js` and `tests/stray-node-selection.test.mjs`.
+Block 17 stops after focused verification and a local commit; no push or deployment.
+Actual blockers: none identified. Next single action: define the bounded Tool 3
+repair-execution work block for the selected eligible proposals; implementation
+requires separate authorization. Tools 1/2 and commerce remain protected.
+
 ## MVP Goals
 
 * Upload an SVG file

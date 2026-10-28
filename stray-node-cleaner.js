@@ -135,6 +135,18 @@ if (typeof document !== "undefined") {
     const repairRejections = document.querySelector("#stray-node-repair-rejections");
     const repairRejectionList = document.querySelector("#stray-node-repair-rejection-list");
     const findings = document.querySelector("#stray-node-findings");
+    let currentRepairPlan = null;
+    let uploadVersion = 0;
+
+    function updateRepairSelection() {
+        const eligibleIds = new Set(currentRepairPlan?.proposals.map(({ id }) => id) || []);
+        const selectedIds = new Set([...repairProposals.querySelectorAll('input[type="checkbox"]:checked')]
+            .filter((checkbox) => !checkbox.disabled && eligibleIds.has(checkbox.dataset.proposalId))
+            .map((checkbox) => checkbox.dataset.proposalId));
+        repairStatus.textContent = eligibleIds.size
+            ? `${selectedIds.size} of ${eligibleIds.size} proposed repairs selected. Nothing has been applied.`
+            : "No eligible exact coincident-node repair proposals are available. Nothing has been applied.";
+    }
 
     function setReviewState(state, message) {
         results.dataset.state = state;
@@ -208,11 +220,19 @@ if (typeof document !== "undefined") {
         before.textContent = `Before (${presentation.beforeNodeCount} nodes): ${presentation.before}`;
         const after = document.createElement("p");
         after.textContent = `Proposed result (${presentation.afterNodeCount} nodes): ${presentation.after}`;
-        card.append(title, review, geometry, location, before, after);
+        const option = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = false;
+        checkbox.dataset.proposalId = presentation.id;
+        checkbox.addEventListener("change", updateRepairSelection);
+        option.append(checkbox, ` Select proposed repair for ${presentation.geometry}; ${presentation.location}.`);
+        card.append(title, option, review, geometry, location, before, after);
         return card;
     }
 
     function clearRepairReview() {
+        currentRepairPlan = null;
         repairProposals.replaceChildren();
         repairRejectionList.replaceChildren();
         repairRejections.hidden = true;
@@ -221,11 +241,10 @@ if (typeof document !== "undefined") {
     }
 
     function renderRepairPlan(plan) {
+        currentRepairPlan = plan;
         repairReview.hidden = false;
         repairProposals.replaceChildren(...plan.proposals.map(renderRepairProposal));
-        repairStatus.textContent = plan.proposals.length
-            ? `${plan.proposals.length} planner-approved proposal${plan.proposals.length === 1 ? "" : "s"} available for customer review. Nothing has been applied.`
-            : "No eligible exact coincident-node repair proposals are available. Nothing has been applied.";
+        updateRepairSelection();
         const rejectionGroups = summarizeRepairRejections(plan.rejections);
         repairRejectionList.replaceChildren(...rejectionGroups.map(({ reason, count }) => {
             const item = document.createElement("li");
@@ -236,6 +255,7 @@ if (typeof document !== "undefined") {
     }
 
     fileInput.addEventListener("change", async () => {
+        const version = ++uploadVersion;
         findings.replaceChildren();
         renderCategories([]);
         previewSvg.replaceChildren();
@@ -247,6 +267,7 @@ if (typeof document !== "undefined") {
 
         try {
             const source = await readLocalSvgFile(fileInput.files?.[0]);
+            if (version !== uploadVersion) return;
             const inspection = inspectStrayNodeSvg(source);
             let previewModel = null;
             let renderedGeometry = new Map();
@@ -274,6 +295,7 @@ if (typeof document !== "undefined") {
             );
             summary.textContent = `${inspection.elementCount} supported or reviewable element${inspection.elementCount === 1 ? "" : "s"} inspected; ${inspection.unsupported.length} unsupported element${inspection.unsupported.length === 1 ? "" : "s"} flagged for review. No geometry was changed.`;
         } catch (error) {
+            if (version !== uploadVersion) return;
             findings.replaceChildren();
             renderCategories([]);
             clearRepairReview();
