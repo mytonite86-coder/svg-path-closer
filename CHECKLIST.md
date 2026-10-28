@@ -1,6 +1,28 @@
 # SVG Path Closer Build Checklist
 
-## Tool 3 — Block 17 proposal selection
+## Tool 3 — Block 18 selected repair execution
+
+Last checked: 2026-10-28. Branch: `work/block18-tool3-execute-selected`.
+Verified clean base: `a07e1b8` (Block 17). See README for current handoff,
+commit locator, continuity pointer, resume anchors and single next action.
+
+- [x] Repair Selected reads existing checked eligible proposal IDs
+- [x] Replan and execute only existing exact point-list node removals
+- [x] Clone original document; retain accepted working copy separately
+- [x] Preserve all unselected/unsupported content and exact surviving numeric text
+- [x] Refuse unsafe/stale selections, overlapping repairs and precision ambiguity
+- [x] Validate point lists, topology, trace, preview and unchanged document content
+- [x] Roll back the entire batch on failure, with executed/skipped counts
+- [x] Lock a successful review against repeat execution; reset on upload
+- [x] Update working-copy preview, findings and selected count
+- [x] 49 focused Tool 3 tests; controller/executor syntax and whitespace checks
+- [x] Edge actual XML DOM and UI smoke, zero page errors
+- [x] No final export/download, push, merge, deploy, Tool 1/2 or commerce changes
+
+Next single action: define the separately authorized Tool 3 final-validation
+and download block. STOP after Block 18.
+
+## Historical Tool 3 — Block 17 proposal selection
 
 Last checked: 2026-10-28. Branch: `work/block17-tool3-proposal-selection`.
 Base: Block 16 `eea5760fd23130c6b917af6403f74d7a94cced98`.

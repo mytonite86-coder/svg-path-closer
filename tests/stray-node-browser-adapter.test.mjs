@@ -122,7 +122,7 @@ test("flags transformed and malformed supported elements without interpreting th
     assert.match(malformed.reason, /finite unitless numbers/);
 });
 
-test("customer page remains local and review-only", async () => {
+test("customer page keeps original geometry and repairs local working copies only", async () => {
     const [page, controller, adapter] = await Promise.all([
         readFile(new URL("../stray-node-cleaner.html", import.meta.url), "utf8"),
         readFile(new URL("../stray-node-cleaner.js", import.meta.url), "utf8"),
@@ -130,9 +130,10 @@ test("customer page remains local and review-only", async () => {
     ]);
 
     assert.match(page, /id="stray-node-file"[^>]*type="file"/);
-    assert.match(page, /Automatic and manual repairs are not available/);
-    assert.match(page, /No geometry is altered/);
-    assert.doesNotMatch(page, /\bdownload(?:=|\s)|id="[^"]*download|checkout|subscribe/i);
+    assert.match(page, /Repair Selected/);
+    assert.match(page, /upload is altered/);
+    assert.match(page, /original/);
+    assert.doesNotMatch(page, /<[^>]+\sdownload(?:=|\s|>)|id="[^"]*download|checkout|subscribe/i);
     assert.doesNotMatch(controller, /fetch\(|XMLHttpRequest|sendBeacon|Blob|createObjectURL|\.download/);
     assert.doesNotMatch(adapter, /XMLSerializer|remove\(|replaceWith|setAttribute|fetch\(/);
     assert.match(adapter, /analyzeStrayNodes\(elements\)/);

@@ -25,21 +25,35 @@ async function page(t) {
         setAttribute(key, value) { this.attributes.set(key, String(value)); }
         getAttribute(key) { return this.attributes.get(key) ?? null; }
         hasAttribute(key) { return this.attributes.has(key); }
+        cloneNode() {
+            const copy = new Node(this.localName);
+            copy.attributes = new Map(this.attributes);
+            copy.children = this.children.map((child) => typeof child === "string" ? child : child.cloneNode(true));
+            return copy;
+        }
         addEventListener(event, handler) { this.listeners.set(event, handler); }
         async fire(event) { await this.listeners.get(event)?.(); }
         all() { return this.children.filter((child) => typeof child !== "string").flatMap((child) => [child, ...child.all()]); }
         querySelectorAll() { return this.all().filter((node) => node.type === "checkbox" && node.checked); }
     }
-    for (const name of ["file", "results", "status", "summary", "categories", "category-list", "preview-panel", "preview-status", "preview", "repair-review", "repair-status", "repair-proposals", "repair-rejections", "repair-rejection-list", "findings"]) {
+    for (const name of ["file", "results", "status", "summary", "categories", "category-list", "preview-panel", "preview-status", "preview", "repair-review", "repair-status", "repair-proposals", "repair-rejections", "repair-rejection-list", "findings", "repair-selected", "execution-status"]) {
         elements.set(`#stray-node-${name}`, new Node("div"));
     }
     const oldDocument = globalThis.document;
     const oldParser = globalThis.DOMParser;
     globalThis.document = doc;
+    const fixtureDocument = (nodes) => ({
+        documentElement: { localName: "svg" },
+        querySelector: () => null,
+        querySelectorAll: () => nodes,
+        cloneNode: () => fixtureDocument(nodes.map((node) => node.cloneNode(true))),
+        snapshot: () => nodes.map((node) => [node.localName, [...node.attributes]]),
+        isEqualNode(other) { return JSON.stringify(this.snapshot()) === JSON.stringify(other.snapshot()); },
+    });
     globalThis.DOMParser = class {
         parseFromString(source) {
             if (!fixtures.has(source)) throw new Error("Malformed fixture");
-            return { documentElement: { localName: "svg" }, querySelector: () => null, querySelectorAll: () => fixtures.get(source) };
+            return fixtureDocument(fixtures.get(source));
         }
     };
     t.after(() => { globalThis.document = oldDocument; globalThis.DOMParser = oldParser; });
@@ -146,4 +160,27 @@ test("late upload completion cannot replace the current proposal selection", asy
     assert.match(p.boxes()[0].dataset.proposalId, /:current:/);
     assert.equal(p.boxes()[0].checked, true);
     assert.match(p.get("repair-status").textContent, /^1 of 1/);
+});
+
+test("Repair Selected updates preview and counts, locks repeat execution, and resets on upload", async (t) => {
+    const p = await page(t);
+    const shape = p.geometry("safe", "0,0 5,0 5,0 10,0");
+    await p.upload("<svg data-fixture='execute'/>", [shape]);
+    assert.equal(p.get("repair-selected").disabled, true);
+    await p.toggle(p.boxes()[0], true);
+    assert.equal(p.get("repair-selected").disabled, false);
+    await p.get("repair-selected").fire("click");
+    assert.match(p.get("execution-status").textContent, /1 repairs executed; 0 skipped/);
+    assert.equal(p.get("results").dataset.state, "repaired");
+    assert.equal(p.get("preview").children[0].getAttribute("points"), "0,0 5,0 10,0");
+    assert.equal(shape.getAttribute("points"), "0,0 5,0 5,0 10,0");
+    assert.equal(p.boxes().length, 0);
+    assert.equal(p.get("repair-selected").disabled, true);
+    assert.match(p.get("repair-status").textContent, /^0 proposed repairs selected/);
+    await p.get("repair-selected").fire("click");
+    assert.match(p.get("execution-status").textContent, /1 repairs executed; 0 skipped/);
+    await p.upload("<svg data-fixture='fresh'/>", [shape]);
+    assert.equal(p.boxes().length, 1);
+    assert.equal(p.get("execution-status").textContent, "");
+    assert.equal(p.get("repair-selected").disabled, true);
 });

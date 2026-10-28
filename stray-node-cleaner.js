@@ -10,6 +10,7 @@ import {
     setPreviewHighlight,
 } from "./modules/strayNodePreview.js";
 import { planExactCoincidentNodeRepairs } from "./modules/strayNodeRepairPlanner.js";
+import { createStrayNodeRepairSession } from "./modules/strayNodeRepairExecution.js";
 
 const CATEGORY_LABELS = Object.freeze({
     "coincident-node": "Coincident nodes",
@@ -135,14 +136,28 @@ if (typeof document !== "undefined") {
     const repairRejections = document.querySelector("#stray-node-repair-rejections");
     const repairRejectionList = document.querySelector("#stray-node-repair-rejection-list");
     const findings = document.querySelector("#stray-node-findings");
+    const repairButton = document.querySelector("#stray-node-repair-selected");
+    const executionStatus = document.querySelector("#stray-node-execution-status");
     let currentRepairPlan = null;
+    let repairSession = null;
+    let repaired = false;
     let uploadVersion = 0;
+
+    function selectedRepairIds() {
+        const eligibleIds = new Set(currentRepairPlan?.proposals.map(({ id }) => id) || []);
+        return [...new Set([...repairProposals.querySelectorAll('input[type="checkbox"]:checked')]
+            .filter((checkbox) => !checkbox.disabled && eligibleIds.has(checkbox.dataset.proposalId))
+            .map((checkbox) => checkbox.dataset.proposalId))];
+    }
 
     function updateRepairSelection() {
         const eligibleIds = new Set(currentRepairPlan?.proposals.map(({ id }) => id) || []);
-        const selectedIds = new Set([...repairProposals.querySelectorAll('input[type="checkbox"]:checked')]
-            .filter((checkbox) => !checkbox.disabled && eligibleIds.has(checkbox.dataset.proposalId))
-            .map((checkbox) => checkbox.dataset.proposalId));
+        const selectedIds = new Set(selectedRepairIds());
+        repairButton.disabled = repaired || !repairSession || selectedIds.size === 0;
+        if (repaired) {
+            repairStatus.textContent = "0 proposed repairs selected. This review is complete; upload an SVG to start a new review.";
+            return;
+        }
         repairStatus.textContent = eligibleIds.size
             ? `${selectedIds.size} of ${eligibleIds.size} proposed repairs selected. Nothing has been applied.`
             : "No eligible exact coincident-node repair proposals are available. Nothing has been applied.";
@@ -232,6 +247,10 @@ if (typeof document !== "undefined") {
     }
 
     function clearRepairReview() {
+        repairSession = null;
+        repaired = false;
+        repairButton.disabled = true;
+        executionStatus.textContent = "";
         currentRepairPlan = null;
         repairProposals.replaceChildren();
         repairRejectionList.replaceChildren();
@@ -253,6 +272,35 @@ if (typeof document !== "undefined") {
         }));
         repairRejections.hidden = rejectionGroups.length === 0;
     }
+
+    repairButton.addEventListener("click", () => {
+        if (!repairSession || repaired) return;
+        const selectedIds = selectedRepairIds();
+        const outcome = repairSession.execute(selectedIds, (_working, { previewModel }) => {
+            // Stage rendering before accepting the batch; a failure leaves the displayed review intact.
+            const staged = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            renderStrayNodePreview(staged, previewModel);
+            return true;
+        });
+        executionStatus.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.ok ? "Working copy validated. Original upload preserved." : `${outcome.reason} Working copy discarded; original upload preserved.`}`;
+        if (!outcome.ok) return;
+        repaired = true;
+        const rendered = renderStrayNodePreview(previewSvg, outcome.previewModel);
+        previewStatus.textContent = "Validated repaired working copy. Select a remaining finding to highlight its geometry.";
+        renderCategories(summarizeFindingCategories(outcome.inspection.findings));
+        findings.replaceChildren(...outcome.inspection.findings.map((finding) => renderFinding(finding, outcome.previewModel, rendered)));
+        for (const checkbox of repairProposals.querySelectorAll('input[type="checkbox"]')) {
+            checkbox.checked = false;
+            checkbox.disabled = true;
+        }
+        repairProposals.replaceChildren();
+        repairRejectionList.replaceChildren();
+        repairRejections.hidden = true;
+        currentRepairPlan = null;
+        updateRepairSelection();
+        setReviewState("repaired", "Selected repairs completed on a validated working copy.");
+        summary.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.inspection.findings.length} findings remain. Original upload preserved.`;
+    });
 
     fileInput.addEventListener("change", async () => {
         const version = ++uploadVersion;
@@ -282,6 +330,7 @@ if (typeof document !== "undefined") {
                 previewModelToPlannerElements(previewModel),
                 inspection
             );
+            repairSession = repairPlan.proposals.length ? createStrayNodeRepairSession(source) : null;
             renderCategories(summarizeFindingCategories(inspection.findings));
             renderRepairPlan(repairPlan);
             findings.replaceChildren(...inspection.findings.map((finding) =>

@@ -4,7 +4,44 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
-## Tool 3 — Block 17 checkpoint (2026-10-28)
+## Tool 3 — Block 18 checkpoint (2026-10-28)
+
+VERIFIED: `mytonite86-coder/svg-path-closer`, Block 17 base
+`a07e1b8cd03e7efc4065671ece5ae0ae192ea33b`, clean at startup.
+Branch: `work/block18-tool3-execute-selected`. Completion commit: the local
+commit adding this checkpoint (`git log -1` on that branch). Deployment: UNKNOWN;
+no push, merge, deployment, commerce, PathSeal, or Tool 2 changes.
+Continuity: existing shared restart note v1.1 linked below and
+`operations/work-block-continuity-protocol.md` (`SKP-WORK-CONTINUITY-2026-09-01.1`).
+
+Repair Selected uses the existing checked proposal IDs. Execution replans against
+the retained original document, then edits only a deep working copy. Only the
+planner's exact coincident-node removals for polyline/polygon point lists are
+supported. Unknown/stale IDs, repeated selections, overlapping node removals,
+transformed ancestors, and coordinate text requiring precision review refuse
+the whole batch. Surviving coordinate text retains its precision. Unsupported
+and unselected subtrees and attributes are checked for equality with the original.
+
+Validation checks point lists, distinct topology, ordered geometric trace,
+reinspection, staged preview rendering, and unrelated document preservation.
+Failure discards the copy, reports zero executed/all requested skipped, and
+permits retry. Success retains the validated working document in the session,
+updates preview/findings/counts, clears selections, and locks the review against
+double execution. One successful batch per upload; upload again for another review.
+The original upload is never edited. No serialization, final export, or download.
+
+SESSION HANDOFF — Block 18 COMPLETE. Completed: selected execution and rollback.
+Verified: 49 Tool 3 tests, syntax/whitespace checks, actual Edge XML DOM/UI smoke
+(selected/unselected geometry, curve preservation, rollback, repeated execution,
+upload reset; zero page errors). Current state: local-only validated working-copy
+repair. Cross-project discoveries: none. Unresolved/blockers: none.
+Do not repeat historical audits or unrelated suites. Resume anchors:
+`modules/strayNodeRepairExecution.js`, `stray-node-cleaner.js`,
+`tests/stray-node-execution.test.mjs`, `tests/stray-node-selection.test.mjs`.
+Next single action: define a separately authorized Tool 3 final-validation and
+download work block. STOP; no Block 19 implementation authorized.
+
+## Historical Tool 3 — Block 17 checkpoint (2026-10-28)
 
 Repository: `mytonite86-coder/svg-path-closer`. Verified Block 16 base:
 `work/block16-tool3-repair-review` at `eea5760fd23130c6b917af6403f74d7a94cced98`.

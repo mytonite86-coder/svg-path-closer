@@ -101,13 +101,13 @@ test("page exposes accessible empty, loading, error, and complete review states"
     assert.match(controller, /No supported stray-node findings were detected\./);
 });
 
-test("presentation remains review-only with no repair or download path", async () => {
+test("presentation permits working-copy repair with no download or export path", async () => {
     const [page, controller] = await Promise.all([
         readFile(new URL("../stray-node-cleaner.html", import.meta.url), "utf8"),
         readFile(new URL("../stray-node-cleaner.js", import.meta.url), "utf8"),
     ]);
 
-    assert.match(page, /No geometry is altered/);
-    assert.doesNotMatch(page, /\bdownload(?:=|\s)|id="[^"]*download|checkout|subscribe/i);
+    assert.match(page, /original\s+upload is altered/);
+    assert.doesNotMatch(page, /<[^>]+\sdownload(?:=|\s|>)|id="[^"]*download|checkout|subscribe/i);
     assert.doesNotMatch(controller, /createDuplicateRemovalSvg|XMLSerializer|Blob|createObjectURL|\.download|fetch\(/);
 });

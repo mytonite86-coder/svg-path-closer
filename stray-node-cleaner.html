@@ -53,9 +53,11 @@
             </section>
             <section id="stray-node-repair-review" class="eco-panel" aria-labelledby="stray-node-repair-heading" hidden>
                 <h3 id="stray-node-repair-heading" class="eco-heading">Repair proposal review</h3>
-                <p class="eco-muted">Select the eligible proposals you want applied in a later repair step. All start unselected; selecting a proposal leaves your SVG unchanged.</p>
+                <p class="eco-muted">Select eligible proposals, then choose Repair Selected to apply them to a working copy. All start unselected. The original upload is preserved.</p>
                 <p id="stray-node-repair-status" class="eco-status" role="status" aria-live="polite"></p>
                 <div id="stray-node-repair-proposals" class="eco-review-list"></div>
+                <button id="stray-node-repair-selected" type="button" class="eco-button" disabled>Repair Selected</button>
+                <p id="stray-node-execution-status" class="eco-status" role="status" aria-live="polite"></p>
                 <section id="stray-node-repair-rejections" aria-labelledby="stray-node-rejection-heading" hidden>
                     <h4 id="stray-node-rejection-heading" class="eco-heading">Why other findings are not repair proposals</h4>
                     <ul id="stray-node-repair-rejection-list"></ul>
@@ -68,10 +70,11 @@
         </section>
 
         <section class="eco-section eco-panel">
-            <h2 class="eco-heading">Review only</h2>
+            <h2 class="eco-heading">Repair a working copy</h2>
             <p class="eco-muted">
-                Automatic and manual repairs are not available in this foundation.
-                No geometry is altered, and no repaired file is generated or downloaded.
+                Only selected planner-approved exact coincident nodes can be removed.
+                Each review permits one validated repair batch. No geometry in the original
+                upload is altered. Download and final export are not available.
             </p>
         </section>
 
@@ -79,10 +82,10 @@
     </main>
     <footer class="eco-footer">
         <div class="eco-shell">
-            <p>Review-only foundation for SVG Micro Eco Tool 3.</p>
+            <p>Review and selected working-copy repairs for SVG Micro Eco Tool 3.</p>
             <p>Produced by Skald and Kreepy Productions.</p>
         </div>
     </footer>
-    <script type="module" src="stray-node-cleaner.js?v=proposal-selection-1"></script>
+    <script type="module" src="stray-node-cleaner.js?v=selected-repairs-1"></script>
 </body>
 </html>
