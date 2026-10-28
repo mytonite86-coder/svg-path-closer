@@ -58,6 +58,8 @@
                 <div id="stray-node-repair-proposals" class="eco-review-list"></div>
                 <button id="stray-node-repair-selected" type="button" class="eco-button" disabled>Repair Selected</button>
                 <p id="stray-node-execution-status" class="eco-status" role="status" aria-live="polite"></p>
+                <p id="stray-node-validation-status" class="eco-status" role="status" aria-live="polite">Download requires a successful repair and final validation.</p>
+                <button id="stray-node-download" type="button" class="eco-button" disabled>Download Cleaned SVG</button>
                 <section id="stray-node-repair-rejections" aria-labelledby="stray-node-rejection-heading" hidden>
                     <h4 id="stray-node-rejection-heading" class="eco-heading">Why other findings are not repair proposals</h4>
                     <ul id="stray-node-repair-rejection-list"></ul>
@@ -74,7 +76,7 @@
             <p class="eco-muted">
                 Only selected planner-approved exact coincident nodes can be removed.
                 Each review permits one validated repair batch. No geometry in the original
-                upload is altered. Download and final export are not available.
+                upload is altered. Download becomes available only after final validation.
             </p>
         </section>
 
@@ -86,6 +88,6 @@
             <p>Produced by Skald and Kreepy Productions.</p>
         </div>
     </footer>
-    <script type="module" src="stray-node-cleaner.js?v=selected-repairs-1"></script>
+    <script type="module" src="stray-node-cleaner.js?v=validated-download-1"></script>
 </body>
 </html>

@@ -101,13 +101,15 @@ test("page exposes accessible empty, loading, error, and complete review states"
     assert.match(controller, /No supported stray-node findings were detected\./);
 });
 
-test("presentation permits working-copy repair with no download or export path", async () => {
+test("presentation provides a disabled download control pending validation", async () => {
     const [page, controller] = await Promise.all([
         readFile(new URL("../stray-node-cleaner.html", import.meta.url), "utf8"),
         readFile(new URL("../stray-node-cleaner.js", import.meta.url), "utf8"),
     ]);
 
     assert.match(page, /original\s+upload is altered/);
-    assert.doesNotMatch(page, /<[^>]+\sdownload(?:=|\s|>)|id="[^"]*download|checkout|subscribe/i);
+    assert.match(page, /id="stray-node-download"[^>]*disabled/);
+    assert.match(page, /id="stray-node-validation-status"/);
+    assert.doesNotMatch(page, /checkout|subscribe/i);
     assert.doesNotMatch(controller, /createDuplicateRemovalSvg|XMLSerializer|Blob|createObjectURL|\.download|fetch\(/);
 });

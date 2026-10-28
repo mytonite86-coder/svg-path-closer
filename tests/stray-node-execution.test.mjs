@@ -7,6 +7,7 @@ import { createStrayNodeRepairSession } from "../modules/strayNodeRepairExecutio
 class Element {
     constructor(localName, attributes = {}, children = []) {
         this.localName = localName;
+        this.tagName = localName;
         this.attributes = { ...attributes };
         this.children = children;
         for (const child of children) child.parentElement = this;
@@ -145,4 +146,64 @@ test("preserves surviving coordinate precision and refuses rounded false coincid
     assert.equal(refused.ok, false);
     assert.match(refused.reason, /precision review/);
     assert.equal(unsafe.original.isEqualNode(unsafe.before), true);
+});
+
+function serializationFixture(t, transform = (document) => document) {
+    const oldParser = globalThis.DOMParser;
+    const oldSerializer = globalThis.XMLSerializer;
+    const documents = new Map();
+    globalThis.XMLSerializer = class {
+        serializeToString(document) {
+            const key = `<svg data-fixture="${documents.size}"/>`;
+            documents.set(key, transform(document.cloneNode(true)));
+            return key;
+        }
+    };
+    globalThis.DOMParser = class {
+        parseFromString(text) {
+            if (!documents.has(text)) throw new Error("Invalid SVG XML");
+            return documents.get(text).cloneNode(true);
+        }
+    };
+    t.after(() => { globalThis.DOMParser = oldParser; globalThis.XMLSerializer = oldSerializer; });
+}
+
+test("final download validation verifies repairs and preserves original/unselected geometry", (t) => {
+    serializationFixture(t);
+    const { original, before, repair } = session([shape("safe", "0,0 5,0 5,0 10,0"), shape("unselected", "0,1 5,1 5,1 10,1")]);
+    assert.throws(() => repair.prepareDownload(1), /count/);
+    const outcome = repair.execute([id("safe")]);
+    assert.equal(outcome.ok, true);
+    const ready = repair.prepareDownload(1);
+    assert.equal(ready.executedCount, 1);
+    assert.match(ready.svgText, /^<svg/);
+    assert.equal(original.isEqualNode(before), true);
+    assert.equal(repair.workingDocument.querySelectorAll("polyline")[1].getAttribute("points"), "0,1 5,1 5,1 10,1");
+    // Returned document edits cannot corrupt the session's private accepted copy.
+    outcome.workingDocument.querySelectorAll("polyline")[0].setAttribute("points", "1,1");
+    assert.equal(repair.prepareDownload(1).executedCount, 1);
+});
+
+test("final validation blocks a mismatched recorded repair count and failed repairs", (t) => {
+    serializationFixture(t);
+    const { repair } = session([shape("safe", "0,0 5,0 5,0 10,0")]);
+    assert.equal(repair.execute(["unsafe"]).ok, false);
+    assert.throws(() => repair.prepareDownload(0), /count/);
+    assert.equal(repair.execute([id("safe")]).ok, true);
+    for (const count of [0, 2, -1, "1", NaN]) assert.throws(() => repair.prepareDownload(count), /count/);
+});
+
+test("final validation blocks invalid SVG roots after serialization", (t) => {
+    serializationFixture(t, (document) => { document.documentElement.localName = "html"; document.documentElement.tagName = "html"; return document; });
+    const { repair } = session([shape("safe", "0,0 5,0 5,0 10,0")]);
+    repair.execute([id("safe")]);
+    assert.throws(() => repair.prepareDownload(1), /SVG root/);
+});
+
+test("final validation blocks serialization changes to unselected and unsupported geometry", (t) => {
+    serializationFixture(t, (document) => { document.querySelectorAll("path")[0].setAttribute("d", "M0 0"); return document; });
+    const { original, before, repair } = session([shape("safe", "0,0 5,0 5,0 10,0"), new Element("path", { d: "M0 0 Q5 5 10 0" })]);
+    repair.execute([id("safe")]);
+    assert.throws(() => repair.prepareDownload(1), /unchanged geometry/);
+    assert.equal(original.isEqualNode(before), true);
 });

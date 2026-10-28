@@ -11,6 +11,7 @@ import {
 } from "./modules/strayNodePreview.js";
 import { planExactCoincidentNodeRepairs } from "./modules/strayNodeRepairPlanner.js";
 import { createStrayNodeRepairSession } from "./modules/strayNodeRepairExecution.js";
+import { downloadCleanedSvg } from "./modules/strayNodeDownload.js";
 
 const CATEGORY_LABELS = Object.freeze({
     "coincident-node": "Coincident nodes",
@@ -138,9 +139,13 @@ if (typeof document !== "undefined") {
     const findings = document.querySelector("#stray-node-findings");
     const repairButton = document.querySelector("#stray-node-repair-selected");
     const executionStatus = document.querySelector("#stray-node-execution-status");
+    const downloadButton = document.querySelector("#stray-node-download");
+    const validationStatus = document.querySelector("#stray-node-validation-status");
     let currentRepairPlan = null;
     let repairSession = null;
     let repaired = false;
+    let successfulRepairCount = 0;
+    let originalFileName = "drawing.svg";
     let uploadVersion = 0;
 
     function selectedRepairIds() {
@@ -249,6 +254,9 @@ if (typeof document !== "undefined") {
     function clearRepairReview() {
         repairSession = null;
         repaired = false;
+        successfulRepairCount = 0;
+        downloadButton.disabled = true;
+        validationStatus.textContent = "Download requires a successful repair and final validation.";
         repairButton.disabled = true;
         executionStatus.textContent = "";
         currentRepairPlan = null;
@@ -300,6 +308,28 @@ if (typeof document !== "undefined") {
         updateRepairSelection();
         setReviewState("repaired", "Selected repairs completed on a validated working copy.");
         summary.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.inspection.findings.length} findings remain. Original upload preserved.`;
+        successfulRepairCount = outcome.executedCount;
+        try {
+            repairSession.prepareDownload(successfulRepairCount);
+            validationStatus.textContent = "Final validation passed. The cleaned SVG is ready to download.";
+            downloadButton.disabled = false;
+        } catch (error) {
+            downloadButton.disabled = true;
+            validationStatus.textContent = `Download blocked: ${error.message}`;
+        }
+    });
+
+    downloadButton.addEventListener("click", () => {
+        if (downloadButton.disabled || !repaired || !repairSession || !successfulRepairCount) return;
+        downloadButton.disabled = true;
+        try {
+            const { svgText } = repairSession.prepareDownload(successfulRepairCount);
+            downloadCleanedSvg(svgText, originalFileName);
+            validationStatus.textContent = "Final validation passed. Cleaned SVG download started; original upload preserved.";
+            downloadButton.disabled = false;
+        } catch (error) {
+            validationStatus.textContent = `Download blocked: ${error.message}`;
+        }
     });
 
     fileInput.addEventListener("change", async () => {
@@ -310,6 +340,7 @@ if (typeof document !== "undefined") {
         previewPanel.hidden = true;
         previewStatus.textContent = "Select a mapped finding to highlight its geometry.";
         clearRepairReview();
+        originalFileName = fileInput.files?.[0]?.name || "drawing.svg";
         summary.textContent = "";
         setReviewState("loading", "Inspecting the local SVG…");
 

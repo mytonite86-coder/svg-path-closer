@@ -1,6 +1,29 @@
 # SVG Path Closer Build Checklist
 
-## Tool 3 — Block 18 selected repair execution
+## Tool 3 — Block 19 final validation and download
+
+Last checked: 2026-10-28. Branch: `work/block19-tool3-validation-download`.
+Verified clean base: `7b338db` (Block 18). README contains the current handoff,
+completion commit locator, continuity pointer and resume anchors.
+
+- [x] Download disabled until successful repair and final validation
+- [x] Compare recorded successful repairs with actual removed-node count
+- [x] Recheck repaired coordinates and all unselected/unsupported document content
+- [x] Reuse shared SVG validation, serialization and parsing utilities
+- [x] Validate serialized SVG and round-trip document equality
+- [x] Repeat validation on each download; block failed/stale results
+- [x] Reset session/count/download state immediately on every upload
+- [x] Download original basename plus `-cleaned.svg`, with SVG MIME type
+- [x] Preserve original upload, preview, selection count and one-batch rule
+- [x] 56 focused Tool 3 tests passed; syntax and whitespace checks passed
+- [x] Actual Edge download completed and contents/filename inspected
+- [x] Browser verified invalid serialization, stale/new/invalid upload blocking
+- [x] No PathSeal/Tool 2, repair algorithms, commerce, push, merge or deployment changes
+
+Block 19 COMPLETE. Blockers: none. Next single action: owner acceptance testing
+of the completed Tool 3 workflow. STOP; no subsequent development authorized.
+
+## Historical Tool 3 — Block 18 selected repair execution
 
 Last checked: 2026-10-28. Branch: `work/block18-tool3-execute-selected`.
 Verified clean base: `a07e1b8` (Block 17). See README for current handoff,

@@ -133,7 +133,8 @@ test("customer page keeps original geometry and repairs local working copies onl
     assert.match(page, /Repair Selected/);
     assert.match(page, /upload is altered/);
     assert.match(page, /original/);
-    assert.doesNotMatch(page, /<[^>]+\sdownload(?:=|\s|>)|id="[^"]*download|checkout|subscribe/i);
+    assert.match(page, /id="stray-node-download"[^>]*disabled/);
+    assert.doesNotMatch(page, /checkout|subscribe/i);
     assert.doesNotMatch(controller, /fetch\(|XMLHttpRequest|sendBeacon|Blob|createObjectURL|\.download/);
     assert.doesNotMatch(adapter, /XMLSerializer|remove\(|replaceWith|setAttribute|fetch\(/);
     assert.match(adapter, /analyzeStrayNodes\(elements\)/);

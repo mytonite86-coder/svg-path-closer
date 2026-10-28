@@ -4,7 +4,46 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
-## Tool 3 — Block 18 checkpoint (2026-10-28)
+## Tool 3 — Block 19 checkpoint (2026-10-28)
+
+VERIFIED: `mytonite86-coder/svg-path-closer`, clean Block 18 base
+`7b338db99369babbf5a1978b11d70d1d47ef56d6`. Development branch:
+`work/block19-tool3-validation-download`. Completion commit: the local commit
+adding this checkpoint (`git log -1` on that branch). Deployment: UNKNOWN.
+Continuity remains `SKP-WORK-CONTINUITY-2026-09-01.1`, with the shared v1.1
+restart note linked in the historical Block 17 entry below.
+
+Tool 3 now completes Upload → Scan → Review → Select → Repair → Validate →
+Download locally. Download Cleaned SVG starts disabled. After a successful
+repair, final validation verifies the count against private successful proposal
+records, the actual removed-node count, exact repaired coordinates, and equality
+of all other document content with the original. The existing shared
+`serializeSvg`, `validateSvgText`, and `parseSvg` utilities serialize/reparse the
+accepted working copy; round-trip content must match before download is enabled.
+No PathSeal or Tool 2 implementation was changed.
+
+Each download click repeats final validation; no serialized result is cached
+across uploads. A failure blocks download. New uploads immediately clear the
+session, repair count, and download availability, including invalid uploads.
+Files use the original basename plus `-cleaned.svg` and SVG MIME type. The Blob
+URL is released after the browser starts consuming it. The original source is
+never edited; preview, selection counts and one successful batch per upload
+remain intact. Repair algorithms and supported geometry are unchanged.
+
+SESSION HANDOFF — Block 19 COMPLETE. Completed: final validation, serialization,
+and cleaned SVG download. Verified: 56 focused Tool 3 tests, syntax and whitespace
+checks; actual Edge download completed with filename and file-content inspection,
+original/unselected/unsupported-content preservation, invalid serialization
+blocking, stale/new-upload/invalid-upload blocking, one-batch safety and zero
+page errors. Current state: local-only complete Tool 3 workflow. Cross-project
+discoveries: none. Genuine blockers: none. No push, merge, deployment or commerce
+changes. Resume anchors: `modules/strayNodeRepairExecution.js`,
+`modules/strayNodeDownload.js`, `stray-node-cleaner.js`, and Tool 3 focused tests.
+Do not repeat passed checks or historical audits without relevant changes.
+Next single action: owner acceptance testing of the completed Tool 3 workflow.
+STOP after Block 19; no next development block is authorized.
+
+## Historical Tool 3 — Block 18 checkpoint (2026-10-28)
 
 VERIFIED: `mytonite86-coder/svg-path-closer`, Block 17 base
 `a07e1b8cd03e7efc4065671ece5ae0ae192ea33b`, clean at startup.

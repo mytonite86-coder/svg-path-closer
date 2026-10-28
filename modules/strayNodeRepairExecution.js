@@ -1,6 +1,7 @@
 import { inspectStrayNodeSvg, normalizeSvgGeometry } from "./strayNodeBrowserAdapter.js";
 import { createStrayNodePreviewModel } from "./strayNodePreview.js";
 import { planExactCoincidentNodeRepairs } from "./strayNodeRepairPlanner.js";
+import { parseSvg, serializeSvg, validateSvgText } from "./pathCloser.js";
 
 // Adapt an in-memory document to the existing analysis/preview APIs. No serialization.
 export function inspectWorkingDocument(document) {
@@ -31,9 +32,43 @@ export function createStrayNodeRepairSession(source, { DOMParser: Parser = globa
     const initialPlan = planFor(original);
     let completed = false;
     let acceptedDocument = null;
+    let successfulRepairs = [];
+    let acceptedChanges = [];
+
+    function validateRecordedRepairs(document, recordedCount) {
+        if (!completed || !acceptedDocument || !Number.isInteger(recordedCount)
+            || recordedCount < 1 || recordedCount !== successfulRepairs.length
+            || new Set(successfulRepairs).size !== recordedCount) {
+            throw new Error("Final validation failed: successful repair count does not match the repair record.");
+        }
+        inspectWorkingDocument(document);
+        const comparison = document.cloneNode(true);
+        const nodes = geometry(comparison);
+        const originalNodes = geometry(original);
+        let actualCount = 0;
+        for (const { index, oldPoints, newPoints } of acceptedChanges) {
+            if (nodes[index]?.getAttribute("points") !== newPoints) throw new Error("Final validation failed: repaired coordinates changed.");
+            actualCount += normalizeSvgGeometry(originalNodes[index], index).element.nodes.length
+                - normalizeSvgGeometry(nodes[index], index).element.nodes.length;
+            nodes[index].setAttribute("points", oldPoints);
+        }
+        if (actualCount !== recordedCount || !comparison.isEqualNode(original)) {
+            throw new Error("Final validation failed: repair count or unchanged geometry differs.");
+        }
+    }
 
     return {
         get workingDocument() { return acceptedDocument?.cloneNode(true) || null; },
+        prepareDownload(recordedCount) {
+            validateRecordedRepairs(acceptedDocument, recordedCount);
+            const svgText = serializeSvg(acceptedDocument.cloneNode(true));
+            const validation = validateSvgText(svgText);
+            if (!validation.isValid) throw new Error(validation.message || "Final SVG validation failed.");
+            const roundTrip = parseSvg(svgText);
+            validateRecordedRepairs(roundTrip, recordedCount);
+            if (!roundTrip.isEqualNode(acceptedDocument)) throw new Error("Final validation failed: serialization changed SVG content.");
+            return { svgText, executedCount: successfulRepairs.length };
+        },
         execute(selectedIds, validateWorkingCopy = () => true) {
             const ids = Array.isArray(selectedIds) ? selectedIds : [];
             const refused = (reason) => ({ ok: false, executedCount: 0, skippedCount: ids.length, reason });
@@ -113,7 +148,9 @@ export function createStrayNodeRepairSession(source, { DOMParser: Parser = globa
                 }
                 if (!comparison.isEqualNode(original)) throw new Error("Repair validation failed: unrelated SVG content changed.");
                 completed = true;
-                acceptedDocument = working;
+                acceptedDocument = working.cloneNode(true);
+                successfulRepairs = selected.map(({ id }) => id);
+                acceptedChanges = changed;
                 return { ok: true, executedCount: selected.length, skippedCount: 0, workingDocument: working, ...view };
             } catch (error) {
                 return refused(error?.message || "Repair failed. The working copy was discarded.");

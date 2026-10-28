@@ -36,14 +36,15 @@ async function page(t) {
         all() { return this.children.filter((child) => typeof child !== "string").flatMap((child) => [child, ...child.all()]); }
         querySelectorAll() { return this.all().filter((node) => node.type === "checkbox" && node.checked); }
     }
-    for (const name of ["file", "results", "status", "summary", "categories", "category-list", "preview-panel", "preview-status", "preview", "repair-review", "repair-status", "repair-proposals", "repair-rejections", "repair-rejection-list", "findings", "repair-selected", "execution-status"]) {
+    for (const name of ["file", "results", "status", "summary", "categories", "category-list", "preview-panel", "preview-status", "preview", "repair-review", "repair-status", "repair-proposals", "repair-rejections", "repair-rejection-list", "findings", "repair-selected", "execution-status", "download", "validation-status"]) {
         elements.set(`#stray-node-${name}`, new Node("div"));
     }
     const oldDocument = globalThis.document;
     const oldParser = globalThis.DOMParser;
+    const oldSerializer = globalThis.XMLSerializer;
     globalThis.document = doc;
     const fixtureDocument = (nodes) => ({
-        documentElement: { localName: "svg" },
+        documentElement: { localName: "svg", tagName: "svg" },
         querySelector: () => null,
         querySelectorAll: () => nodes,
         cloneNode: () => fixtureDocument(nodes.map((node) => node.cloneNode(true))),
@@ -56,7 +57,14 @@ async function page(t) {
             return fixtureDocument(fixtures.get(source));
         }
     };
-    t.after(() => { globalThis.document = oldDocument; globalThis.DOMParser = oldParser; });
+    globalThis.XMLSerializer = class {
+        serializeToString(document) {
+            const source = `<svg data-serialized="${fixtures.size}"/>`;
+            fixtures.set(source, document.querySelectorAll().map((node) => node.cloneNode(true)));
+            return source;
+        }
+    };
+    t.after(() => { globalThis.document = oldDocument; globalThis.DOMParser = oldParser; globalThis.XMLSerializer = oldSerializer; });
     await import(`../stray-node-cleaner.js?selection-test=${Math.random()}`);
     const get = (name) => elements.get(`#stray-node-${name}`);
     const geometry = (id, points, tag = "polyline", extra = {}) => {
@@ -167,10 +175,13 @@ test("Repair Selected updates preview and counts, locks repeat execution, and re
     const shape = p.geometry("safe", "0,0 5,0 5,0 10,0");
     await p.upload("<svg data-fixture='execute'/>", [shape]);
     assert.equal(p.get("repair-selected").disabled, true);
+    assert.equal(p.get("download").disabled, true);
     await p.toggle(p.boxes()[0], true);
     assert.equal(p.get("repair-selected").disabled, false);
     await p.get("repair-selected").fire("click");
     assert.match(p.get("execution-status").textContent, /1 repairs executed; 0 skipped/);
+    assert.equal(p.get("download").disabled, false);
+    assert.match(p.get("validation-status").textContent, /Final validation passed/);
     assert.equal(p.get("results").dataset.state, "repaired");
     assert.equal(p.get("preview").children[0].getAttribute("points"), "0,0 5,0 10,0");
     assert.equal(shape.getAttribute("points"), "0,0 5,0 5,0 10,0");
@@ -183,4 +194,21 @@ test("Repair Selected updates preview and counts, locks repeat execution, and re
     assert.equal(p.boxes().length, 1);
     assert.equal(p.get("execution-status").textContent, "");
     assert.equal(p.get("repair-selected").disabled, true);
+    assert.equal(p.get("download").disabled, true);
+    await p.get("download").fire("click");
+    assert.match(p.get("validation-status").textContent, /requires a successful repair/);
+});
+
+test("failed final validation blocks downloads while preserving completed repair review", async (t) => {
+    const p = await page(t);
+    await p.upload("<svg data-fixture='fail-download'/>", [p.geometry("safe", "0,0 5,0 5,0 10,0")]);
+    await p.toggle(p.boxes()[0], true);
+    globalThis.XMLSerializer = class { serializeToString() { return "broken"; } };
+    await p.get("repair-selected").fire("click");
+    assert.equal(p.get("results").dataset.state, "repaired");
+    assert.equal(p.get("repair-selected").disabled, true);
+    assert.equal(p.get("download").disabled, true);
+    assert.match(p.get("validation-status").textContent, /Download blocked/);
+    await p.get("download").fire("click");
+    assert.equal(p.get("download").disabled, true);
 });
