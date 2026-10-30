@@ -1,5 +1,30 @@
 # SVG Path Closer Build Checklist
 
+## Block 26 — targeted release-blocker repairs
+
+Last checked: 2026-10-30. Branch: `work/block26-targeted-release-fixes`.
+Clean base: `0ab3919`. README contains the completion commit locator and evidence.
+The Block 25 checklist below preserves its original historical assessment.
+
+- [x] Reproduce all five Block 25 failing Chrome checks before implementation
+- [x] PathSeal fresh authoritative access before both repair and download
+- [x] Deny revoked/expired/offline/malformed/signed-out access; retain free review
+- [x] Synchronize PathSeal safe preselection after review controls are appended
+- [x] Protect asynchronous paid actions against changed upload/selection/account
+- [x] Tool 2 resets approval/output/old selections on new upload
+- [x] Bind Tool 2 approval to the confirmed source and selection; reject stale work
+- [x] Block old pending downloads and retain newly uploaded file's valid state
+- [x] Five previously failed checks now pass; 19 focused Chrome checks pass total
+- [x] 10 relevant Node checks pass; syntax and whitespace checks pass
+- [x] Valid authorized downloads; original fixtures/files remain unchanged
+- [x] Tools 3–5, engines, shared hub/account and commercial configuration unchanged
+- [x] All-five local software release readiness; no known remaining Block 25 software blocker
+- [ ] Target-host release checks and separate owner deployment approval
+- [ ] Separately authorized commercial activation and live entitlement proof
+- [x] No push, merge, deploy, new dependencies or unrelated test suites
+
+Stop after the local Block 26 commit. No commercial activation or deployment.
+
 ## Block 25 â€” final five-tool integration and release readiness
 
 Last checked: 2026-10-30. Branch: `work/block25-suite-release-readiness`.

@@ -4,6 +4,49 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
+## Targeted software release repairs — Block 26 (2026-10-30)
+
+**Local software blockers resolved.** Clean base: `0ab3919`; branch:
+`work/block26-targeted-release-fixes`. The completion commit is the local commit
+adding this checkpoint (`git log -1` on that branch). The Block 25 assessment
+below is historical; its five failed checks are now passing.
+
+- PathSeal repair and download each refresh authoritative session access before
+  acting. Revoked, expired, unavailable, malformed and signed-out responses deny
+  paid work; cached grants cannot authorize it. Direct PathSeal and universal
+  lifetime grants remain supported; free scan/preview needs no authorization.
+- PathSeal review synchronizes preselected repairs after all checkboxes are
+  appended. Safe defaults are immediately repair-ready. Geometry algorithms and
+  safety thresholds are unchanged. Upload/selection/account guards prevent a
+  delayed access response from acting on changed state.
+- Tool 2 clears prior approval/output/selection controls on every upload, binds
+  confirmation to captured upload/selection/source, and ignores stale responses.
+  Newly scanned safe defaults retain their established behavior but require new
+  confirmation. Pending downloads cannot reuse approval for another file.
+
+Verification: reproduced all five Block 25 failures before changes. After fixes,
+**19 focused Chrome checks passed, zero failed**, including all five previously
+failed checks, signed-out/unentitled/direct/lifetime workflows for PathSeal and
+Tool 2, expired/canceled grants, selection races and upload/download races.
+Actual valid SVG downloads and unchanged uploaded originals were checked.
+**10 focused Node access tests passed, zero failed**. Syntax and whitespace
+checks passed. Browser sessions used synthetic responses: zero live requests.
+Tools 3–5, shared hub/account code, geometry engines, manifests, fixtures and
+commercial configuration were not changed. Their Block 25 passing evidence is
+retained; no unrelated suites were repeated.
+
+Reproduce only this scope:
+`node --test tests/pathseal-access.test.mjs tests/duplicate-geometry-access.test.mjs`.
+For the existing browser harness, set `SVG_SUITE_CASE_FILTER` to
+`(^PathSeal:)|(^Duplicate Line Remover:)|(^Tool 2:)`, then use the existing
+Playwright module and owner fixture arguments documented below.
+
+No known remaining local software release blocker from Block 25. All five tools
+are locally software-release-ready within their approved scopes. Target-host
+checks and separate owner deployment approval remain required. Commercial gates
+and live checkout/webhook-to-entitlement proof below remain unchanged and
+unverified. No push, merge, deployment or commercial activation. Stop at Block 26.
+
 ## Five-tool release checkpoint â€” Block 25 (2026-10-30)
 
 **Audit complete; full-suite release BLOCKED.** Repository:

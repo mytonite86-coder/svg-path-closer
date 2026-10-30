@@ -5,6 +5,7 @@ import {
     clearSession,
     getCurrentUser,
     hasEntitlement,
+    getAccessToken,
     startPathSealCheckout,
     confirmPathSealCheckout,
 } from "./modules/auth.js";
@@ -24,6 +25,7 @@ import {
     captureAttribution,
     trackPathSealEvent,
 } from "./modules/attribution.js";
+import { runWithFreshPathSealAccess } from "./modules/pathSealAccess.js";
 
 const attribution = captureAttribution({
     search: window.location.search,
@@ -98,6 +100,39 @@ let pendingRepairs = [];
 let repairedSvgText = "";
 let originalFileName = "";
 let currentOpenPaths = [];
+let svgVersion = 0;
+let selectionVersion = 0;
+let protectedActionPending = false;
+
+async function withFreshPathSealAccess(action) {
+    if (protectedActionPending) return;
+    const version = svgVersion, selected = selectionVersion, source = svgDocument, token = getAccessToken();
+    let completed = false;
+    protectedActionPending = true;
+    fixButton.disabled = true;
+    downloadButton.disabled = true;
+    try {
+        await runWithFreshPathSealAccess(refreshSession, () => {
+            if (version !== svgVersion || source !== svgDocument) return;
+            if (selected !== selectionVersion) throw new Error("Selections changed while access was checked. Review and try again.");
+            if (token !== getAccessToken()) throw new Error("Account changed while access was checked. Sign in and try again.");
+            const result = action();
+            completed = true;
+            return result;
+        });
+    } catch (error) {
+        if (version === svgVersion && source === svgDocument) {
+            accountStatus.textContent = error.message || "PathSeal access could not be verified. Sign in and try again.";
+            document.querySelector("#account-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    } finally {
+        if (version === svgVersion && source === svgDocument) {
+            protectedActionPending = false;
+            fixButton.disabled = protectedActionPending || pendingRepairs.length === 0;
+            downloadButton.disabled = !completed || !repairedSvgText;
+        }
+    }
+}
 let previewNavigation = null;
 
 function createPreviewNavigation(previewSvg) {
@@ -566,6 +601,17 @@ function createPreviewSvg(svgDocument) {
     return previewSvg;
 }
 fileInput.addEventListener("change", async () => {
+    const version = ++svgVersion;
+    selectionVersion += 1;
+    protectedActionPending = false;
+    svgDocument = null;
+    currentOpenPaths = [];
+    repairedSvgText = "";
+    pendingRepairs = [];
+    fixButton.disabled = true;
+    downloadButton.disabled = true;
+    openPathList.replaceChildren();
+    openPathReview.hidden = true;
     const selectedFile = fileInput.files[0];
 
 
@@ -591,9 +637,12 @@ fileInput.addEventListener("change", async () => {
     validationStatus.textContent = "Not run";
 
     try {
-        svgText = await selectedFile.text();
+        const text = await selectedFile.text();
+        if (version !== svgVersion) return;
+        svgText = text;
         svgDocument = parseSvg(svgText);
     } catch (error) {
+        if (version !== svgVersion) return;
         resultsSection.hidden = false;
         repairSummary.hidden = true;
 
@@ -837,6 +886,7 @@ openPathsCard.addEventListener("click", () => {
 
     });
     function updatePendingRepairsFromSelection() {
+        selectionVersion += 1;
         const selectedCheckboxes = [
             ...openPathList.querySelectorAll(
                 'input[type="checkbox"]:checked'
@@ -853,7 +903,7 @@ openPathsCard.addEventListener("click", () => {
             })
             .filter(isRepairableContour);
 
-        fixButton.disabled = pendingRepairs.length === 0;
+        fixButton.disabled = protectedActionPending || pendingRepairs.length === 0;
 
         pathsSkipped.textContent =
             currentOpenPaths.length - pendingRepairs.length;
@@ -939,7 +989,6 @@ openPathsCard.addEventListener("click", () => {
             updateContourPreview
         );
 
-        updatePendingRepairsFromSelection();
         const gapDistance = analysis.gapDistance.toFixed(2);
         const recommendation =
             analysis.gapType === "large-gap"
@@ -954,37 +1003,23 @@ openPathsCard.addEventListener("click", () => {
         openPathList.append(option);
     });
 
+    updatePendingRepairsFromSelection();
     openPathReview.hidden = false;
 });
 fixButton.addEventListener("click", () => {
-        if (!hasEntitlement("pathseal")) {
-        accountStatus.textContent =
-            getCurrentUser()
-                ? "Subscribe to unlock PathSeal repair."
-                : "Sign in or create an account to unlock PathSeal repair.";
-
-        document
-            .querySelector("#account-panel")
-            .scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-            });
-
-        return;
-    }
-
     if (pendingRepairs.length === 0) {
         return;
     }
 
-    const repairedCount = pendingRepairs.length;
-    void trackPathSealEvent(
-        "repair_selected",
-        { attribution }
-    );
+    return withFreshPathSealAccess(() => {
+        const repairedCount = pendingRepairs.length;
+        void trackPathSealEvent(
+            "repair_selected",
+            { attribution }
+        );
 
-    pendingRepairs.forEach((repair) => {
-        createContourBridge(repair);
+        pendingRepairs.forEach((repair) => {
+            createContourBridge(repair);
     });
 
     repairedSvgText = serializeSvg(svgDocument);
@@ -1014,51 +1049,38 @@ fixButton.addEventListener("click", () => {
     statusMessage.textContent =
         `${repairedCount} open contour${repairedCount === 1 ? "" : "s"} repaired successfully.`;
 
+    });
 });
 downloadButton.addEventListener("click", () => {
-        if (!hasEntitlement("pathseal")) {
-        accountStatus.textContent =
-            getCurrentUser()
-                ? "Subscribe to unlock clean SVG downloads."
-                : "Sign in or create an account to unlock clean SVG downloads.";
-
-        document
-            .querySelector("#account-panel")
-            .scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-            });
-
-        return;
-    }
-
     if (!repairedSvgText) {
         return;
     }
 
-    const svgBlob = new Blob(
-        [repairedSvgText],
-        { type: "image/svg+xml" }
-    );
+    return withFreshPathSealAccess(() => {
+        const svgBlob = new Blob(
+            [repairedSvgText],
+            { type: "image/svg+xml" }
+        );
 
-    const downloadUrl = URL.createObjectURL(svgBlob);
+        const downloadUrl = URL.createObjectURL(svgBlob);
 
-    const downloadLink = document.createElement("a");
+        const downloadLink = document.createElement("a");
 
-    downloadLink.href = downloadUrl;
-    const cleanedFileName = originalFileName.replace(
-        /\.svg$/i,
-        "-cleaned.svg"
-    );
+        downloadLink.href = downloadUrl;
+        const cleanedFileName = originalFileName.replace(
+            /\.svg$/i,
+            "-cleaned.svg"
+        );
 
-    downloadLink.download = cleanedFileName;
-    downloadLink.click();
-    void trackPathSealEvent(
-        "validated_download_completed",
-        { attribution }
-    );
+        downloadLink.download = cleanedFileName;
+        downloadLink.click();
+        void trackPathSealEvent(
+            "validated_download_completed",
+            { attribution }
+        );
 
-    URL.revokeObjectURL(downloadUrl);
+        URL.revokeObjectURL(downloadUrl);
+    });
 });
 
 loginButton.addEventListener(

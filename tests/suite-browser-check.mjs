@@ -122,6 +122,7 @@ async function download(s, tool) {
 }
 async function denied(s, tool) {
     if (tool.id === "pathseal") {
+        await s.page.waitForFunction((selector) => /Sign in|Subscribe/.test(document.querySelector(selector).textContent), tool.message);
         assert.equal(await s.page.locator(tool.download).isDisabled(), true, "PathSeal allowed repair after its grant was revoked");
         assert.match(await s.page.locator(tool.message).innerText(), /Sign in|Subscribe/);
     } else await s.page.waitForFunction((selector) => /Sign in|does not have|could not be verified/i.test(document.querySelector(selector).textContent), tool.message);
@@ -186,6 +187,51 @@ try {
             release(); await response;
             await s.page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
             assert.equal(await s.page.locator(tools[1].download).isDisabled(), true, "An earlier approval generated repaired output for a newer, unapproved upload");
+        } finally { await s.context.close(); }
+    });
+    for (const status of ["expired", "canceled"]) await check(`PathSeal: ${status} fresh grant denies repair and download`, async () => {
+        const s = await session({ entitlements: ["pathseal"] });
+        try {
+            await open(s, tools[0], false); await review(s, tools[0]); await repaired(s, tools[0]);
+            s.state.user = { entitlements: ["pathseal"], subscription_status: status };
+            await s.page.locator(tools[0].download).click(); await denied(s, tools[0]);
+            await review(s, tools[0]);
+            await s.page.locator(tools[0].repair).click(); await denied(s, tools[0]);
+        } finally { await s.context.close(); }
+    });
+    for (const tool of tools.slice(0, 2)) await check(`${tool.name}: selection change invalidates pending approval`, async () => {
+        const s = await session({ entitlements: [tool.id] });
+        try {
+            await open(s, tool, false); await review(s, tool);
+            let release, entered;
+            const started = new Promise((done) => { entered = done; });
+            s.state.delay = () => { const wait = new Promise((done) => { release = done; }); entered(); return wait; };
+            await s.page.locator(tool.repair).click(); await started;
+            await s.page.locator('input[type="checkbox"]:checked').first().uncheck();
+            const response = s.page.waitForResponse((r) => r.url().endsWith("/auth/me"));
+            release(); await response;
+            await s.page.waitForFunction((selector) => /Selections changed/.test(document.querySelector(selector).textContent), tool.message);
+            assert.equal(await s.page.locator(tool.download).isDisabled(), true);
+        } finally { await s.context.close(); }
+    });
+    await check("Tool 2: new upload clears completed approval and blocks pending download", async () => {
+        const s = await session({ entitlements: ["duplicate_geometry"] });
+        try {
+            const tool = tools[1];
+            await open(s, tool, false); await review(s, tool); await repaired(s, tool);
+            let release, entered;
+            const started = new Promise((done) => { entered = done; });
+            s.state.delay = () => { const wait = new Promise((done) => { release = done; }); entered(); return wait; };
+            await s.page.locator(tool.download).click(); await started;
+            await s.page.locator(tool.input).setInputFiles({ name: "new-upload.svg", mimeType: "image/svg+xml", buffer: Buffer.from(originals.get(tool.fixture)) });
+            await s.page.waitForFunction(() => document.querySelector("#duplicate-status").textContent.startsWith("Proposed removal"));
+            const response = s.page.waitForResponse((r) => r.url().endsWith("/auth/me"));
+            release(); await response;
+            await s.page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+            assert.equal(s.state.downloads.length, 0);
+            assert.equal(await s.page.locator(tool.download).isDisabled(), true);
+            s.state.delay = null;
+            await repaired(s, tool); await download(s, tool);
         } finally { await s.context.close(); }
     });
     await check("Shared hub: login return, session persistence and logout", async () => {
