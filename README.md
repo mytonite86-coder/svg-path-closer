@@ -4,7 +4,69 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
-## Tool 5 — Block 23 checkpoint (2026-10-30)
+## Tool 5 — Block 24 checkpoint (2026-10-30)
+
+VERIFIED: `mytonite86-coder/svg-path-closer`, clean Block 23 base
+`4b8a796871140fb2715d3ade94559d78fc8ce5a1`. Branch:
+`work/block24-tool5-repair-access`. Completion commit is the local commit adding
+this checkpoint (`git log -1` on this branch). Deployment: UNKNOWN; local only,
+with no push, merge, deployment, pricing or commercial configuration changes.
+
+Curve Repair now completes Upload → Scan → Preview/Review → Select → Repair →
+Validate → Download within Block 23's exact collapsed-cubic scope. Before any
+execution, it re-inspects the original source and matches every selected proposal
+including its source command/text range. It refuses unknown/manual/stale IDs,
+repeated or overlapping ranges and all geometry outside the existing detector's
+safety proof. Selected ranges are removed from private copies in descending
+source-offset order; all remaining source characters are retained verbatim.
+
+Validation checks the actual removal count, exact decimal geometry of every
+retained command/control/endpoint, command identity, subpaths and closure. The
+entire SVG must also match a baseline copy changed only at the selected `d`
+attributes. Unselected paths, unselected defects, styles, IDs, references,
+grouping and unrelated SVG content remain exact. Preview and XML serialization/
+reparse checks are part of the transaction; any failure discards the whole
+attempt and keeps the previous valid state. Returned documents cannot modify
+the private accepted copy. One successful batch per upload prevents repeats.
+
+After success, findings/warnings, preview, repair counts and selection state
+update. Download repeats geometry/content/XML checks and verifies the private
+successful-repair record before using the existing cleaned-filename/Blob helper.
+The original uploaded SVG is never edited. Every new upload clears all prior
+repair/download availability, including stale in-flight access results.
+
+The existing hub opens Tool 5 through the manifest route `curve-repair.html`;
+the confirmed entitlement identifier is `curve_repair`. Upload, scan, preview
+and review are free and browser-local. Repair and download each require a fresh
+shared `auth.js` session check granting `curve_repair` or `all_products_lifetime`.
+Signed-out, unentitled, expired, malformed and unavailable authority states deny
+protected work; revocation is checked again before download. The account return
+route and access-state derivation reuse the existing framework. Tool 5 purchase
+controls remain disabled (`productionEnabled: false`). Account handoff uses a
+common HTTP(S) origin; direct-file free inspection continues to work.
+
+SESSION HANDOFF — Block 24 COMPLETE. Verified: 33 focused Tool 5 tests plus 7
+affected hub/access tests (40 passed, zero failed), syntax/whitespace and generated
+entry checks. Automated Chrome with mocked session responses verified all four
+access states, actual absolute/relative downloads and filenames, exact retained
+content, original/control preservation, native path length and sampled-point
+equivalence, rollback/retry, revoked download denial, repeat prevention and stale
+upload/selection/download checks. All three unchanged Block 23 fixtures still
+scan directly from file. Browser navigation checks wait for DOM readiness before
+choosing a file. No live account/customer/entitlement or payment requests were made.
+Tools 1–4, hub implementation and existing account/commerce behavior are unchanged;
+only Tool 5's manifest record is integrated. No new categories, smoothing,
+reconstruction, dependencies, clones, broad tests or owner-led manual QA.
+Actual blockers: none for local completion. Live commercial configuration and
+production access remain separately gated and unverified. Resume anchors:
+`modules/curveRepair.js`, `modules/curveAccess.js`, `curve-repair.js`,
+`curve-repair-entry.js`, `tests/curve-repair.test.mjs`. Regenerate only Tool 5's
+classic entry with `node scripts/build-tool5-local.mjs`. Continuity remains
+`SKP-WORK-CONTINUITY-2026-09-01.1` and linked restart rules. Tool 5 is locally
+complete within the approved narrow scope. STOP after Block 24; await the next
+work order and do not begin another block automatically.
+
+## Historical Tool 5 — Block 23 checkpoint (2026-10-30)
 
 VERIFIED: `mytonite86-coder/svg-path-closer`, clean Block 22 base
 `afd916a7a8c09b9fe3e3db8791ec58ff434e5ab8`. Branch:

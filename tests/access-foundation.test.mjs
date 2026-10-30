@@ -28,14 +28,16 @@ test("universal lifetime unlocks every implemented tool but does not publish pla
     assert.equal(deriveToolAccessState(tool("pathseal"), user).key, "lifetime");
     assert.equal(deriveToolAccessState(tool("duplicate_geometry"), user).key, "lifetime");
     assert.equal(deriveToolAccessState(tool("stray_node_cleaner"), user).key, "lifetime");
-    assert.equal(deriveToolAccessState(tool("curve_repair"), user).key, "planned");
+    assert.equal(deriveToolAccessState(tool("curve_repair"), user).key, "lifetime");
+    assert.equal(deriveToolAccessState({ ...tool("curve_repair"), lifecycle: "planned", route: null }, user).key, "planned");
 });
 
 test("return destinations accept only registered implemented internal pages", () => {
     assert.equal(validateReturnDestination("pathseal.html"), "pathseal.html");
     assert.equal(validateReturnDestination("duplicate-geometry.html"), "duplicate-geometry.html");
     assert.equal(validateReturnDestination("stray-node-cleaner.html"), "stray-node-cleaner.html");
-    for (const unsafe of ["https://evil.example", "//evil.example", "/pathseal.html", "..\\pathseal.html", "pathseal.html?x=1", "curve-repair.html", "%2F%2Fevil.example"]) {
+    assert.equal(validateReturnDestination("curve-repair.html"), "curve-repair.html");
+    for (const unsafe of ["https://evil.example", "//evil.example", "/pathseal.html", "..\\pathseal.html", "pathseal.html?x=1", "unknown-tool.html", "%2F%2Fevil.example"]) {
         assert.equal(validateReturnDestination(unsafe), null);
     }
 });

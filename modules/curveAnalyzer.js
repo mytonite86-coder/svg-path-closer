@@ -88,7 +88,8 @@ export function parseCurvePathData(data) {
                 if (p.x > 1000000000000n * SCALE || p.x < -1000000000000n * SCALE || p.y > 1000000000000n * SCALE || p.y < -1000000000000n * SCALE) throw new Error("Resolved coordinates exceed the supported range.");
             }
             commands.push({ type, sourceCommand: command, explicit, start: numberPoint(start), end: numberPoint(current), controls: controls.map(numberPoint), collapsed,
-                closedEnd: same(start, current), sourceRef: { start: startOffset, end: values.at(-1).end } });
+                closedEnd: same(start, current), sourceRef: { start: startOffset, end: values.at(-1).end },
+                exactGeometry: { start: [String(start.x), String(start.y)], controls: controls.map(({ x, y }) => [String(x), String(y)]), end: [String(current.x), String(current.y)] } });
             if (upper === "M") { origin = { ...current }; subpathCount++; command = relative ? "l" : "L"; }
             if (!["C", "S"].includes(upper)) lastControl = null;
             previous = upper;

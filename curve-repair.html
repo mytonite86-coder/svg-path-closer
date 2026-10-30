@@ -10,10 +10,15 @@
     <p class="eco-shell eco-muted"><a href="index.html">← SVG Micro Eco tools</a></p>
     <main class="eco-shell eco-tool-shell eco-panel eco-panel--accent">
         <header class="eco-header"><div class="eco-brand"><img class="eco-brand__badge" src="assets/svg-micro-eco-badge.svg" alt="SVG Micro Eco" /><div><p class="eco-brand__family">SVG Micro Eco</p><p class="eco-brand__tool">Curve Repair</p></div></div></header>
-        <p class="eco-eyebrow">Tool 5 · Detection and selection</p>
+        <p class="eco-eyebrow">Tool 5 · Exact redundant cubic repair</p>
         <h1 class="eco-title">Inspect curve defects without inventing geometry.</h1>
-        <p class="eco-subtitle">Upload → Scan → Preview → Select. Review constant-point cubic segments and warnings. Your SVG stays in this browser and remains unchanged.</p>
+        <p class="eco-subtitle">Upload → Scan → Preview → Review → Select → Repair → Validate → Download. Your SVG stays in this browser; the original upload is preserved.</p>
         <section class="eco-upload"><label for="curve-file">Choose an SVG file</label><input id="curve-file" type="file" accept=".svg,image/svg+xml" /></section>
+        <section class="eco-panel" aria-label="Shared account access">
+            <p id="curve-access" class="eco-status" role="status" aria-live="polite">Upload, scan and review are free. Repair and download require verified Curve Repair or universal lifetime access.</p>
+            <a href="index.html?return_to=curve-repair.html#account" class="eco-button eco-button--secondary">Sign in or manage shared account</a>
+            <p class="eco-muted">Tool 5 purchases are not enabled yet.</p>
+        </section>
         <section id="curve-results" class="eco-section" data-state="empty" aria-busy="false">
             <h2 class="eco-heading">Inspection results</h2>
             <p id="curve-status" class="eco-status" role="status" aria-live="polite">Choose a local SVG to inspect curve geometry.</p>
@@ -26,12 +31,16 @@
             </section>
             <p id="curve-selection" class="eco-status" role="status" aria-live="polite">0 proposals selected. Nothing has been changed.</p>
             <div id="curve-findings" class="eco-review-list"></div>
+            <button id="curve-repair" class="eco-button" type="button" disabled>Repair Selected</button>
+            <p id="curve-execution" class="eco-status" role="status" aria-live="polite"></p>
+            <p id="curve-validation" class="eco-status" role="status" aria-live="polite">Download requires a successful validated repair.</p>
+            <button id="curve-download" class="eco-button" type="button" disabled>Download Cleaned SVG</button>
         </section>
-        <section class="eco-section eco-panel"><h2 class="eco-heading">Detection and selection only</h2>
-            <p class="eco-muted">Eligible proposals are limited to exact constant-point interior cubics between explicit nonzero cubics on plain opaque unstroked paths. Loops, shorthand dependencies, closures, IDs/references, styles, transforms, strokes and unsupported syntax require manual review. No smoothing, new control points, repair execution or download is available.</p>
+        <section class="eco-section eco-panel"><h2 class="eco-heading">Proven redundant segments only</h2>
+            <p class="eco-muted">Eligible proposals are limited to exact constant-point interior cubics between explicit nonzero cubics on plain opaque unstroked paths. Loops, shorthand dependencies, closures, IDs/references, styles, transforms, strokes and unsupported syntax require manual review. No smoothing or curve reconstruction is performed. One validated repair batch is permitted per upload.</p>
         </section>
     </main>
     <footer class="eco-footer"><div class="eco-shell"><p>Produced by Skald and Kreepy Productions.</p></div></footer>
-    <script defer src="curve-repair.local.js?v=block23-1"></script>
+    <script defer src="curve-repair.local.js?v=block24-1"></script>
 </body>
 </html>

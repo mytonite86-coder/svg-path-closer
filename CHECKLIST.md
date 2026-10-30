@@ -1,5 +1,34 @@
 # SVG Path Closer Build Checklist
 
+## Tool 5 — Block 24 safe repair, validation, download and hub access
+
+Last checked: 2026-10-30. Branch: `work/block24-tool5-repair-access`.
+Clean base: `4b8a796`. README holds the current checkpoint, completion commit
+locator, precise safety/rollback contract and resume anchors.
+
+- [x] Fresh source/proposal/safety recheck before executing selected collapsed cubics
+- [x] Remove only approved source ranges from isolated copies; original preserved
+- [x] Refuse stale, unknown, manual, repeated/conflicting and unsupported selections
+- [x] Preserve exact retained commands/control points/endpoints, subpaths and closure
+- [x] Preserve unselected path data, attributes and all unrelated SVG content
+- [x] Transactional preview/SVG/count/serialization validation and whole-batch rollback
+- [x] Update findings, warnings, preview and counts; lock one successful batch per upload
+- [x] Revalidated cleaned SVG download using existing shared helpers
+- [x] New-upload and pending upload/selection/download invalidation
+- [x] Existing hub route and account return; Tool 5 purchase controls remain disabled
+- [x] Fresh manifest-confirmed `curve_repair`/universal lifetime check at each protected action
+- [x] Signed-out/unentitled/expired/malformed/offline denial and download revocation
+- [x] 33 focused Tool 5 tests + 7 affected hub/access tests passed (40 total, zero failures)
+- [x] Automated Chrome mocked-session hub/download/geometry/rollback/stale-state checks
+- [x] All three Block 23 fixtures unchanged; direct-file free inspection preserved
+- [x] Syntax/whitespace/generated-entry checks; Tools 1–4/hub/account sources unchanged
+- [x] No new repair categories, smoothing, commercial changes, owner-led QA or broad tests
+- [x] Local commit only; no push, merge, deployment or new dependencies
+
+Tool 5 locally complete within Block 23's approved scope. Actual blockers: none
+for local completion. Live commercial/production verification remains separate.
+STOP after Block 24; await the next work order.
+
 ## Tool 5 — Block 23 curve detection and review
 
 Last checked: 2026-10-30. Branch: `work/block23-tool5-curve-review`.

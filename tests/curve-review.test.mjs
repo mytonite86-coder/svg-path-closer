@@ -145,16 +145,17 @@ test("preview uses numeric geometry and locates a collapsed segment with a numbe
     assert.ok(children.every((node) => !node.hasAttribute("id") && !node.hasAttribute("onclick")));
 });
 
-test("direct-file entry stays current and has no execution, download, access or network wiring", async () => {
-    const [page, controller, bundle] = await Promise.all([
+test("direct-file entry stays current while detection remains free of execution/network wiring", async () => {
+    const [page, controller, bundle, detector] = await Promise.all([
         readFile(new URL("../curve-repair.html", import.meta.url), "utf8"),
         readFile(new URL("../curve-repair.js", import.meta.url), "utf8"), readFile(outputPath, "utf8"),
+        readFile(new URL("../modules/curveAnalyzer.js", import.meta.url), "utf8"),
     ]);
     assert.equal(bundle.replace(/\r\n/g, "\n"), await buildTool5LocalBundle());
     assert.match(page, /<script defer src="curve-repair\.local\.js/);
-    assert.doesNotMatch(bundle, /XMLSerializer|Blob|createObjectURL|fetch\(|removeChild|\.remove\(|refreshSession|entitlements/);
+    assert.doesNotMatch(detector, /XMLSerializer|Blob|createObjectURL|fetch\(|removeChild|\.remove\(|refreshSession|entitlements/);
     assert.doesNotMatch(controller, /innerHTML|outerHTML|insertAdjacentHTML/);
     const listeners = new Map();
-    new Script(bundle).runInNewContext({ document: { querySelector: (selector) => ({ addEventListener: (event, handler) => listeners.set(`${selector}:${event}`, handler) }) } });
+    new Script(bundle).runInNewContext({ localStorage: { getItem: () => null }, document: { querySelector: (selector) => ({ addEventListener: (event, handler) => listeners.set(`${selector}:${event}`, handler) }) } });
     assert.equal(typeof listeners.get("#curve-file:change"), "function");
 });
