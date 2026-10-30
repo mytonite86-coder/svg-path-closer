@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="180" viewBox="0 0 360 180">
+  <title>Tool 4 safe exact overlap</title>
+  <rect x="20" y="30" width="120" height="100" fill="#2563eb" stroke="none" shape-rendering="crispEdges"/>
+  <rect x="20" y="30" width="120" height="100" fill="#2563eb" stroke="none" shape-rendering="crispEdges"/>
+  <rect id="untouched-control" x="220" y="40" width="80" height="80" fill="#16a34a"/>
+</svg>

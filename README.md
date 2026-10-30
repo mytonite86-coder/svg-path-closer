@@ -4,7 +4,64 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
-## Tool 3 — Block 20 checkpoint (2026-10-28)
+## Tool 4 — Block 21 checkpoint (2026-10-30)
+
+VERIFIED: repository `mytonite86-coder/svg-path-closer`, clean base
+`1e2642c85a97c50fb30973666e5cb92f4cebdc07`. Branch:
+`work/block21-tool4-detection-review`. Completion commit is the local commit
+adding this checkpoint (`git log -1` on this branch). Deployment: UNKNOWN;
+all Block 21 work remains local and unpushed.
+
+Open `overlapping-shape-repair.html` directly in Chrome for
+Upload → Scan → Preview/Review → Select. It uses existing shared chassis styles,
+the local file reader, and the existing classic-bundle generation approach.
+Tools 1–3 and hub runtime/manifest remain unchanged. The build helper now exposes
+its existing bundling function for Tool 4 reuse; no Tool 3 bundle was rebuilt.
+Regenerate only Tool 4 with `node scripts/build-tool4-local.mjs` after its source
+changes. Source modules remain authoritative; do not edit the generated file.
+
+Detection recognizes source-identical, finite unitless unrounded rectangles,
+circles and ellipses. Only adjacent, same-parent rectangles with identical source
+attributes, explicit opaque solid fills, `stroke="none"`, `shape-rendering="crispEdges"`
+and full opacity can receive removal proposals. IDs/references, styles, inherited
+effects, transforms, child metadata, different grouping/stacking and document
+CSS/active content block selection. Curved duplicates remain review-only.
+Lexical numeric identity avoids treating rounded floating-point values as exact.
+
+Partial bounds intersections/containment are labeled POSSIBLE overlaps, not
+proven shape intersections or safe removals. Paths, polygons, text, images,
+rounded rectangles, transforms, nested viewports/definitions, unsupported units
+and other uncertain geometry are manual-review findings. This block inspects
+up to 300 shapes and bounds pair reporting; any truncation is explicitly flagged.
+There is no claim of general path/curve intersection analysis.
+
+Numbered findings identify source shapes. The schematic numeric-only preview
+highlights affected pairs without copying active source markup or styles.
+Eligible proposals start unselected; each can be selected/deselected and updates
+the proposed count. New uploads, errors and stale reads clear/protect selection.
+No original SVG is mutated or serialized. No repair, output, download, account,
+checkout or hub integration was added for Tool 4 in this block.
+
+Manual fixtures in `tests/fixtures/`:
+- `tool4-safe-exact-overlap.svg`: one exact finding / one selectable proposal;
+  the ID-bearing control rectangle stays unrelated.
+- `tool4-ambiguous-partial-overlap.svg`: partial overlap / no selectable proposals.
+- `tool4-unaffected-geometry.svg`: three separated supported shapes / no findings.
+
+SESSION HANDOFF — Block 21 COMPLETE. Verified: 11 new focused tests, syntax and
+whitespace checks; Chrome direct-file acceptance of all three fixtures, numbered
+findings, highlighting, selection/deselection, reset/error/stale-read handling,
+no source changes/network calls/repair/download, zero page errors. Existing
+Tool 1–3 engine tests were not repeated. Protected runtime files were checked
+unchanged against `1e2642c`; no new dependencies, clone, deployment, merge or push.
+Cross-project discoveries: none. Actual blockers: none. Resume in
+`modules/overlappingShapes.js`, `modules/overlappingShapePreview.js`,
+`overlapping-shape-repair.js` and `tests/overlapping-shapes.test.mjs`.
+Continuity remains `SKP-WORK-CONTINUITY-2026-09-01.1` and the linked shared restart
+rules below. Block 22 is ready for a separately authorized, bounded next step
+using this conservative proposal scope. STOP after Block 21; do not begin it.
+
+## Historical Tool 3 — Block 20 checkpoint (2026-10-28)
 
 VERIFIED: `mytonite86-coder/svg-path-closer`, branch
 `work/block20-tool3-hub-access`. Started clean at `93fd0e6`, preserving the QA001

@@ -1,5 +1,29 @@
 # SVG Path Closer Build Checklist
 
+## Tool 4 — Block 21 detection and selection
+
+Last checked: 2026-10-30. Branch: `work/block21-tool4-detection-review`.
+Clean base: `1e2642c` (Block 20). README contains the current checkpoint,
+completion commit locator, conservative safety contract and resume anchors.
+
+- [x] Standalone local page using existing shared visual chassis and file reader
+- [x] Exact primitive duplicate detection; conservative rectangle-only proposals
+- [x] Opaque/no-stroke/crisp-edge, adjacent/same-parent/identical-attribute safety checks
+- [x] IDs, references, CSS, active content, styles, transforms and stacking risks excluded
+- [x] Possible partial/bounds overlap and unsupported geometry clearly manual-only
+- [x] Numbered findings and safe numeric-only schematic preview with pair highlighting
+- [x] Individual proposal selection/deselection; live selected/eligible count
+- [x] Unselected defaults and upload/error/stale-read resets
+- [x] Three lightweight SVG fixtures in `tests/fixtures/` (see README expectations)
+- [x] 11 new focused tests passed; syntax and whitespace checks passed
+- [x] Chrome file:// fixture/selection/highlight/reset acceptance, zero page errors
+- [x] Original source unchanged; no network, repair execution, serialization or download
+- [x] Tools 1–3/hub runtime, auth, billing and release flags unchanged
+- [x] Local commit only; no push, merge, deployment or new dependencies
+
+Ready for Block 22 within the documented narrow proposal scope, subject to its
+separate authorization. Actual blockers: none. STOP after Block 21.
+
 ## Tool 3 — Block 20 shared hub and access integration
 
 Last checked: 2026-10-28. Branch: `work/block20-tool3-hub-access`.
