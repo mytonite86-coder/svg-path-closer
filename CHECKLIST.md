@@ -1,5 +1,36 @@
 # SVG Path Closer Build Checklist
 
+## Block 25 — final five-tool integration and release readiness
+
+Last checked: 2026-10-30. Branch: `work/block25-suite-release-readiness`.
+Clean base: `43125c6`. README holds the current readiness checkpoint, commit
+locator, evidence/provenance, exact blocker anchors and reproduction commands.
+
+- [x] All five tools open through the existing shared HTTP(S) hub
+- [x] Shared account return routes, synthetic login/session/lifetime/logout behavior
+- [x] Free upload/scan/review and explicit selection across all tools
+- [x] Normal entitled/lifetime repair → valid SVG download; original files preserved
+- [x] Signed-out/unentitled normal action denial across all five tools
+- [x] Tools 2–5 fresh authority and revoked-download denial
+- [x] Correct three stale embedded Tool 4/5 manifest records in Tool 3/4 packaging only
+- [x] In-memory bundle/source checks match; no completed engine rebuilt or redesigned
+- [x] 14 focused Node tests passed; 25 of 30 unique Chrome checks passed
+- [ ] Five release checks failed: PathSeal revoked repair, revoked download,
+  unavailable authority with cached access, preselected Repair readiness;
+  Tool 2 approval completing against a newer upload
+- [x] Controller blob identities confirm those faults predate Blocks 21–24
+- [x] Preserve out-of-scope controllers; report required separately authorized fixes
+- [x] Tools 2–5 purchases/shared checkout remain disabled; no commercial changes
+- [ ] Approved commercial activation and live checkout-to-entitlement/download proof
+- [ ] All-five software release readiness: BLOCKED by confirmed defects above
+- [ ] Deployment eligibility: only after software remediation/target-host checks
+  and separate owner approval; commercial activation requires its own authorization
+- [x] Syntax/whitespace/protected-source/fixture checks; no live customer/service writes
+- [x] No new dependencies, broad audits/tests, owner-led manual QA, push/merge/deploy
+
+Block 25 assessment COMPLETE; full-suite release BLOCKED, not approved for
+deployment. STOP after local commit. No additional work is authorized.
+
 ## Tool 5 — Block 24 safe repair, validation, download and hub access
 
 Last checked: 2026-10-30. Branch: `work/block24-tool5-repair-access`.

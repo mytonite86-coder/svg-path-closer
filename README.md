@@ -4,7 +4,98 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
-## Tool 5 — Block 24 checkpoint (2026-10-30)
+## Five-tool release checkpoint — Block 25 (2026-10-30)
+
+**Audit complete; full-suite release BLOCKED.** Repository:
+`mytonite86-coder/svg-path-closer`. Verified clean start at
+`43125c6dc0b297b6bb9c651205ffa275dbb959fa`; branch
+`work/block25-suite-release-readiness`. Completion commit is the local commit
+adding this checkpoint (`git log -1` on this branch). Deployment: UNKNOWN and
+unchanged. Nothing was pushed, merged, published, deployed or commercially activated.
+
+All five manifest routes are implemented and accessible through the existing
+HTTP(S) hub: `pathseal`, `duplicate_geometry`, `stray_node_cleaner`,
+`overlapping_shape_repair`, `curve_repair`. Account return destinations match;
+shared login, persisted lifetime session and logout were verified with synthetic
+responses. Free upload/scan/review works without payment across all five tools.
+The normal workflows, with an explicit selection action, passed for matching
+entitlements and universal lifetime access, including actual SVG downloads,
+valid XML and unchanged uploaded files. Signed-out and unentitled normal repair
+attempts are blocked. Tool 2 uses textual proposal review rather than an SVG
+preview; that established interface was preserved.
+
+**Only recent integration defect fixed:** generated Tool 3/4 classic entries
+embedded three stale Tool 4/5 manifest records after Blocks 22/24. Those records
+alone were synchronized to the current source manifest; in-memory generator
+comparison now matches all three bundles exactly. No completed engine was rebuilt,
+redesigned or edited, and no account behavior was changed. Focused checks found
+no new Tools 3–5 workflow/access regression introduced by Blocks 21–24.
+
+### Confirmed software release blockers — pre-existing; not fixed in this scope
+
+1. **PathSeal cached authority:** `app.js:960` and `app.js:1019` use cached
+   `hasEntitlement("pathseal")` for repair/download. Browser checks showed repair
+   after server-side revocation, a real download after revocation, and repair
+   while the authoritative session endpoint was unavailable. No fresh authority
+   check occurs at those actions. These are three failed release checks.
+2. **PathSeal preselection readiness:** `app.js:942` updates selected repairs
+   before `app.js:954` appends the checkbox. With the existing single-gap fixture,
+   the review shows a checked proposal but Repair stays disabled until toggled.
+   This is one failed check; explicit toggle/select allows the normal workflow.
+3. **Tool 2 upload/approval race:** `duplicate-geometry.js:133` awaits access,
+   then `duplicate-geometry.js:135` reads mutable `sourceSvg`/checkbox state. A
+   new upload during the pending check received repaired output from the old
+   approval, without a new confirmation. This is one failed release check.
+
+Narrow provenance verification: both controllers are byte-identical between
+Block 20 `1e2642c` and Block 24 `43125c6` (app blob `df9d9529a08cd4712908c18f8a5fea21aee41481`,
+Tool 2 blob `9753b11725e01a6bb9e0f3be55d1466184af38fe`). These defects predate
+Blocks 21–24. This block authorizes fixing only recent integration regressions,
+so protected-tool fixes require a separate work order; they are not silently waived.
+Tools 2–5 passed fresh-access/revoked-download checks; Tools 3–5's prior bounded
+upload/selection invalidation protections remain in place.
+
+### Commercial release gates — unchanged
+
+- Tool 2–5 `productionEnabled` values remain false; only PathSeal is production-
+  selectable. The shared hub has no enabled purchase flow for the new tools.
+- `RELEASE_FLAGS.svgSubscriptionCheckout` and `duplicateGeometryAnalytics` remain
+  false. No checkout, price, payment, entitlement or customer configuration changed.
+- Owner-approved commercial configuration and live checkout/webhook → correct
+  product entitlement → gated download proof remain unverified. Local mocked
+  session tests do not establish live billing, target-host account/CORS, production
+  recovery/rollback readiness, or the existence/absence of particular Stripe objects.
+  Existing historical commercial prerequisites were not re-audited or relabeled passed.
+
+### Focused evidence and continuation
+
+14 Node hub/account/packaging integration tests passed. The final set of 30 unique
+Chrome checks has **25 passed / 5 failed**, reflecting the blockers above. Passed
+cases were retained; targeted PathSeal checks exercised explicit selection and
+isolated the default-preselection defect. No full engine suites or unrelated
+regressions were repeated. Existing fixtures were reused, including the owner
+Tool 3 file at `C:\Users\Kreepy\Desktop\tool3-stray-node-manual-test.svg`.
+All external app requests were intercepted; account/payment/customer data stayed
+untouched. No live service request, new dependency or owner-led manual QA was needed.
+
+Reproducible checks:
+`node --test tests/suite-integration.test.mjs tests/access-foundation.test.mjs tests/auth.test.mjs`;
+`node tests/suite-browser-check.mjs <existing-Playwright-module-path> <existing-Tool-3-fixture-path>`.
+The browser command intentionally exits nonzero while release blockers remain;
+`SVG_SUITE_CASE_FILTER` can target a check without repeating passed cases.
+Syntax/whitespace checks and protected-source/fixture comparisons passed.
+
+SESSION HANDOFF — Block 25 COMPLETE (readiness assessment); RELEASE BLOCKED.
+All five tools are built locally in their approved scopes, but the suite is not
+fully release-ready. A deployment-ready approval cannot be asserted until the
+software blockers are resolved and target-host release checks pass. Deployment
+requires separate owner approval afterward; commercial activation remains a
+separate gate. Resume at the three confirmed controller anchors and focused
+integration checks above under a new bounded work order. Continuity remains
+`SKP-WORK-CONTINUITY-2026-09-01.1` and linked restart rules. STOP after the local
+commit; no further repair, configuration, publishing or deployment is authorized.
+
+## Historical Tool 5 — Block 24 checkpoint (2026-10-30)
 
 VERIFIED: `mytonite86-coder/svg-path-closer`, clean Block 23 base
 `4b8a796871140fb2715d3ade94559d78fc8ce5a1`. Branch:

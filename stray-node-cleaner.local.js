@@ -1914,8 +1914,8 @@ const PRODUCT_MANIFEST = Object.freeze([
     Object.freeze({ id: "pathseal", name: "PathSeal", order: 1, lifecycle: "implemented", productionEnabled: true, route: "pathseal.html", description: "Find open contours, review questionable gaps, and seal only the paths you approve." }),
     Object.freeze({ id: "duplicate_geometry", name: "Duplicate Line Remover", order: 2, lifecycle: "implemented", productionEnabled: false, route: "duplicate-geometry.html", description: "Find exact duplicate lines and prepare safe removals without touching questionable geometry." }),
     Object.freeze({ id: "stray_node_cleaner", name: "Stray Node Cleaner", order: 3, lifecycle: "implemented", productionEnabled: false, route: "stray-node-cleaner.html", description: "Review stray-node findings and remove selected exact coincident nodes while preserving original geometry." }),
-    Object.freeze({ id: "overlapping_shape_repair", name: "Overlapping Shape Repair", order: 4, lifecycle: "planned", productionEnabled: false, route: null, description: "Find and resolve overlapping shapes through a review-first workflow." }),
-    Object.freeze({ id: "curve_repair", name: "Curve Repair", order: 5, lifecycle: "planned", productionEnabled: false, route: null, description: "Inspect and repair damaged curve geometry without blind simplification." }),
+    Object.freeze({ id: "overlapping_shape_repair", name: "Overlapping Shape Repair", order: 4, lifecycle: "implemented", productionEnabled: false, route: "overlapping-shape-repair.html", description: "Review overlaps and remove only selected safe exact duplicate rectangles." }),
+    Object.freeze({ id: "curve_repair", name: "Curve Repair", order: 5, lifecycle: "implemented", productionEnabled: false, route: "curve-repair.html", description: "Review curves and remove only selected, proven redundant interior cubic segments." }),
 ]);
 
 function getProduct(productId) {
