@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
+  <title>Tool 5 unaffected valid curved path</title>
+  <path id="valid-curve" d="M20 100 C60 10 100 10 140 100 c40 90 80 90 140 0" fill="none" stroke="#1f2937" stroke-width="3"/>
+  <rect id="untouched-control" x="20" y="160" width="30" height="20" fill="#16a34a"/>
+</svg>

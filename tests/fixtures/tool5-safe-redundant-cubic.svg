@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
+  <title>Tool 5 safe redundant interior cubic</title>
+  <path d="M20 100 C40 20 80 20 100 100 C100 100 100 100 100 100 C160 180 220 20 280 100" fill="#2563eb" stroke="none"/>
+  <rect id="untouched-control" x="20" y="160" width="30" height="20" fill="#16a34a"/>
+</svg>

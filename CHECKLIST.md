@@ -1,5 +1,30 @@
 # SVG Path Closer Build Checklist
 
+## Tool 5 — Block 23 curve detection and review
+
+Last checked: 2026-10-30. Branch: `work/block23-tool5-curve-review`.
+Clean base: `afd916a`. README contains the current checkpoint, completion commit
+locator, safety contract, fixture expectations and resume anchors.
+
+- [x] New local Curve Repair page using existing chassis/file reader/bundle builder
+- [x] Exact constant-point interior cubic detection with explicit neighboring cubics
+- [x] Absolute/relative coordinates, repeated command groups and SVG shorthand state
+- [x] Exact decimal proof; no float-rounded false coincidences
+- [x] Real loops, unsupported syntax/precision, closure and shorthand dependencies warn
+- [x] IDs, references, styles, transforms, strokes and uncertain contexts remain manual-only
+- [x] Numbered findings, point markers, location highlighting and safe numeric preview
+- [x] Individual unselected proposals, select/deselect and live selection counts
+- [x] Upload/error/stale-read reset; original source and unrelated geometry untouched
+- [x] Three lightweight manual SVG fixtures in `tests/fixtures/` (see README)
+- [x] 13 focused tests passed; syntax/whitespace/generated-entry checks passed
+- [x] Automated Chrome direct-file fixture/relative/selection/highlight/reset checks passed
+- [x] No curve reconstruction, smoothing, contour closing, execution or download
+- [x] No access, commercial, hub or Tools 1–4 changes; no broad tests or owner-led QA
+- [x] Local commit only; no push, merge, deployment or new dependencies
+
+Actual blockers: none. Block 24 is ready within the documented narrow scope,
+subject to the next work order. STOP after Block 23; do not begin Block 24.
+
 ## Tool 4 — Block 22 safe execution, validation, download and hub access
 
 Last checked: 2026-10-30. Branch: `work/block22-tool4-repair-access`.

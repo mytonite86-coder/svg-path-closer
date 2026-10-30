@@ -4,7 +4,71 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
-## Tool 4 — Block 22 checkpoint (2026-10-30)
+## Tool 5 — Block 23 checkpoint (2026-10-30)
+
+VERIFIED: `mytonite86-coder/svg-path-closer`, clean Block 22 base
+`afd916a7a8c09b9fe3e3db8791ec58ff434e5ab8`. Branch:
+`work/block23-tool5-curve-review`. Completion commit is the local commit adding
+this checkpoint (`git log -1` on this branch). Deployment: UNKNOWN. Local only;
+no push, merge, deployment or commercial changes.
+
+Open `curve-repair.html` directly in Chrome for Upload → Scan → Preview → Select.
+It reuses the shared visual chassis, local file reader and classic-entry builder.
+Regenerate only Tool 5 with `node scripts/build-tool5-local.mjs`. Tools 1–4 and
+the hub/manifest/auth remain unchanged. Tool 5 is not yet connected to hub/access.
+
+The narrow safe proposal is removal of an explicit interior `C`/`c` whose two
+control points and endpoint exactly equal its start. Both neighbors must be
+explicit nonconstant cubic segments, on one open subpath with no `S`/`s` or close
+commands. Such a cubic is a constant point already retained by its neighbors;
+its removal preserves the geometric trace and leaves subsequent explicit
+controls/current point unchanged. Only plain opaque filled, explicitly unstroked
+paths without IDs/references, marker/dash/path-length settings, transforms, child
+metadata, active content or uncertain presentation can receive selectable proposals.
+All other collapsed cases remain manual review. No correction is executed here.
+
+The parser recognizes `M/m`, `L/l`, `H/h`, `V/v`, `C/c`, `S/s`, `Z/z`, repeated
+parameter groups, moveto's implicit lineto, exponents and relative coordinates.
+`S/s` preview controls follow SVG's defined reflection, never guessed smoothing;
+paths containing them cannot receive removal proposals. Endpoint-returning cubics
+with nonconstant controls are real loops, not zero-length segments. Quadratic/arc
+commands, malformed syntax and unsupported numeric ranges reject the entire path
+from proposal/preview parsing instead of accepting a potentially misleading prefix.
+
+Exact fixed-decimal arithmetic (up to 30 decimal places, resolved magnitude at
+most 1e12) proves coincidence without floating-point false equality. Unsupported
+precision/ranges are warnings. Limits: 200 paths, 200,000 characters/12,000 tokens
+per path, 1,000,000 path-data characters total, 500 findings plus a limit warning.
+Truncation is explicit manual review, never an implicit clean result.
+
+Numbered findings and point markers locate even invisible constant-point cubics.
+Highlight controls emphasize the actual path/segment location. The numeric-only
+schematic preview omits source styles and unsupported/transformed paths. Safe
+proposals start unselected, have individual controls and a live selection count.
+Uploads/errors reset state; stale file reads cannot restore an older selection.
+Original path data, IDs, grouping, styles, references and unrelated SVG are untouched.
+There is no smoothing, automatic closing, repair execution, repaired-output
+validation, download or paid-access wiring in Block 23.
+
+Fixtures in `tests/fixtures/`:
+- `tool5-safe-redundant-cubic.svg`: one safe interior constant-point cubic proposal.
+- `tool5-manual-review-curve.svg`: a real loop and unsupported quadratic; two warnings,
+  no selectable proposals. The loop can be highlighted; the quadratic is text-only.
+- `tool5-unaffected-valid-curve.svg`: valid absolute/relative curved path; no findings.
+
+SESSION HANDOFF — Block 23 COMPLETE. Verified: 13 new focused tests; syntax,
+whitespace and source/bundle checks; automated Chrome direct-file checks of all
+three fixtures, absolute/relative proposals, point highlighting, selection counts,
+upload/error/stale reset, original-file preservation, no HTTP requests and zero
+page errors. No owner-led QA required; Tools 1–4 tests were not repeated.
+Protected runtime, hub, auth and fixtures were checked unchanged against `afd916a`.
+Cross-project discoveries: none. Actual blockers: none. Resume anchors:
+`modules/curveAnalyzer.js`, `modules/curvePreview.js`, `curve-repair.js`,
+`tests/curve-review.test.mjs`. Continuity remains `SKP-WORK-CONTINUITY-2026-09-01.1`
+and linked restart rules. Block 24 is ready for a separately authorized bounded
+next step within this scope. STOP after Block 23; no Block 24 work is authorized.
+
+## Historical Tool 4 — Block 22 checkpoint (2026-10-30)
 
 VERIFIED: `mytonite86-coder/svg-path-closer`, clean Block 21 base
 `511e8eb07c4b0ee16846dbd41069c33d7a0acbb3`. Branch:
