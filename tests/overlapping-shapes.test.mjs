@@ -131,16 +131,17 @@ test("preview reconstructs numeric shapes and highlights both shapes without cop
     assert.equal(rendered.get(2).getAttribute("aria-current"), "false");
 });
 
-test("direct-file bundle stays in sync, registers upload and contains no repair/download/network actions", async () => {
-    const [page, controller, bundle] = await Promise.all([
+test("direct-file bundle stays in sync, registers upload and keeps detection non-mutating", async () => {
+    const [page, controller, bundle, detector] = await Promise.all([
         readFile(new URL("../overlapping-shape-repair.html", import.meta.url), "utf8"),
         readFile(new URL("../overlapping-shape-repair.js", import.meta.url), "utf8"), readFile(outputPath, "utf8"),
+        readFile(new URL("../modules/overlappingShapes.js", import.meta.url), "utf8"),
     ]);
     assert.match(page, /<script defer src="overlapping-shape-repair\.local\.js/);
     assert.equal(bundle.replace(/\r\n/g, "\n"), await buildTool4LocalBundle());
-    assert.doesNotMatch(bundle, /XMLSerializer|createObjectURL|new Blob|fetch\(|\.remove\(|\.download\s*=/);
+    assert.doesNotMatch(detector, /XMLSerializer|createObjectURL|new Blob|fetch\(|\.remove\(|removeChild|\.download\s*=/);
     assert.doesNotMatch(controller, /innerHTML|outerHTML|insertAdjacentHTML/);
     const listeners = new Map();
-    new Script(bundle).runInNewContext({ document: { querySelector: (selector) => ({ addEventListener: (event, handler) => listeners.set(`${selector}:${event}`, handler) }) } });
+    new Script(bundle).runInNewContext({ localStorage: { getItem: () => null }, document: { querySelector: (selector) => ({ addEventListener: (event, handler) => listeners.set(`${selector}:${event}`, handler) }) } });
     assert.equal(typeof listeners.get("#overlap-file:change"), "function");
 });

@@ -71,6 +71,10 @@ function safeRemoval(first, duplicate, documentRisk) {
     return null;
 }
 
+export function getOverlappingSourceElements(document) {
+    return [...document.querySelectorAll(SELECTOR)];
+}
+
 export function inspectOverlappingDocument(document) {
     const root = document?.documentElement;
     if (!root || root.localName !== "svg" || root.namespaceURI !== SVG_NS || document.querySelector("parsererror")) {
@@ -81,7 +85,7 @@ export function inspectOverlappingDocument(document) {
         || [...(document.childNodes || [])].some((node) => node.nodeType === 7)
         || all.some((node) => ["style", "script", "use", "animate", "animateTransform", "animateMotion", "set", "foreignObject"].includes(node.localName)
             || attributes(node).some(([name, value]) => name === "style" || name === "href" || name.endsWith(":href") || /^on/i.test(name) || /url\s*\(/i.test(value)));
-    const nodes = [...document.querySelectorAll(SELECTOR)];
+    const nodes = getOverlappingSourceElements(document);
     const shapes = nodes.slice(0, 300).map(normalize);
     const findings = [];
     const proposals = [];

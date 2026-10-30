@@ -1,5 +1,35 @@
 # SVG Path Closer Build Checklist
 
+## Tool 4 — Block 22 safe execution, validation, download and hub access
+
+Last checked: 2026-10-30. Branch: `work/block22-tool4-repair-access`.
+Clean base: `511e8eb`. README holds the current checkpoint, completion commit
+locator, approved scope and resume anchors.
+
+- [x] Recheck selected proposal IDs, source identity and Block 21 safety rules
+- [x] Refuse unknown, stale, repeated/conflicting and review-only selections
+- [x] Remove only selected safe duplicate rectangles on isolated copies
+- [x] Preserve original, retained IDs/references/styles/groups and unrelated content
+- [x] Validate count, exact retained content, SVG structure and serialization round trip
+- [x] Handle XML whitespace-node merging on private comparison clones
+- [x] Discard failed candidates; retain previous valid working copy; permit clean retry
+- [x] Update remaining findings, preview and counts; lock one successful batch per upload
+- [x] Validated cleaned SVG download; revalidate every click; reset on upload
+- [x] Manifest-only hub integration; Tool 4 purchases remain disabled
+- [x] Shared account return; fresh `overlapping_shape_repair`/lifetime check at both actions
+- [x] Denied/expired/unavailable access and revoked download grants fail closed
+- [x] Ignore stale upload/selection checks and concurrent repeated clicks
+- [x] Preserve all three Block 21 fixtures and existing detection/review/highlighting
+- [x] 26 focused Tool 4 tests passed; syntax, whitespace and generated-bundle checks
+- [x] Automated Chrome access-state, completed download, preservation, rollback/retry,
+  whitespace, direct-file fixture and stale-action verification passed
+- [x] Tools 1–3/hub/auth/billing sources and release flags unchanged
+- [x] No owner-led QA, new dependencies, broad tests, push, merge or deployment
+
+Tool 4 locally complete within the approved exact-rectangle scope. Blockers:
+none for local completion. Block 23 is ready only on the next work order.
+STOP after this local commit; no Tool 5 work is authorized here.
+
 ## Tool 4 — Block 21 detection and selection
 
 Last checked: 2026-10-30. Branch: `work/block21-tool4-detection-review`.

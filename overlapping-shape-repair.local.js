@@ -2,8 +2,255 @@
 // Classic script for direct file:// use; source modules remain authoritative.
 (() => {
 "use strict";
-// Source: modules/overlappingShapes.js
+// Source: modules/auth.js
 const module1 = (() => {
+const API_BASE_URL =
+    "https://mab-path-editor.onrender.com/api";
+
+const TOKEN_STORAGE_KEY =
+    "svg-micro-eco-access-token";
+
+const USER_STORAGE_KEY =
+    "svg-micro-eco-user";
+
+function readStoredUser() {
+    const storedUser =
+        localStorage.getItem(USER_STORAGE_KEY);
+
+    if (!storedUser) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(storedUser);
+    } catch {
+        localStorage.removeItem(USER_STORAGE_KEY);
+        return null;
+    }
+}
+
+let accessToken =
+    localStorage.getItem(TOKEN_STORAGE_KEY) || "";
+
+let currentUser = readStoredUser();
+
+async function apiRequest(
+    path,
+    {
+        method = "GET",
+        body = null,
+        requiresAuth = false,
+    } = {}
+) {
+    const headers = {
+        Accept: "application/json",
+    };
+
+    if (body !== null) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    if (requiresAuth) {
+        if (!accessToken) {
+            throw new Error("Sign in required.");
+        }
+
+        headers.Authorization =
+            `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(
+        `${API_BASE_URL}${path}`,
+        {
+            method,
+            headers,
+            body:
+                body === null
+                    ? undefined
+                    : JSON.stringify(body),
+        }
+    );
+
+    let responseData = null;
+
+    try {
+        responseData = await response.json();
+    } catch {
+        responseData = null;
+    }
+
+    if (!response.ok) {
+        if (
+            response.status === 401 &&
+            requiresAuth
+        ) {
+            clearSession();
+        }
+
+        throw new Error(
+            responseData?.detail ||
+                "The request could not be completed."
+        );
+    }
+
+    return responseData;
+}
+
+async function login(email, password) {
+    const session = await apiRequest(
+        "/auth/login",
+        {
+            method: "POST",
+            body: {
+                email,
+                password,
+            },
+        }
+    );
+
+    saveSession(
+        session.access_token,
+        session.user
+    );
+
+    return session.user;
+}
+
+async function registerAccount(
+    email,
+    username,
+    password
+) {
+    const session = await apiRequest(
+        "/auth/register",
+        {
+            method: "POST",
+            body: {
+                email,
+                username,
+                password,
+            },
+        }
+    );
+
+    saveSession(
+        session.access_token,
+        session.user
+    );
+
+    return session.user;
+}
+
+async function refreshSession() {
+    if (!accessToken) {
+        return null;
+    }
+
+    const user = await apiRequest(
+        "/auth/me",
+        {
+            requiresAuth: true,
+        }
+    );
+
+    saveSession(
+        accessToken,
+        user
+    );
+
+    return user;
+}
+
+async function startPathSealCheckout(
+    attribution = {}
+) {
+    const checkout = await apiRequest(
+        "/payments/checkout/session",
+        {
+            method: "POST",
+            requiresAuth: true,
+            body: {
+                package_id: "pathseal_monthly",
+                origin_url:
+                    window.location.origin +
+                    window.location.pathname,
+                visitor_id: attribution.visitorId || "",
+                source: attribution.source || "direct",
+                medium: attribution.medium || "",
+                campaign: attribution.campaign || "",
+            },
+        }
+    );
+
+    window.location.assign(checkout.url);
+}
+
+async function confirmPathSealCheckout(
+    sessionId
+) {
+    const checkoutStatus = await apiRequest(
+        `/payments/checkout/status/${
+            encodeURIComponent(sessionId)
+        }`,
+        {
+            requiresAuth: true,
+        }
+    );
+
+    const user = await refreshSession();
+
+    return {
+        checkoutStatus,
+        user,
+    };
+}
+
+
+
+function saveSession(token, user) {
+    accessToken = token;
+    currentUser = user;
+
+    localStorage.setItem(
+        TOKEN_STORAGE_KEY,
+        token
+    );
+
+    localStorage.setItem(
+        USER_STORAGE_KEY,
+        JSON.stringify(user)
+    );
+}
+
+function clearSession() {
+    accessToken = "";
+    currentUser = null;
+
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(USER_STORAGE_KEY);
+}
+
+function getAccessToken() {
+    return accessToken;
+}
+
+function getCurrentUser() {
+    return currentUser;
+}
+
+function hasEntitlement(productId) {
+    const entitlements = currentUser?.entitlements || [];
+
+    return Boolean(
+        entitlements.includes(productId) ||
+        entitlements.includes("all_products_lifetime")
+    );
+}
+return { API_BASE_URL, login, registerAccount, refreshSession, startPathSealCheckout, confirmPathSealCheckout, saveSession, clearSession, getAccessToken, getCurrentUser, hasEntitlement };
+})();
+
+// Source: modules/overlappingShapes.js
+const module3 = (() => {
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SELECTOR = "rect,circle,ellipse,path,polygon,polyline,line,text,image,use";
 const NUMBER = /^[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?$/;
@@ -77,6 +324,10 @@ function safeRemoval(first, duplicate, documentRisk) {
     return null;
 }
 
+function getOverlappingSourceElements(document) {
+    return [...document.querySelectorAll(SELECTOR)];
+}
+
 function inspectOverlappingDocument(document) {
     const root = document?.documentElement;
     if (!root || root.localName !== "svg" || root.namespaceURI !== SVG_NS || document.querySelector("parsererror")) {
@@ -87,7 +338,7 @@ function inspectOverlappingDocument(document) {
         || [...(document.childNodes || [])].some((node) => node.nodeType === 7)
         || all.some((node) => ["style", "script", "use", "animate", "animateTransform", "animateMotion", "set", "foreignObject"].includes(node.localName)
             || attributes(node).some(([name, value]) => name === "style" || name === "href" || name.endsWith(":href") || /^on/i.test(name) || /url\s*\(/i.test(value)));
-    const nodes = [...document.querySelectorAll(SELECTOR)];
+    const nodes = getOverlappingSourceElements(document);
     const shapes = nodes.slice(0, 300).map(normalize);
     const findings = [];
     const proposals = [];
@@ -132,11 +383,11 @@ function inspectOverlappingSvg(source, { DOMParser: Parser = globalThis.DOMParse
     return inspectOverlappingDocument(new Parser().parseFromString(source, "image/svg+xml"));
 }
 
-return { inspectOverlappingDocument, inspectOverlappingSvg };
+return { getOverlappingSourceElements, inspectOverlappingDocument, inspectOverlappingSvg };
 })();
 
 // Source: modules/overlappingShapePreview.js
-const module2 = (() => {
+const module4 = (() => {
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function renderOverlappingPreview(svg, shapes) {
@@ -187,7 +438,7 @@ return { renderOverlappingPreview, highlightOverlappingFinding };
 })();
 
 // Source: modules/strayNodeAnalyzer.js
-const module4 = (() => {
+const module6 = (() => {
 const STRAY_NODE_CLEANER_PRODUCT_ID = "stray_node_cleaner";
 
 const DEFAULTS = Object.freeze({
@@ -387,12 +638,12 @@ return { STRAY_NODE_CLEANER_PRODUCT_ID, parsePointsAttribute, parseLinearPathDat
 })();
 
 // Source: modules/strayNodeBrowserAdapter.js
-const module3 = (() => {
+const module5 = (() => {
 const {
     analyzeStrayNodes,
     parseLinearPathData,
     parsePointsAttribute,
-} = module4;
+} = module6;
 
 const SUPPORTED_SELECTOR = "line,polyline,polygon,path";
 
@@ -538,13 +789,1045 @@ function presentStrayNodeFinding(finding) {
 return { StrayNodeSvgInputError, normalizeSvgGeometry, readLocalSvgFile, inspectStrayNodeSvg, presentStrayNodeFinding };
 })();
 
-// Source: overlapping-shape-repair.js
-const module0 = (() => {
-const { inspectOverlappingSvg } = module1;
-const { renderOverlappingPreview, highlightOverlappingFinding } = module2;
-const { readLocalSvgFile } = module3;
+// Source: modules/pathCloser.js
+const module8 = (() => {
+function parseSvg(svgText) {
+    const parser = new DOMParser();
 
-function initializeOverlappingShapePage() {
+    const svgDocument = parser.parseFromString(
+        svgText,
+        "image/svg+xml"
+    );
+
+    const parseError = svgDocument.querySelector("parsererror");
+
+    if (parseError) {
+        throw new Error("The selected file is not a valid SVG.");
+    }
+
+    return svgDocument;
+}
+
+function getPathElements(svgDocument) {
+    const pathElements = svgDocument.querySelectorAll("path, line");
+
+    return Array.from(pathElements);
+}
+function getPathData(pathElement) {
+    if (pathElement.tagName.toLowerCase() === "line") {
+        const x1 = pathElement.getAttribute("x1");
+        const y1 = pathElement.getAttribute("y1");
+        const x2 = pathElement.getAttribute("x2");
+        const y2 = pathElement.getAttribute("y2");
+
+        return `M ${x1} ${y1} L ${x2} ${y2}`;
+    }
+
+    const pathData = pathElement.getAttribute("d");
+
+    if (!pathData) {
+        return "";
+    }
+
+    return pathData.trim();
+}
+
+
+function isPathExplicitlyClosed(pathData) {
+    return /[zZ]\s*$/.test(pathData);
+}
+function tokenizePathData(pathData) {
+    const tokenPattern =
+        /[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g;
+
+    return pathData.match(tokenPattern) ?? [];
+}
+function measurePathElement(pathElement, measurement) {
+    const measurementSvg = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg"
+    );
+
+    measurementSvg.setAttribute("width", "1");
+    measurementSvg.setAttribute("height", "1");
+    measurementSvg.style.position = "absolute";
+    measurementSvg.style.left = "-10000px";
+    measurementSvg.style.top = "-10000px";
+    measurementSvg.style.visibility = "hidden";
+    measurementSvg.style.overflow = "visible";
+
+    const measurementElement =
+        pathElement.cloneNode(true);
+
+    measurementSvg.appendChild(measurementElement);
+    document.body.appendChild(measurementSvg);
+
+    try {
+        return measurement(measurementElement);
+    } finally {
+        measurementSvg.remove();
+    }
+}
+
+function getPathEndpoints(pathElement) {
+    return measurePathElement(
+        pathElement,
+        (measurementElement) => {
+            const totalLength =
+                measurementElement.getTotalLength();
+
+            const startPoint =
+                measurementElement.getPointAtLength(0);
+            const endPoint =
+                measurementElement.getPointAtLength(
+                    totalLength
+                );
+
+            return {
+                start: {
+                    x: startPoint.x,
+                    y: startPoint.y,
+                },
+                end: {
+                    x: endPoint.x,
+                    y: endPoint.y,
+                },
+            };
+        }
+    );
+}
+
+function getDocumentPathEndpoints(pathElements) {
+    if (pathElements.length === 0) {
+        return new Map();
+    }
+
+    const sourceRoot =
+        pathElements[0].ownerDocument.documentElement;
+    const measurementRoot = sourceRoot.cloneNode(true);
+
+    measurementRoot
+        .querySelectorAll("script, foreignObject")
+        .forEach((element) => element.remove());
+
+    [
+        measurementRoot,
+        ...measurementRoot.querySelectorAll("*"),
+    ].forEach((element) => {
+        [...element.attributes].forEach((attribute) => {
+            const name = attribute.name.toLowerCase();
+            const value = attribute.value.trim().toLowerCase();
+
+            if (name.startsWith("on")) {
+                element.removeAttribute(attribute.name);
+            }
+
+            if (
+                (name === "href" || name === "xlink:href") &&
+                !value.startsWith("#")
+            ) {
+                element.removeAttribute(attribute.name);
+            }
+        });
+    });
+
+    measurementRoot.setAttribute("width", "1");
+    measurementRoot.setAttribute("height", "1");
+    measurementRoot.style.position = "absolute";
+    measurementRoot.style.left = "-10000px";
+    measurementRoot.style.top = "-10000px";
+    measurementRoot.style.visibility = "hidden";
+    measurementRoot.style.overflow = "visible";
+
+    document.body.appendChild(measurementRoot);
+
+    try {
+        const measurementElements = [
+            ...measurementRoot.querySelectorAll("path, line"),
+        ];
+        const rootMatrix = measurementRoot.getCTM();
+
+        if (!rootMatrix) {
+            return new Map(
+                pathElements.map((pathElement) => [
+                    pathElement,
+                    getPathEndpoints(pathElement),
+                ])
+            );
+        }
+
+        const screenToRoot = rootMatrix.inverse();
+
+        return new Map(
+            pathElements.map((pathElement, index) => {
+                const measurementElement =
+                    measurementElements[index];
+                const elementMatrix =
+                    measurementElement?.getCTM();
+
+                if (!measurementElement || !elementMatrix) {
+                    return [
+                        pathElement,
+                        getPathEndpoints(pathElement),
+                    ];
+                }
+
+                const totalLength =
+                    measurementElement.getTotalLength();
+                const startPoint = measurementElement
+                    .getPointAtLength(0)
+                    .matrixTransform(elementMatrix)
+                    .matrixTransform(screenToRoot);
+                const endPoint = measurementElement
+                    .getPointAtLength(totalLength)
+                    .matrixTransform(elementMatrix)
+                    .matrixTransform(screenToRoot);
+
+                return [
+                    pathElement,
+                    {
+                        start: {
+                            x: startPoint.x,
+                            y: startPoint.y,
+                        },
+                        end: {
+                            x: endPoint.x,
+                            y: endPoint.y,
+                        },
+                    },
+                ];
+            })
+        );
+    } finally {
+        measurementRoot.remove();
+    }
+}
+
+function getEndpointDistance(endpoints) {
+    const horizontalDistance =
+        endpoints.end.x - endpoints.start.x;
+    const verticalDistance =
+        endpoints.end.y - endpoints.start.y;
+
+    return Math.hypot(
+        horizontalDistance,
+        verticalDistance
+    );
+}
+
+function getPathReferenceLength(pathElement) {
+    const pathLength = measurePathElement(
+        pathElement,
+        (measurementElement) =>
+            measurementElement.getTotalLength()
+    );
+
+    return pathLength > 0 ? pathLength : 1;
+}
+function getDrawingReferenceLength(pathElements) {
+    const points = pathElements.flatMap((pathElement) => {
+        const endpoints = getPathEndpoints(pathElement);
+
+        return [
+            endpoints.start,
+            endpoints.end,
+        ];
+    });
+
+    if (points.length === 0) {
+        return 1;
+    }
+
+    const xValues = points.map((point) => point.x);
+    const yValues = points.map((point) => point.y);
+
+    const drawingWidth =
+        Math.max(...xValues) - Math.min(...xValues);
+
+    const drawingHeight =
+        Math.max(...yValues) - Math.min(...yValues);
+
+    const referenceLength =
+        Math.hypot(drawingWidth, drawingHeight);
+
+    return referenceLength > 0
+        ? referenceLength
+        : 1;
+}
+
+function pointsAreNear(
+    firstPoint,
+    secondPoint,
+    tolerance
+) {
+    const horizontalDistance =
+        secondPoint.x - firstPoint.x;
+
+    const verticalDistance =
+        secondPoint.y - firstPoint.y;
+
+    return Math.hypot(
+        horizontalDistance,
+        verticalDistance
+    ) <= tolerance;
+}
+
+function getConnectionTolerance(pathElements) {
+    const referenceLength =
+        getDrawingReferenceLength(pathElements);
+
+    return Math.max(
+        referenceLength * 0.0000001,
+        0.01
+    );
+}
+
+function findNearbyNode(nodes, point, tolerance) {
+    return nodes.find((node) =>
+        pointsAreNear(
+            node.point,
+            point,
+            tolerance
+        )
+    );
+}
+
+function getOrCreateNode(nodes, point, tolerance) {
+    const nearbyNode =
+        findNearbyNode(nodes, point, tolerance);
+
+    if (nearbyNode) {
+        return nearbyNode;
+    }
+
+    const node = {
+        point: {
+            x: point.x,
+            y: point.y,
+        },
+        edges: [],
+    };
+
+    nodes.push(node);
+
+    return node;
+}
+
+function buildEndpointGraph(pathElements) {
+    const tolerance =
+        getConnectionTolerance(pathElements);
+
+    const endpointsByElement =
+        getDocumentPathEndpoints(pathElements);
+
+    const nodes = [];
+
+    const edges = pathElements.map((pathElement) => {
+        const endpoints =
+            endpointsByElement.get(pathElement);
+
+        const startNode = getOrCreateNode(
+            nodes,
+            endpoints.start,
+            tolerance
+        );
+
+        const endNode = getOrCreateNode(
+            nodes,
+            endpoints.end,
+            tolerance
+        );
+
+        const edge = {
+            pathElement,
+            startNode,
+            endNode,
+        };
+
+        startNode.edges.push(edge);
+        endNode.edges.push(edge);
+
+        return edge;
+    });
+
+    return {
+        nodes,
+        edges,
+        tolerance,
+    };
+}
+
+function getConnectedEdgeComponents(graph) {
+    const unvisitedEdges =
+        new Set(graph.edges);
+
+    const components = [];
+
+    while (unvisitedEdges.size > 0) {
+        const firstEdge =
+            unvisitedEdges.values().next().value;
+
+        const pendingEdges = [firstEdge];
+        const componentEdges = [];
+        const componentNodes = new Set();
+
+        while (pendingEdges.length > 0) {
+            const edge = pendingEdges.pop();
+
+            if (!unvisitedEdges.has(edge)) {
+                continue;
+            }
+
+            unvisitedEdges.delete(edge);
+            componentEdges.push(edge);
+
+            const edgeNodes = [
+                edge.startNode,
+                edge.endNode,
+            ];
+
+            edgeNodes.forEach((node) => {
+                componentNodes.add(node);
+
+                node.edges.forEach((connectedEdge) => {
+                    if (unvisitedEdges.has(connectedEdge)) {
+                        pendingEdges.push(connectedEdge);
+                    }
+                });
+            });
+        }
+
+        components.push({
+            edges: componentEdges,
+            nodes: [...componentNodes],
+        });
+    }
+
+    return components;
+}
+
+function getComponentTerminalNodes(component) {
+    return component.nodes.filter(
+        (node) => node.edges.length === 1
+    );
+}
+
+function getComponentReferenceLength(component) {
+    const referenceLength = component.edges.reduce(
+        (totalLength, edge) =>
+            totalLength +
+            measurePathElement(
+                edge.pathElement,
+                (measurementElement) =>
+                    measurementElement.getTotalLength()
+            ),
+        0
+    );
+
+    return referenceLength > 0
+        ? referenceLength
+        : 1;
+}
+
+function analyzeComponent(component) {
+    const terminalNodes =
+        getComponentTerminalNodes(component);
+
+    const referenceLength =
+        getComponentReferenceLength(component);
+
+    const isClosed = terminalNodes.length === 0;
+
+    const hasSingleOpenGap =
+        terminalNodes.length === 2;
+
+    let endpoints = null;
+    let gapDistance = 0;
+    let gapType = isClosed
+        ? "closed"
+        : "complex";
+
+    if (hasSingleOpenGap) {
+        endpoints = {
+            start: terminalNodes[0].point,
+            end: terminalNodes[1].point,
+        };
+
+        gapDistance =
+            getEndpointDistance(endpoints);
+
+        gapType = classifyGap(
+            gapDistance,
+            referenceLength
+        );
+    }
+
+    return {
+        component,
+        terminalNodes,
+        endpoints,
+        isClosed,
+        hasSingleOpenGap,
+        gapDistance,
+        referenceLength,
+        gapType,
+    };
+}
+
+function getTerminalEntries(components) {
+    return components.flatMap((component) =>
+        getComponentTerminalNodes(component).map((node) => ({
+            component,
+            node,
+        }))
+    );
+}
+
+function getPointDistance(firstPoint, secondPoint) {
+    return Math.hypot(
+        secondPoint.x - firstPoint.x,
+        secondPoint.y - firstPoint.y
+    );
+}
+
+function findNearestTerminal(entry, terminalEntries) {
+    let nearestEntry = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    terminalEntries.forEach((candidate) => {
+        if (candidate === entry) {
+            return;
+        }
+
+        const distance = getPointDistance(
+            entry.node.point,
+            candidate.node.point
+        );
+
+        if (distance < nearestDistance) {
+            nearestEntry = candidate;
+            nearestDistance = distance;
+        }
+    });
+
+    return nearestEntry;
+}
+
+function mergeCandidateComponents(firstComponent, secondComponent) {
+    if (firstComponent === secondComponent) {
+        return firstComponent;
+    }
+
+    return {
+        edges: [
+            ...firstComponent.edges,
+            ...secondComponent.edges,
+        ],
+        nodes: [
+            ...new Set([
+                ...firstComponent.nodes,
+                ...secondComponent.nodes,
+            ]),
+        ],
+    };
+}
+
+function pairNearestTerminalNodes(components) {
+    const terminalEntries = getTerminalEntries(components);
+    const nearestByEntry = new Map(
+        terminalEntries.map((entry) => [
+            entry,
+            findNearestTerminal(entry, terminalEntries),
+        ])
+    );
+    const pairedEntries = new Set();
+    const pairs = [];
+
+    terminalEntries.forEach((entry) => {
+        if (pairedEntries.has(entry)) {
+            return;
+        }
+
+        const nearestEntry = nearestByEntry.get(entry);
+
+        if (
+            !nearestEntry ||
+            pairedEntries.has(nearestEntry) ||
+            nearestByEntry.get(nearestEntry) !== entry
+        ) {
+            return;
+        }
+
+        pairedEntries.add(entry);
+        pairedEntries.add(nearestEntry);
+        pairs.push([entry, nearestEntry]);
+    });
+
+    return pairs;
+}
+
+function analyzeTerminalPair(firstEntry, secondEntry) {
+    const component = mergeCandidateComponents(
+        firstEntry.component,
+        secondEntry.component
+    );
+    const endpoints = {
+        start: firstEntry.node.point,
+        end: secondEntry.node.point,
+    };
+    const gapDistance = getEndpointDistance(endpoints);
+    const referenceLength = getComponentReferenceLength(component);
+
+    return {
+        component,
+        terminalNodes: [
+            firstEntry.node,
+            secondEntry.node,
+        ],
+        endpoints,
+        isClosed: false,
+        hasSingleOpenGap: true,
+        gapDistance,
+        referenceLength,
+        gapType: classifyGap(
+            gapDistance,
+            referenceLength
+        ),
+    };
+}
+
+function analyzeContours(pathElements) {
+    const graph =
+        buildEndpointGraph(pathElements);
+
+    const components =
+        getConnectedEdgeComponents(graph);
+
+    const closedAnalyses = components
+        .map((component) => analyzeComponent(component))
+        .filter((analysis) => analysis.isClosed);
+
+    const openAnalyses = pairNearestTerminalNodes(components)
+        .map(([firstEntry, secondEntry]) =>
+            analyzeTerminalPair(firstEntry, secondEntry)
+        );
+
+    return [
+        ...closedAnalyses,
+        ...openAnalyses,
+    ];
+}
+
+function createContourBridge(analysis) {
+    if (
+        !isRepairableContour(analysis)
+    ) {
+        return null;
+    }
+
+    const sourceElement =
+        analysis.component.edges[0]?.pathElement;
+
+    if (!sourceElement) {
+        return null;
+    }
+
+    const svgDocument =
+        sourceElement.ownerDocument;
+
+    const bridge = svgDocument.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line"
+    );
+
+    bridge.setAttribute(
+        "x1",
+        analysis.endpoints.start.x
+    );
+
+    bridge.setAttribute(
+        "y1",
+        analysis.endpoints.start.y
+    );
+
+    bridge.setAttribute(
+        "x2",
+        analysis.endpoints.end.x
+    );
+
+    bridge.setAttribute(
+        "y2",
+        analysis.endpoints.end.y
+    );
+
+    [
+        "class",
+        "style",
+        "stroke",
+        "stroke-width",
+        "stroke-linecap",
+        "stroke-linejoin",
+        "vector-effect",
+    ].forEach((attributeName) => {
+        const attributeValue =
+            sourceElement.getAttribute(attributeName);
+
+        if (attributeValue !== null) {
+            bridge.setAttribute(
+                attributeName,
+                attributeValue
+            );
+        }
+    });
+
+    bridge.setAttribute(
+        "data-pathseal-repair",
+        "true"
+    );
+
+    svgDocument.documentElement.append(bridge);
+
+    return bridge;
+}
+
+function classifyGap(gapDistance, referenceLength) {
+    const gapRatio = gapDistance / referenceLength;
+
+    if (gapRatio <= 0.005) {
+        return "micro-gap";
+    }
+
+    if (gapRatio <= 0.02) {
+        return "gap";
+    }
+
+    return "large-gap";
+}
+
+function isRepairableContour(analysis) {
+    return Boolean(
+        analysis?.hasSingleOpenGap &&
+        analysis.endpoints &&
+        analysis.gapType !== "large-gap"
+    );
+}
+function closePathData(pathData) {
+    const cleanPathData = pathData.trim();
+
+    if (isPathExplicitlyClosed(cleanPathData)) {
+        return cleanPathData;
+    }
+
+    return `${cleanPathData} Z`;
+}
+function updatePathData(pathElement, repairedPathData) {
+    pathElement.setAttribute("d", repairedPathData);
+
+    return pathElement;
+}
+function serializeSvg(svgDocument) {
+    const serializer = new XMLSerializer();
+
+    return serializer.serializeToString(svgDocument);
+}
+function analyzePath(pathElement) {
+    const pathData = getPathData(pathElement);
+    const isClosed = isPathExplicitlyClosed(pathData);
+    const endpoints = getPathEndpoints(pathElement);
+    const gapDistance = getEndpointDistance(endpoints);
+    const referenceLength = getPathReferenceLength(pathElement);
+    const gapType = classifyGap(gapDistance, referenceLength);
+
+    return {
+        pathElement,
+        pathData,
+        isClosed,
+        endpoints,
+        gapDistance,
+        referenceLength,
+        gapType,
+    };
+}
+function validateSvgText(svgText) {
+    try {
+        const validationDocument = parseSvg(svgText);
+        const rootElement = validationDocument.documentElement;
+
+        if (rootElement.tagName.toLowerCase() !== "svg") {
+            return {
+                isValid: false,
+                message: "The repaired file does not have an SVG root element.",
+            };
+        }
+
+        return {
+            isValid: true,
+            message: "The repaired SVG structure is valid.",
+        };
+    } catch (error) {
+        return {
+            isValid: false,
+            message: error.message,
+        };
+    }
+}
+function validateRepairedPaths(repairs) {
+    const failedRepairs = repairs.filter((repair) => {
+        const updatedPathData = getPathData(repair.pathElement);
+
+        return !isPathExplicitlyClosed(updatedPathData);
+    });
+
+    if (failedRepairs.length > 0) {
+        return {
+            isValid: false,
+            failedCount: failedRepairs.length,
+            message: `${failedRepairs.length} path repair failed validation.`,
+        };
+    }
+
+    return {
+        isValid: true,
+        failedCount: 0,
+        message: "All repaired paths are closed.",
+    };
+}
+
+return { parseSvg, getPathElements, getPathData, isPathExplicitlyClosed, tokenizePathData, getPathEndpoints, getEndpointDistance, getPathReferenceLength, getDrawingReferenceLength, pointsAreNear, getConnectionTolerance, buildEndpointGraph, getConnectedEdgeComponents, getComponentTerminalNodes, getComponentReferenceLength, analyzeComponent, pairNearestTerminalNodes, analyzeContours, createContourBridge, classifyGap, isRepairableContour, closePathData, updatePathData, serializeSvg, analyzePath, validateSvgText, validateRepairedPaths };
+})();
+
+// Source: modules/overlappingShapeRepair.js
+const module7 = (() => {
+const { getOverlappingSourceElements, inspectOverlappingDocument } = module3;
+const { parseSvg, serializeSvg, validateSvgText } = module8;
+
+function createOverlappingRepairSession(source, { DOMParser: Parser = globalThis.DOMParser } = {}) {
+    const original = new Parser().parseFromString(source, "image/svg+xml");
+    const initial = inspectOverlappingDocument(original);
+    const baseline = original.cloneNode(true);
+    let accepted = null;
+    let expectation = null;
+    let successfulIds = [];
+
+    function sameContent(first, second) {
+        // Removing an element can leave adjacent text nodes. XML round-tripping
+        // merges them; normalize private clones without changing any text content.
+        const a = first.cloneNode(true), b = second.cloneNode(true);
+        a.normalize();
+        b.normalize();
+        return a.isEqualNode(b);
+    }
+
+    function validateCopy(document, expected, count) {
+        if (!original.isEqualNode(baseline)) throw new Error("The source changed; start a new review.");
+        const inspection = inspectOverlappingDocument(document);
+        if (initial.shapeCount - inspection.shapeCount !== count || !sameContent(document, expected)) {
+            throw new Error("Validation failed: selected removals or unrelated SVG content differ.");
+        }
+        return inspection;
+    }
+    function validatedText(document, expected, count) {
+        validateCopy(document, expected, count);
+        const svgText = serializeSvg(document.cloneNode(true));
+        const validation = validateSvgText(svgText);
+        if (!validation.isValid) throw new Error(validation.message || "Invalid repaired SVG.");
+        validateCopy(parseSvg(svgText), expected, count);
+        return svgText;
+    }
+
+    return {
+        get workingDocument() { return accepted?.cloneNode(true) || null; },
+        execute(selectedIds, validatePreview = () => true) {
+            const ids = Array.isArray(selectedIds) ? selectedIds : [];
+            const refused = (reason) => ({ ok: false, executedCount: 0, skippedCount: ids.length, reason });
+            if (accepted) return refused("This review already has a completed repair batch. Upload an SVG for another review.");
+            try {
+                if (!ids.length || !ids.every((id) => typeof id === "string")) throw new Error("Select eligible removal proposals first.");
+                if (new Set(ids).size !== ids.length) throw new Error("Conflicting repeated repair selections.");
+                if (!original.isEqualNode(baseline)) throw new Error("The source changed; selections are stale.");
+                const fresh = inspectOverlappingDocument(original);
+                const approved = new Map(fresh.proposals.map((proposal) => [proposal.id, proposal]));
+                const initialProposals = new Map(initial.proposals.map((proposal) => [proposal.id, proposal]));
+                const selected = ids.map((id) => {
+                    const proposal = approved.get(id);
+                    if (!proposal || JSON.stringify(proposal) !== JSON.stringify(initialProposals.get(id))) {
+                        throw new Error("An unsafe, stale or unknown removal proposal was selected.");
+                    }
+                    return proposal;
+                });
+                const removals = new Set(selected.map(({ duplicateIndex }) => duplicateIndex));
+                if (removals.size !== selected.length || selected.some(({ keptIndex }) => removals.has(keptIndex))) {
+                    throw new Error("Conflicting removals would delete a shape another proposal retains.");
+                }
+                const working = original.cloneNode(true);
+                const expected = baseline.cloneNode(true);
+                // Both copies start at original indexes. Only approved duplicate nodes
+                // are removed; retained/unselected nodes and their entire subtrees stay exact.
+                for (const copy of [working, expected]) {
+                    const elements = getOverlappingSourceElements(copy);
+                    for (const index of [...removals].sort((a, b) => b - a)) {
+                        const node = elements[index];
+                        if (!node || node.localName !== "rect") throw new Error("Stale rectangle source mapping.");
+                        node.parentNode.removeChild(node);
+                    }
+                }
+                const inspection = validateCopy(working, expected, ids.length);
+                if (validatePreview(working, inspection) !== true) throw new Error("Working preview validation failed.");
+                // Serialization and round-trip validation are part of the transaction.
+                // Any failure discards the candidate and leaves the previous valid copy.
+                validatedText(working, expected, ids.length);
+                accepted = working.cloneNode(true);
+                expectation = expected;
+                successfulIds = [...ids];
+                return { ok: true, executedCount: ids.length, skippedCount: 0, workingDocument: working, inspection };
+            } catch (error) {
+                return refused(error?.message || "Repair failed; the candidate was discarded.");
+            }
+        },
+        prepareDownload(recordedCount) {
+            if (!accepted || !Number.isInteger(recordedCount) || recordedCount < 1
+                || recordedCount !== successfulIds.length || new Set(successfulIds).size !== recordedCount) {
+                throw new Error("Download blocked: no matching successful repair record.");
+            }
+            return { svgText: validatedText(accepted, expectation, recordedCount), executedCount: successfulIds.length };
+        },
+    };
+}
+
+return { createOverlappingRepairSession };
+})();
+
+// Source: modules/productManifest.js
+const module11 = (() => {
+const UNIVERSAL_ENTITLEMENT_ID = "all_products_lifetime";
+
+const PRODUCT_MANIFEST = Object.freeze([
+    Object.freeze({ id: "pathseal", name: "PathSeal", order: 1, lifecycle: "implemented", productionEnabled: true, route: "pathseal.html", description: "Find open contours, review questionable gaps, and seal only the paths you approve." }),
+    Object.freeze({ id: "duplicate_geometry", name: "Duplicate Line Remover", order: 2, lifecycle: "implemented", productionEnabled: false, route: "duplicate-geometry.html", description: "Find exact duplicate lines and prepare safe removals without touching questionable geometry." }),
+    Object.freeze({ id: "stray_node_cleaner", name: "Stray Node Cleaner", order: 3, lifecycle: "implemented", productionEnabled: false, route: "stray-node-cleaner.html", description: "Review stray-node findings and remove selected exact coincident nodes while preserving original geometry." }),
+    Object.freeze({ id: "overlapping_shape_repair", name: "Overlapping Shape Repair", order: 4, lifecycle: "implemented", productionEnabled: false, route: "overlapping-shape-repair.html", description: "Review overlaps and remove only selected safe exact duplicate rectangles." }),
+    Object.freeze({ id: "curve_repair", name: "Curve Repair", order: 5, lifecycle: "planned", productionEnabled: false, route: null, description: "Inspect and repair damaged curve geometry without blind simplification." }),
+]);
+
+function getProduct(productId) {
+    return PRODUCT_MANIFEST.find(({ id }) => id === productId) || null;
+}
+
+function getProductionSelectableProductIds() {
+    return PRODUCT_MANIFEST.filter(({ lifecycle, productionEnabled }) => lifecycle === "implemented" && productionEnabled).map(({ id }) => id);
+}
+
+return { UNIVERSAL_ENTITLEMENT_ID, PRODUCT_MANIFEST, getProduct, getProductionSelectableProductIds };
+})();
+
+// Source: modules/accessFoundation.js
+const module10 = (() => {
+const { PRODUCT_MANIFEST, UNIVERSAL_ENTITLEMENT_ID } = module11;
+
+const HUB_ROUTE = "index.html";
+const SAFE_RETURN_ROUTES = new Set(PRODUCT_MANIFEST.filter(({ lifecycle, route }) => lifecycle === "implemented" && route).map(({ route }) => route));
+
+function subscriptionStatusFor(user, productId) {
+    return user?.subscription_statuses?.[productId] || user?.subscriptionStatusByProduct?.[productId] || (productId === "pathseal" ? user?.subscription_status : null) || null;
+}
+
+function validateReturnDestination(value) {
+    if (typeof value !== "string" || !value || value.length > 120) return null;
+    let decoded;
+    try { decoded = decodeURIComponent(value); } catch { return null; }
+    if (decoded !== value || /[\\\u0000-\u001f\u007f]/.test(value) || value.startsWith("/") || value.includes(":") || value.includes("?") || value.includes("#") || value.includes("..")) return null;
+    return SAFE_RETURN_ROUTES.has(value) ? value : null;
+}
+
+function deriveToolAccessState(tool, user, { authorityAvailable = true } = {}) {
+    if (tool.lifecycle === "planned") return { key: "planned", label: "Planned", canOpen: false, canSelect: false };
+    if (!authorityAvailable && user) return { key: "unavailable", label: "Status unavailable", canOpen: true, canSelect: false };
+    if (!user) return { key: "signed_out", label: "Signed out", canOpen: true, canSelect: false };
+    const entitlements = Array.isArray(user.entitlements) ? user.entitlements : [];
+    if (entitlements.includes(UNIVERSAL_ENTITLEMENT_ID)) return { key: "lifetime", label: "Lifetime access", canOpen: true, canSelect: false };
+    const status = subscriptionStatusFor(user, tool.id);
+    const entitled = entitlements.includes(tool.id);
+    if (entitled && status === "past_due") return { key: "grace", label: "Payment retry — access remains on", canOpen: true, canSelect: false };
+    if (entitled) return { key: "owned", label: "Owned", canOpen: true, canSelect: false };
+    if (["canceled", "unpaid", "incomplete_expired", "paused"].includes(status)) return { key: "expired", label: "Access ended", canOpen: true, canSelect: tool.productionEnabled };
+    if (tool.productionEnabled) return { key: "available", label: "Available to add", canOpen: true, canSelect: true };
+    return { key: "preview", label: "Workspace preview", canOpen: true, canSelect: false };
+}
+
+return { HUB_ROUTE, validateReturnDestination, deriveToolAccessState };
+})();
+
+// Source: modules/overlappingShapeAccess.js
+const module9 = (() => {
+const { deriveToolAccessState } = module10;
+const { getProduct, UNIVERSAL_ENTITLEMENT_ID } = module11;
+
+const OVERLAPPING_SHAPE_ENTITLEMENT = getProduct("overlapping_shape_repair").id;
+const EXPIRED = new Set(["canceled", "cancelled", "expired", "incomplete_expired", "paused", "unpaid"]);
+
+async function runWithFreshOverlappingAccess(refreshSession, action) {
+    let user;
+    try { user = await refreshSession(); }
+    catch { throw new Error("Tool access could not be verified. Try again through the shared hub."); }
+    if (user === null) throw new Error("Sign in through the shared hub to verify Overlapping Shape Repair access. Scan and review remain free.");
+    if (!user || !Array.isArray(user.entitlements) || !user.entitlements.every((id) => typeof id === "string")) {
+        throw new Error("Tool access could not be verified: malformed session.");
+    }
+    if (!user.entitlements.includes(UNIVERSAL_ENTITLEMENT_ID)) {
+        const status = user.subscription_statuses?.[OVERLAPPING_SHAPE_ENTITLEMENT] ?? user.subscriptionStatusByProduct?.[OVERLAPPING_SHAPE_ENTITLEMENT] ?? null;
+        if (status !== null && typeof status !== "string") throw new Error("Tool access could not be verified: malformed status.");
+        const state = deriveToolAccessState(getProduct(OVERLAPPING_SHAPE_ENTITLEMENT), user);
+        if (EXPIRED.has(status?.toLowerCase()) || !["owned", "grace"].includes(state.key)) {
+            throw new Error("Your account does not have active Overlapping Shape Repair access. Tool purchases are not enabled yet.");
+        }
+    }
+    if (typeof action !== "function") throw new Error("Invalid protected action.");
+    return action(user);
+}
+
+return { OVERLAPPING_SHAPE_ENTITLEMENT, runWithFreshOverlappingAccess };
+})();
+
+// Source: modules/strayNodeDownload.js
+const module12 = (() => {
+function cleanedSvgFilename(originalName) {
+    const basename = String(originalName || "drawing.svg").split(/[\\/]/).pop();
+    const stem = basename.replace(/\.svg$/i, "").replace(/[<>:"|?*\x00-\x1f]/g, "_").trim() || "drawing";
+    return `${stem}-cleaned.svg`;
+}
+
+// Same browser Blob/anchor pattern as the existing tools; delay cleanup so the
+// browser can consume the URL after the click. Only validated text enters here.
+function downloadCleanedSvg(svgText, originalName, {
+    document = globalThis.document, URL = globalThis.URL,
+    Blob = globalThis.Blob, schedule = globalThis.setTimeout,
+} = {}) {
+    const url = URL.createObjectURL(new Blob([svgText], { type: "image/svg+xml" }));
+    const link = document.createElement("a");
+    try {
+        link.href = url;
+        link.download = cleanedSvgFilename(originalName);
+        document.body.append(link);
+        link.click();
+    } finally {
+        link.remove();
+        schedule(() => URL.revokeObjectURL(url), 1000);
+    }
+}
+
+return { cleanedSvgFilename, downloadCleanedSvg };
+})();
+
+// Source: overlapping-shape-repair.js
+const module2 = (() => {
+const { inspectOverlappingSvg } = module3;
+const { renderOverlappingPreview, highlightOverlappingFinding } = module4;
+const { readLocalSvgFile } = module5;
+const { createOverlappingRepairSession } = module7;
+const { runWithFreshOverlappingAccess } = module9;
+const { downloadCleanedSvg } = module12;
+
+function initializeOverlappingShapePage({ refreshSession } = {}) {
     const file = document.querySelector("#overlap-file");
     const results = document.querySelector("#overlap-results");
     const status = document.querySelector("#overlap-status");
@@ -553,15 +1836,41 @@ function initializeOverlappingShapePage() {
     const previewStatus = document.querySelector("#overlap-preview-status");
     const list = document.querySelector("#overlap-findings");
     const selection = document.querySelector("#overlap-selection");
+    const repairButton = document.querySelector("#overlap-repair");
+    const downloadButton = document.querySelector("#overlap-download");
+    const execution = document.querySelector("#overlap-execution");
+    const access = document.querySelector("#overlap-access");
+    const validation = document.querySelector("#overlap-validation");
     let version = 0;
     let eligible = new Set();
+    let session = null;
+    let completed = false;
+    let pending = false;
+    let downloadReady = false;
+    let executedCount = 0;
+    let filename = "drawing.svg";
 
+    function selectedIds() {
+        return [...new Set([...list.querySelectorAll('input[type="checkbox"]:checked')]
+            .filter((input) => !input.disabled && eligible.has(input.dataset.proposalId)).map((input) => input.dataset.proposalId))];
+    }
     function updateSelection() {
-        const selected = new Set([...list.querySelectorAll('input[type="checkbox"]:checked')]
-            .filter((input) => !input.disabled && eligible.has(input.dataset.proposalId)).map((input) => input.dataset.proposalId));
-        selection.textContent = `${selected.size} of ${eligible.size} eligible removal proposals selected. No repairs are performed in this block.`;
+        const selected = selectedIds();
+        repairButton.disabled = pending || completed || !session || selected.length === 0;
+        downloadButton.disabled = pending || !downloadReady;
+        selection.textContent = completed
+            ? "0 proposals selected. This repair batch is complete; upload an SVG to begin another review."
+            : `${selected.length} of ${eligible.size} eligible removal proposals selected. Nothing changes before an authorized repair.`;
     }
     function reset() {
+        session = null;
+        completed = false;
+        pending = false;
+        downloadReady = false;
+        executedCount = 0;
+        execution.textContent = "";
+        validation.textContent = "Download requires a successful validated repair.";
+        access.textContent = "Upload, scan and review are free. Repair and download require verified Tool 4 or universal lifetime access.";
         eligible = new Set();
         list.replaceChildren();
         preview.replaceChildren();
@@ -570,9 +1879,119 @@ function initializeOverlappingShapePage() {
         updateSelection();
     }
 
+    function renderInspection(inspection) {
+        const rendered = renderOverlappingPreview(preview, inspection.shapes);
+        eligible = new Set(completed ? [] : inspection.proposals.map(({ id }) => id));
+        const labels = { "exact-duplicate": "Exact duplicate geometry", "possible-overlap": "Possible overlap — manual review", "unsupported-geometry": "Unsupported geometry — manual review" };
+        list.replaceChildren(...inspection.findings.map((finding) => {
+            const card = document.createElement("article");
+            card.className = "eco-card";
+            card.dataset.findingId = finding.id;
+            const title = document.createElement("h3");
+            title.className = "eco-heading";
+            title.textContent = `Finding ${finding.number}: ${labels[finding.kind]}`;
+            const geometry = document.createElement("p");
+            geometry.textContent = finding.indexes.map((index) => inspection.shapes[index]?.label).filter(Boolean).join(" and ") || "Additional geometry outside the inspection limit";
+            const reason = document.createElement("p");
+            reason.textContent = finding.reason;
+            card.append(title, geometry, reason);
+            if (finding.proposalId && eligible.has(finding.proposalId)) {
+                const option = document.createElement("label");
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = false;
+                checkbox.dataset.proposalId = finding.proposalId;
+                checkbox.addEventListener("change", updateSelection);
+                option.append(checkbox, ` Select removal proposal for finding ${finding.number} (keep the first shape).`);
+                card.append(option);
+            } else {
+                const note = document.createElement("p");
+                note.className = "eco-muted";
+                note.textContent = completed && finding.proposalId
+                    ? "Not included in the completed batch. Upload an SVG to start another review."
+                    : "Manual review only — excluded from repair selection.";
+                card.append(note);
+            }
+            const mapped = finding.indexes.filter((index) => rendered.has(index));
+            if (mapped.length) {
+                const highlight = document.createElement("button");
+                highlight.type = "button";
+                highlight.className = "eco-button eco-button--secondary";
+                highlight.textContent = `Highlight geometry for finding ${finding.number}`;
+                highlight.addEventListener("click", () => {
+                    highlightOverlappingFinding(rendered, mapped);
+                    previewStatus.textContent = `Finding ${finding.number}: highlighted source shapes ${mapped.map((index) => index + 1).join(", ")}. The original SVG is unchanged.`;
+                });
+                card.append(highlight);
+            }
+            return card;
+        }));
+        updateSelection();
+    }
+
+    async function withAccess(action) {
+        if (pending || !session) return;
+        const current = version;
+        const currentSession = session;
+        pending = true;
+        access.textContent = "Checking shared account access…";
+        updateSelection();
+        try {
+            await runWithFreshOverlappingAccess(refreshSession, () => {
+                if (current !== version || currentSession !== session) return;
+                access.textContent = "Overlapping Shape Repair access verified.";
+                return action();
+            });
+        } catch (error) {
+            if (current === version && currentSession === session) access.textContent = error.message;
+        } finally {
+            if (current === version && currentSession === session) { pending = false; updateSelection(); }
+        }
+    }
+
+    repairButton.addEventListener("click", () => {
+        if (pending || completed || !session) return;
+        const ids = selectedIds();
+        if (!ids.length) return;
+        return withAccess(() => {
+            if (JSON.stringify(ids) !== JSON.stringify(selectedIds())) throw new Error("Selections changed during access verification. Review and try again.");
+            const outcome = session.execute(ids, (_working, inspection) => {
+                const staged = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                renderOverlappingPreview(staged, inspection.shapes);
+                return true;
+            });
+            execution.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.ok ? "Original upload preserved." : `${outcome.reason} Candidate discarded; previous valid copy preserved.`}`;
+            if (!outcome.ok) return;
+            completed = true;
+            executedCount = outcome.executedCount;
+            downloadReady = true;
+            renderInspection(outcome.inspection);
+            previewStatus.textContent = "Validated repaired working copy. Remaining findings can still be highlighted.";
+            results.dataset.state = "repaired";
+            status.textContent = "Selected safe rectangle removals completed and validated.";
+            summary.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped; ${outcome.inspection.findings.length} findings remain. Unselected and unsupported geometry preserved.`;
+            validation.textContent = "SVG, removal count, unchanged content and serialization round-trip validation passed. Download is ready.";
+        });
+    });
+
+    downloadButton.addEventListener("click", () => {
+        if (pending || !downloadReady || !completed || !session) return;
+        return withAccess(() => {
+            try {
+                const { svgText } = session.prepareDownload(executedCount);
+                downloadCleanedSvg(svgText, filename);
+                validation.textContent = "Final validation passed. Cleaned SVG download started; original upload preserved.";
+            } catch (error) {
+                downloadReady = false;
+                validation.textContent = `Download blocked: ${error.message}`;
+            }
+        });
+    });
+
     file.addEventListener("change", async () => {
         const current = ++version;
         reset();
+        filename = file.files?.[0]?.name || "drawing.svg";
         results.dataset.state = "loading";
         results.setAttribute("aria-busy", "true");
         status.textContent = "Inspecting the local SVG…";
@@ -580,51 +1999,8 @@ function initializeOverlappingShapePage() {
             const source = await readLocalSvgFile(file.files?.[0]);
             if (current !== version) return;
             const inspection = inspectOverlappingSvg(source);
-            const rendered = renderOverlappingPreview(preview, inspection.shapes);
-            eligible = new Set(inspection.proposals.map(({ id }) => id));
-            const labels = { "exact-duplicate": "Exact duplicate geometry", "possible-overlap": "Possible overlap — manual review", "unsupported-geometry": "Unsupported geometry — manual review" };
-            list.replaceChildren(...inspection.findings.map((finding) => {
-                const card = document.createElement("article");
-                card.className = "eco-card";
-                card.dataset.findingId = finding.id;
-                const title = document.createElement("h3");
-                title.className = "eco-heading";
-                title.textContent = `Finding ${finding.number}: ${labels[finding.kind]}`;
-                const geometry = document.createElement("p");
-                geometry.textContent = finding.indexes.map((index) => inspection.shapes[index]?.label).filter(Boolean).join(" and ") || "Additional geometry outside the inspection limit";
-                const reason = document.createElement("p");
-                reason.textContent = finding.reason;
-                card.append(title, geometry, reason);
-                if (finding.proposalId && eligible.has(finding.proposalId)) {
-                    const option = document.createElement("label");
-                    const checkbox = document.createElement("input");
-                    checkbox.type = "checkbox";
-                    checkbox.checked = false;
-                    checkbox.dataset.proposalId = finding.proposalId;
-                    checkbox.addEventListener("change", updateSelection);
-                    option.append(checkbox, ` Select removal proposal for finding ${finding.number} (keep the first shape).`);
-                    card.append(option);
-                } else {
-                    const note = document.createElement("p");
-                    note.className = "eco-muted";
-                    note.textContent = "Manual review only — excluded from repair selection.";
-                    card.append(note);
-                }
-                const mapped = finding.indexes.filter((index) => rendered.has(index));
-                if (mapped.length) {
-                    const highlight = document.createElement("button");
-                    highlight.type = "button";
-                    highlight.className = "eco-button eco-button--secondary";
-                    highlight.textContent = `Highlight geometry for finding ${finding.number}`;
-                    highlight.addEventListener("click", () => {
-                        highlightOverlappingFinding(rendered, mapped);
-                        previewStatus.textContent = `Finding ${finding.number}: highlighted source shapes ${mapped.map((index) => index + 1).join(", ")}. The original SVG is unchanged.`;
-                    });
-                    card.append(highlight);
-                }
-                return card;
-            }));
-            updateSelection();
+            session = inspection.proposals.length ? createOverlappingRepairSession(source) : null;
+            renderInspection(inspection);
             status.textContent = inspection.findings.length ? `${inspection.findings.length} numbered findings available for review.` : "Inspection complete. No overlap findings in the supported scope.";
             summary.textContent = `${inspection.inspectedCount} of ${inspection.shapeCount} shapes inspected; ${inspection.proposals.length} eligible removal proposals. Unsupported geometry remains unchanged. No repairs were executed.`;
             results.dataset.state = "complete";
@@ -639,8 +2015,16 @@ function initializeOverlappingShapePage() {
     });
 }
 
-if (typeof document !== "undefined") initializeOverlappingShapePage();
-
 return { initializeOverlappingShapePage };
+})();
+
+// Source: overlapping-shape-repair-entry.js
+const module0 = (() => {
+const { refreshSession } = module1;
+const { initializeOverlappingShapePage } = module2;
+
+initializeOverlappingShapePage({ refreshSession });
+
+return {  };
 })();
 })();

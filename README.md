@@ -4,7 +4,63 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
-## Tool 4 — Block 21 checkpoint (2026-10-30)
+## Tool 4 — Block 22 checkpoint (2026-10-30)
+
+VERIFIED: `mytonite86-coder/svg-path-closer`, clean Block 21 base
+`511e8eb07c4b0ee16846dbd41069c33d7a0acbb3`. Branch:
+`work/block22-tool4-repair-access`. Completion commit is the local commit adding
+this checkpoint (`git log -1` on this branch). Deployment: UNKNOWN; local only,
+no push, merge, deployment or commercial configuration changes.
+
+Tool 4 now completes Upload → Scan → Preview/Review → Select → Repair → Validate
+→ Download within Block 21's existing conservative safe-rectangle scope. Its
+detector rechecks source/proposal identities and safety immediately before
+execution. Repeated/unknown/stale/conflicting selections and all manual-review
+findings are refused. Selected duplicates are removed only from deep working
+copies. The original and all three Block 21 fixtures remain untouched.
+
+Validation confirms the exact approved removals, removal count and equality of
+all retained SVG content against an independently prepared expected copy, then
+serializes/reparses using existing shared SVG utilities. Comparison normalizes
+private clones so adjacent whitespace text nodes merged by XML round-tripping
+do not cause false failures; no text or geometry is discarded. Preview and XML
+validation are transactional: any failure discards the candidate, retaining the
+previous valid copy. A successful batch updates findings/preview/counts and locks
+repeat execution for that upload. Download validates the private accepted copy
+and successful repair record again, using the existing cleaned-filename/Blob
+download helper. New uploads invalidate all prior repair/download state.
+
+The existing hub opens Tool 4 through the manifest's implemented route
+`overlapping-shape-repair.html`; `productionEnabled` remains false. Account return
+navigation reuses the existing hub. Upload/scan/review remain free and local.
+Both repair and download require separate fresh shared-session checks for the
+manifest identifier `overlapping_shape_repair` or `all_products_lifetime`.
+Signed-out, unentitled, expired, malformed and unavailable authority states deny
+protected work. Revocation before download is rechecked. In-flight checks cannot
+apply to new uploads, changed selections or repeated concurrent clicks.
+Shared account handoff uses a common HTTP(S) origin; direct-file free review
+continues to work. No live account/entitlement request or purchase was made.
+
+SESSION HANDOFF — Block 22 COMPLETE. Verified: 26 focused Tool 4 tests,
+syntax/whitespace/source-bundle checks; automated Chrome hub integration with
+mocked session responses for signed-out, unentitled, Tool 4 and lifetime states,
+actual completed downloads with preserved retained content, access revocation,
+transactional XML-failure rollback/retry, whitespace round-trip regression,
+all three original fixtures, direct-file free review and stale-action checks.
+No owner-led QA required for this block. Tools 1–3, hub implementation, auth,
+billing and release flags remain unchanged; only Tool 4's manifest record changes.
+No partial-overlap execution, new repair categories, dependencies, clones or
+unrelated test suites. Actual blockers: none for local completion. Live commercial
+configuration/production access remains separately gated and unverified.
+Resume anchors: `modules/overlappingShapeRepair.js`,
+`modules/overlappingShapeAccess.js`, `overlapping-shape-repair.js`,
+`overlapping-shape-repair-entry.js` and `tests/overlapping-repair.test.mjs`.
+Regenerate only Tool 4's classic entry with `node scripts/build-tool4-local.mjs`.
+Continuity remains `SKP-WORK-CONTINUITY-2026-09-01.1` and linked restart rules.
+Tool 4 is locally complete within its approved scope. Block 23 may begin only
+after the next work order; STOP here and do not begin Tool 5 automatically.
+
+## Historical Tool 4 — Block 21 checkpoint (2026-10-30)
 
 VERIFIED: repository `mytonite86-coder/svg-path-closer`, clean base
 `1e2642c85a97c50fb30973666e5cb92f4cebdc07`. Branch:
