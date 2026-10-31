@@ -78,7 +78,7 @@ async function open(s, tool, hub = true) {
         await s.page.waitForLoadState("domcontentloaded");
     } else await s.page.goto(`${base}/${tool.route}`);
     if (tool.id === "pathseal" && s.state.user) {
-        await s.page.waitForFunction(() => document.querySelector("#account-status").textContent.includes("repair and download are unlocked") || document.querySelector("#account-status").textContent.includes("Subscribe"));
+        await s.page.waitForFunction(() => document.querySelector("#account-status").textContent.includes("repair and download are unlocked") || document.querySelector("#account-status").textContent.includes("Subscribe") || document.querySelector("#account-status").textContent.includes("Lifetime purchases"));
         await s.page.waitForLoadState("networkidle");
     }
 }
@@ -122,9 +122,9 @@ async function download(s, tool) {
 }
 async function denied(s, tool) {
     if (tool.id === "pathseal") {
-        await s.page.waitForFunction((selector) => /Sign in|Subscribe/.test(document.querySelector(selector).textContent), tool.message);
+        await s.page.waitForFunction((selector) => /Sign in|Purchase|Subscribe/.test(document.querySelector(selector).textContent), tool.message);
         assert.equal(await s.page.locator(tool.download).isDisabled(), true, "PathSeal allowed repair after its grant was revoked");
-        assert.match(await s.page.locator(tool.message).innerText(), /Sign in|Subscribe/);
+        assert.match(await s.page.locator(tool.message).innerText(), /Sign in|Purchase|Subscribe/);
     } else await s.page.waitForFunction((selector) => /Sign in|does not have|could not be verified/i.test(document.querySelector(selector).textContent), tool.message);
     assert.equal(await s.page.locator(tool.download).isDisabled(), true);
     assert.equal(s.state.downloads.length, 0);

@@ -23,7 +23,7 @@ export async function requestSvgSubscriptionQuote(
     });
 
     if (!response.ok) {
-        throw new Error("The subscription quote is temporarily unavailable.");
+        throw new Error("The purchase quote is temporarily unavailable.");
     }
 
     return response.json();

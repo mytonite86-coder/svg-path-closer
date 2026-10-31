@@ -1,5 +1,33 @@
 # SVG Path Closer Build Checklist
 
+## Block 30 - one-time lifetime checkout conversion
+
+Frontend: `work/block30-lifetime-checkout`, base `8af47b8`.
+Backend: `work/block30-svg-lifetime-checkout`, commit `589414c`, base `dc66f14`.
+This work order supersedes all historical monthly SVG terms below.
+
+- [x] Six approved one-time Price IDs mapped into manifest/backend configuration
+- [x] USD $9.99/tool and $34.99 complete bundle; no SVG recurring Coupons
+- [x] Checkout payment mode; remove new-sale PathSeal monthly package
+- [x] Existing routes/backend reused; no MAB package or pricing change
+- [x] Individual grants scoped to purchased SVG tool; bundle scoped to five SVG tools
+- [x] No universal/MAB/premium grant from SVG lifetime fulfillment
+- [x] Require signed successful paid session and exact owner/amount/currency/metadata
+- [x] No grants from failed/incomplete/unpaid/unverified/wrong-owner sessions
+- [x] Repeat delivery idempotent; status polling cannot fulfill lifetime purchases
+- [x] Permanent SVG grants survive legacy expiry/cancellation; fresh authority required
+- [x] Free inspection, protected repair engines and original SVG processing preserved
+- [x] Active one-time messaging; shared/direct purchase buttons remain disabled
+- [x] 46 focused backend and 11 Node checks passed, zero failures
+- [x] Syntax/whitespace/generated packaging checks passed; no broad or live tests
+- [x] Existing README/backend foundation/configuration notes updated
+- [ ] Current shared MAB release reconciliation before deployment review
+- [ ] Separate deployment and real payment-delivery verification authorization
+- [ ] Existing recovery/access safeguards and purchasing activation approval
+- [x] No live record/customer changes, subscriptions, push, merge or deploy
+
+STOP after companion commits. Local lifetime integration complete; purchasing OFF.
+
 ## Block 29 - Stripe configuration readiness and isolated delivery
 
 Frontend base `62baaaf`; branch `work/block29-commercial-configuration`.

@@ -374,7 +374,7 @@ function renderAccountState() {
         subscribeButton.hidden = true;
     } else {
         accountStatus.textContent =
-            "Signed in. Subscribe to unlock repair and download.";
+            "Signed in. Lifetime purchases are not enabled yet.";
         subscribeButton.hidden = false;
     }
 }

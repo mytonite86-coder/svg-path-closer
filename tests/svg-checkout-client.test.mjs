@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PRODUCT_MANIFEST } from '../modules/productManifest.js';
+import { PRODUCT_MANIFEST, SVG_PURCHASE_CATALOG } from '../modules/productManifest.js';
 import { RELEASE_FLAGS } from '../modules/releaseFlags.js';
 import { readFile } from 'node:fs/promises';
 
@@ -17,14 +17,14 @@ test('recovered client sends each implemented ID and the complete bundle to shar
     const { auth, assigned } = await client();
     const requests = [];
     globalThis.fetch = async (...args) => { requests.push(args); return { ok: true, json: async () => ({ url: 'https://checkout.stripe.com/c/pay/cs_fixture' }) }; };
-    for (const selection of [...PRODUCT_MANIFEST.map(p => [p.id]), PRODUCT_MANIFEST.map(p => p.id)]) {
+    for (const selection of [...SVG_PURCHASE_CATALOG.map(p => [p.id]), PRODUCT_MANIFEST.map(p => p.id)]) {
         await auth.startSvgSubscriptionCheckout(selection);
         const [url, options] = requests.at(-1);
         assert.match(url, /\/payments\/svg-subscription\/checkout\/session$/);
         assert.equal(options.headers.Authorization, 'Bearer isolated-token');
         assert.deepEqual(JSON.parse(options.body), { selected_product_ids: selection, origin_url: 'https://mytonite86-coder.github.io/svg-path-closer/index.html' });
     }
-    assert.equal(assigned.length, 6);
+    assert.equal(assigned.length, 7);
     assert.deepEqual(auth.getCurrentUser().entitlements, [], 'checkout never grants client-side entitlement');
 });
 

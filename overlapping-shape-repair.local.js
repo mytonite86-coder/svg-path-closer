@@ -7,11 +7,11 @@ const module2 = (() => {
 const UNIVERSAL_ENTITLEMENT_ID = "all_products_lifetime";
 
 const PRODUCT_MANIFEST = Object.freeze([
-    Object.freeze({ id: "pathseal", name: "PathSeal", order: 1, lifecycle: "implemented", productionEnabled: true, route: "pathseal.html", description: "Find open contours, review questionable gaps, and seal only the paths you approve." }),
-    Object.freeze({ id: "duplicate_geometry", name: "Duplicate Line Remover", order: 2, lifecycle: "implemented", productionEnabled: false, route: "duplicate-geometry.html", description: "Find exact duplicate lines and prepare safe removals without touching questionable geometry." }),
-    Object.freeze({ id: "stray_node_cleaner", name: "Stray Node Cleaner", order: 3, lifecycle: "implemented", productionEnabled: false, route: "stray-node-cleaner.html", description: "Review stray-node findings and remove selected exact coincident nodes while preserving original geometry." }),
-    Object.freeze({ id: "overlapping_shape_repair", name: "Overlapping Shape Repair", order: 4, lifecycle: "implemented", productionEnabled: false, route: "overlapping-shape-repair.html", description: "Review overlaps and remove only selected safe exact duplicate rectangles." }),
-    Object.freeze({ id: "curve_repair", name: "Curve Repair", order: 5, lifecycle: "implemented", productionEnabled: false, route: "curve-repair.html", description: "Review curves and remove only selected, proven redundant interior cubic segments." }),
+    Object.freeze({ id: "pathseal", priceId: "price_1UWR05GcjYPS3asvfYYyOfNb", amountCents: 999, billingMode: "payment", access: "lifetime", name: "PathSeal", order: 1, lifecycle: "implemented", productionEnabled: true, route: "pathseal.html", description: "Find open contours, review questionable gaps, and seal only the paths you approve." }),
+    Object.freeze({ id: "duplicate_geometry", priceId: "price_1UWR0DGcjYPS3asvaIMuvUjo", amountCents: 999, billingMode: "payment", access: "lifetime", name: "Duplicate Line Remover", order: 2, lifecycle: "implemented", productionEnabled: false, route: "duplicate-geometry.html", description: "Find exact duplicate lines and prepare safe removals without touching questionable geometry." }),
+    Object.freeze({ id: "stray_node_cleaner", priceId: "price_1UWR0EGcjYPS3asvvzGDU6eH", amountCents: 999, billingMode: "payment", access: "lifetime", name: "Stray Node Cleaner", order: 3, lifecycle: "implemented", productionEnabled: false, route: "stray-node-cleaner.html", description: "Review stray-node findings and remove selected exact coincident nodes while preserving original geometry." }),
+    Object.freeze({ id: "overlapping_shape_repair", priceId: "price_1UWR0GGcjYPS3asvGXEkZ9LB", amountCents: 999, billingMode: "payment", access: "lifetime", name: "Overlapping Shape Repair", order: 4, lifecycle: "implemented", productionEnabled: false, route: "overlapping-shape-repair.html", description: "Review overlaps and remove only selected safe exact duplicate rectangles." }),
+    Object.freeze({ id: "curve_repair", priceId: "price_1UWR0IGcjYPS3asvPdIxw729", amountCents: 999, billingMode: "payment", access: "lifetime", name: "Curve Repair", order: 5, lifecycle: "implemented", productionEnabled: false, route: "curve-repair.html", description: "Review curves and remove only selected, proven redundant interior cubic segments." }),
 ]);
 
 function getProduct(productId) {
@@ -22,12 +22,15 @@ function getProductionSelectableProductIds() {
     return PRODUCT_MANIFEST.filter(({ lifecycle, productionEnabled }) => lifecycle === "implemented" && productionEnabled).map(({ id }) => id);
 }
 
-return { UNIVERSAL_ENTITLEMENT_ID, PRODUCT_MANIFEST, getProduct, getProductionSelectableProductIds };
+const SVG_COMPLETE_BUNDLE = Object.freeze({ id: "svg_complete_bundle", name: "Complete Five-Tool Bundle", priceId: "price_1UWR0KGcjYPS3asvWLg8MvVb", amountCents: 3499, billingMode: "payment", access: "lifetime", productionEnabled: false });
+const SVG_PURCHASE_CATALOG = Object.freeze([...PRODUCT_MANIFEST, SVG_COMPLETE_BUNDLE]);
+
+return { UNIVERSAL_ENTITLEMENT_ID, PRODUCT_MANIFEST, getProduct, getProductionSelectableProductIds, SVG_COMPLETE_BUNDLE, SVG_PURCHASE_CATALOG };
 })();
 
 // Source: modules/auth.js
 const module1 = (() => {
-const { PRODUCT_MANIFEST } = module2;
+const { PRODUCT_MANIFEST, SVG_PURCHASE_CATALOG } = module2;
 const API_BASE_URL =
     "https://mab-path-editor.onrender.com/api";
 
@@ -188,25 +191,7 @@ async function refreshSession() {
 async function startPathSealCheckout(
     attribution = {}
 ) {
-    const checkout = await apiRequest(
-        "/payments/checkout/session",
-        {
-            method: "POST",
-            requiresAuth: true,
-            body: {
-                package_id: "pathseal_monthly",
-                origin_url:
-                    window.location.origin +
-                    window.location.pathname,
-                visitor_id: attribution.visitorId || "",
-                source: attribution.source || "direct",
-                medium: attribution.medium || "",
-                campaign: attribution.campaign || "",
-            },
-        }
-    );
-
-    window.location.assign(checkout.url);
+    return startSvgSubscriptionCheckout(["pathseal"]);
 }
 
 async function confirmPathSealCheckout(
@@ -270,7 +255,7 @@ function hasEntitlement(productId) {
         entitlements.includes("all_products_lifetime")
     );
 }
-const SELECTABLE_SVG_CHECKOUT_PRODUCT_IDS = new Set(PRODUCT_MANIFEST.filter(({ lifecycle }) => lifecycle === "implemented").map(({ id }) => id));
+const SELECTABLE_SVG_CHECKOUT_PRODUCT_IDS = new Set(SVG_PURCHASE_CATALOG.map(({ id }) => id));
 
 function validateSvgCheckoutSelection(selectedProductIds) {
     if (
@@ -292,6 +277,7 @@ function validateSvgCheckoutSelection(selectedProductIds) {
         throw new Error("The SVG tool selection is not available.");
     }
 
+    if (uniqueProductIds.has("svg_complete_bundle") && uniqueProductIds.size !== 1) throw new Error("Choose the bundle or individual tools.");
     return [...uniqueProductIds];
 }
 
@@ -1831,6 +1817,7 @@ function deriveToolAccessState(tool, user, { authorityAvailable = true } = {}) {
     if (!user) return { key: "signed_out", label: "Signed out", canOpen: true, canSelect: false };
     const entitlements = Array.isArray(user.entitlements) ? user.entitlements : [];
     if (entitlements.includes(UNIVERSAL_ENTITLEMENT_ID)) return { key: "lifetime", label: "Lifetime access", canOpen: true, canSelect: false };
+    if (entitlements.includes(tool.id) && user.svg_lifetime_entitlements?.includes(tool.id)) return { key: "lifetime", label: "Lifetime access", canOpen: true, canSelect: false };
     const status = subscriptionStatusFor(user, tool.id);
     const entitled = entitlements.includes(tool.id);
     if (entitled && status === "past_due") return { key: "grace", label: "Payment retry — access remains on", canOpen: true, canSelect: false };
@@ -1859,7 +1846,7 @@ async function runWithFreshOverlappingAccess(refreshSession, action) {
     if (!user || !Array.isArray(user.entitlements) || !user.entitlements.every((id) => typeof id === "string")) {
         throw new Error("Tool access could not be verified: malformed session.");
     }
-    if (!user.entitlements.includes(UNIVERSAL_ENTITLEMENT_ID)) {
+    if (!user.entitlements.includes(UNIVERSAL_ENTITLEMENT_ID) && !(user.entitlements.includes(OVERLAPPING_SHAPE_ENTITLEMENT) && user.svg_lifetime_entitlements?.includes(OVERLAPPING_SHAPE_ENTITLEMENT))) {
         const status = user.subscription_statuses?.[OVERLAPPING_SHAPE_ENTITLEMENT] ?? user.subscriptionStatusByProduct?.[OVERLAPPING_SHAPE_ENTITLEMENT] ?? null;
         if (status !== null && typeof status !== "string") throw new Error("Tool access could not be verified: malformed status.");
         const state = deriveToolAccessState(getProduct(OVERLAPPING_SHAPE_ENTITLEMENT), user);

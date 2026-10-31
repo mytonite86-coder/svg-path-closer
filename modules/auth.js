@@ -1,4 +1,4 @@
-import { PRODUCT_MANIFEST } from "./productManifest.js";
+import { PRODUCT_MANIFEST, SVG_PURCHASE_CATALOG } from "./productManifest.js";
 export const API_BASE_URL =
     "https://mab-path-editor.onrender.com/api";
 
@@ -159,25 +159,7 @@ export async function refreshSession() {
 export async function startPathSealCheckout(
     attribution = {}
 ) {
-    const checkout = await apiRequest(
-        "/payments/checkout/session",
-        {
-            method: "POST",
-            requiresAuth: true,
-            body: {
-                package_id: "pathseal_monthly",
-                origin_url:
-                    window.location.origin +
-                    window.location.pathname,
-                visitor_id: attribution.visitorId || "",
-                source: attribution.source || "direct",
-                medium: attribution.medium || "",
-                campaign: attribution.campaign || "",
-            },
-        }
-    );
-
-    window.location.assign(checkout.url);
+    return startSvgSubscriptionCheckout(["pathseal"]);
 }
 
 export async function confirmPathSealCheckout(
@@ -241,7 +223,7 @@ export function hasEntitlement(productId) {
         entitlements.includes("all_products_lifetime")
     );
 }
-const SELECTABLE_SVG_CHECKOUT_PRODUCT_IDS = new Set(PRODUCT_MANIFEST.filter(({ lifecycle }) => lifecycle === "implemented").map(({ id }) => id));
+const SELECTABLE_SVG_CHECKOUT_PRODUCT_IDS = new Set(SVG_PURCHASE_CATALOG.map(({ id }) => id));
 
 function validateSvgCheckoutSelection(selectedProductIds) {
     if (
@@ -263,6 +245,7 @@ function validateSvgCheckoutSelection(selectedProductIds) {
         throw new Error("The SVG tool selection is not available.");
     }
 
+    if (uniqueProductIds.has("svg_complete_bundle") && uniqueProductIds.size !== 1) throw new Error("Choose the bundle or individual tools.");
     return [...uniqueProductIds];
 }
 

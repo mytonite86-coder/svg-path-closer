@@ -21,6 +21,7 @@ export function deriveToolAccessState(tool, user, { authorityAvailable = true } 
     if (!user) return { key: "signed_out", label: "Signed out", canOpen: true, canSelect: false };
     const entitlements = Array.isArray(user.entitlements) ? user.entitlements : [];
     if (entitlements.includes(UNIVERSAL_ENTITLEMENT_ID)) return { key: "lifetime", label: "Lifetime access", canOpen: true, canSelect: false };
+    if (entitlements.includes(tool.id) && user.svg_lifetime_entitlements?.includes(tool.id)) return { key: "lifetime", label: "Lifetime access", canOpen: true, canSelect: false };
     const status = subscriptionStatusFor(user, tool.id);
     const entitled = entitlements.includes(tool.id);
     if (entitled && status === "past_due") return { key: "grace", label: "Payment retry — access remains on", canOpen: true, canSelect: false };

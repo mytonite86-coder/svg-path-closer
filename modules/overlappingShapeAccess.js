@@ -12,7 +12,7 @@ export async function runWithFreshOverlappingAccess(refreshSession, action) {
     if (!user || !Array.isArray(user.entitlements) || !user.entitlements.every((id) => typeof id === "string")) {
         throw new Error("Tool access could not be verified: malformed session.");
     }
-    if (!user.entitlements.includes(UNIVERSAL_ENTITLEMENT_ID)) {
+    if (!user.entitlements.includes(UNIVERSAL_ENTITLEMENT_ID) && !(user.entitlements.includes(OVERLAPPING_SHAPE_ENTITLEMENT) && user.svg_lifetime_entitlements?.includes(OVERLAPPING_SHAPE_ENTITLEMENT))) {
         const status = user.subscription_statuses?.[OVERLAPPING_SHAPE_ENTITLEMENT] ?? user.subscriptionStatusByProduct?.[OVERLAPPING_SHAPE_ENTITLEMENT] ?? null;
         if (status !== null && typeof status !== "string") throw new Error("Tool access could not be verified: malformed status.");
         const state = deriveToolAccessState(getProduct(OVERLAPPING_SHAPE_ENTITLEMENT), user);

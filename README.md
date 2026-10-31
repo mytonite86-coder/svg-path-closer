@@ -4,6 +4,89 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
+## One-time lifetime purchases - Block 30 (2026-10-30)
+
+**Local lifetime purchase integration COMPLETE; purchasing remains disabled.**
+Owner-approved Block 30 terms supersede every monthly SVG pricing/discount
+checkpoint below. Frontend base `8af47b8`, branch `work/block30-lifetime-checkout`;
+completion commit is the local commit adding this checkpoint (`git log -1` on
+that branch). Required shared-backend companion in existing `mab-authoritative`:
+branch `work/block30-svg-lifetime-checkout`, commit `589414c`, base `dc66f14`.
+Backend pre-existing untracked `.test-venv/` is untouched. No production changes.
+
+| One-time lifetime purchase | USD | Verified Stripe Price |
+| --- | --- | --- |
+| PathSeal | $9.99 | `price_1UWR05GcjYPS3asvfYYyOfNb` |
+| Duplicate Line Remover | $9.99 | `price_1UWR0DGcjYPS3asvaIMuvUjo` |
+| Stray Node Cleaner | $9.99 | `price_1UWR0EGcjYPS3asvvzGDU6eH` |
+| Overlapping Shape Repair | $9.99 | `price_1UWR0GGcjYPS3asvGXEkZ9LB` |
+| Curve Repair | $9.99 | `price_1UWR0IGcjYPS3asvPdIxw729` |
+| Complete Five-Tool Bundle | $34.99 | `price_1UWR0KGcjYPS3asvWLg8MvVb` |
+
+The five tool IDs/entitlements remain `pathseal`, `duplicate_geometry`,
+`stray_node_cleaner`, `overlapping_shape_repair`, `curve_repair`. The bundle's
+commerce-only ID `svg_complete_bundle` expands to exactly those five entitlements.
+It never grants `all_products_lifetime`, MAB S1, premium status or unrelated access.
+Selecting all five tool IDs uses the single $34.99 bundle Price; smaller selections
+sum individual one-time Prices without recurring discounts or Coupons.
+
+`modules/productManifest.js` now records the six approved Prices, amounts and
+payment/lifetime contracts. The five-tool workflow manifest stays five tools.
+Existing shared Checkout uses `mode=payment`, no `subscription_data` or Coupon,
+and package `svg_micro_eco_lifetime`. Existing route/function names containing
+`svg-subscription` remain compatibility names only; new SVG orders are one-time.
+PathSeal's purchase action delegates to that shared lifetime route. New-sale
+`pathseal_monthly` is removed from the backend package catalog, while legacy
+subscription reconciliation remains available to preserve existing customers.
+MAB pricing, package and billing behavior remain unchanged.
+
+Signed completed/async-success events fulfill only paid, complete, payment-mode
+sessions matching the locally recorded session, metadata/owner, amount and USD
+currency. Polling a paid-looking session, invalid signatures, failed, incomplete,
+unpaid, wrong-owner, wrong-amount or wrong-mode events cannot grant access.
+Existing set-based updates make repeated delivery idempotent. Lifetime SVG grants
+are recorded in the existing tool entitlement list and `svg_lifetime_entitlements`;
+legacy cancellation cannot remove those separately purchased permanent grants.
+Fresh server-side verification remains required for repair/download. A lifetime
+marker without its current direct entitlement cannot unlock a tool. There is no
+requirement for an active subscription on these new lifetime grants.
+
+Active quote/purchase text now says one-time/lifetime; no monthly discount flow
+remains. Free Upload -> Scan -> Preview/Review and all repair geometry are
+unchanged. Classic Tool 3-5 entries were synchronized for shared manifest/access
+changes only. No repair engine was rebuilt or modified.
+
+Backend configuration uses the five keys
+`STRIPE_PRICE_PATHSEAL_LIFETIME`, `STRIPE_PRICE_DUPLICATE_GEOMETRY_LIFETIME`,
+`STRIPE_PRICE_STRAY_NODE_CLEANER_LIFETIME`,
+`STRIPE_PRICE_OVERLAPPING_SHAPE_REPAIR_LIFETIME`,
+`STRIPE_PRICE_CURVE_REPAIR_LIFETIME`, plus
+`STRIPE_PRICE_SVG_COMPLETE_BUNDLE_LIFETIME`; the updated example contains the
+approved IDs above. No monthly Price/Coupon environment variables participate in
+new SVG checkout. Integration identifier stays `svg_micro_eco_checkout_kvhrmtps`.
+Existing API/signature secrets and shared MAB/SVG Render backend are reused.
+
+**Verification: 46 focused backend tests passed, zero failed; 11 focused Node
+checks passed, zero failed.** Covers all six one-time configurations, individual
+and bundle grants, exact MAB package preservation/mock checkout, invalid or
+unsigned payment denial, duplicate delivery, legacy reconciliation, permanent
+access despite legacy expiry/cancellation, revoked/offline denial, disabled
+purchase controls and source/generated packaging. Monthly-only tests were
+replaced with the lifetime contract; relevant legacy protection tests remain.
+Syntax/whitespace checks passed. No live Stripe requests/payment tests, production
+transactions, existing customer-data changes or owner-led QA occurred. No broad
+suite or repair-engine tests were run.
+
+SESSION HANDOFF: Block 30 local integration COMPLETE; no local implementation
+blocker identified. Real deployment/payment-delivery acceptance remains
+unverified and purchasing is OFF (`SVG_SUBSCRIPTION_CHECKOUT_ENABLED=0`, existing
+false frontend release flag and false Tools 2-5 purchase flags). Before release,
+reconcile the companion backend patch with the selected current MAB release;
+then obtain separate deployment and real delivery-verification authorization,
+retaining existing recovery/access safeguards. Single next release action:
+authorize current shared-backend release reconciliation. No activation, push,
+merge, deployment, new Stripe records or subscriptions. Stop after local commits.
+
 ## Stripe configuration readiness - Block 29 (2026-10-30)
 
 **Configuration plan ready; real Stripe test delivery BLOCKED. Purchasing OFF.**

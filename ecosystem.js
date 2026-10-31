@@ -49,7 +49,7 @@ function render() {
     cards.replaceChildren(...PRODUCT_MANIFEST.map(toolCard));
     quoteRequestNumber += 1;
     checkoutButton.hidden = !RELEASE_FLAGS.svgSubscriptionCheckout;
-    clearQuote("Select an available tool to see a monthly quote.");
+    clearQuote("Select an available tool to see a one-time lifetime quote.");
     accountFields.hidden = Boolean(user); accountSession.hidden = !user;
     accountName.textContent = user ? user.username || user.email : "";
     if (!user) accountStatus.textContent = "Sign in to see verified tool access.";
@@ -62,19 +62,19 @@ function selectedProductIds() { return [...cards.querySelectorAll('input[type="c
 function clearQuote(message) { checkoutButton.disabled = true; quotePanel.hidden = true; lineItems.replaceChildren(); status.textContent = message; }
 async function updateQuote() {
     const productIds = selectedProductIds(); const requestNumber = ++quoteRequestNumber;
-    if (!productIds.length) return clearQuote("Select an available tool to see a monthly quote.");
+    if (!productIds.length) return clearQuote("Select an available tool to see a one-time lifetime quote.");
     checkoutButton.disabled = true;
-    status.textContent = "Calculating your approved monthly price…";
+    status.textContent = "Calculating your approved one-time price…";
     try {
         const quote = await requestSvgSubscriptionQuote(productIds); if (requestNumber !== quoteRequestNumber) return;
         document.querySelector("#quote-tool-count").textContent = quote.tool_count;
         document.querySelector("#quote-subtotal").textContent = formatUsd(quote.subtotal_cents);
-        document.querySelector("#quote-discount").textContent = quote.discount_percent ? `${quote.discount_percent}% − ${formatUsd(quote.discount_cents)}` : "No discount";
+        document.querySelector("#quote-discount").textContent = quote.discount_percent ? `${quote.discount_percent}% − ${formatUsd(quote.discount_cents)}` : "No coupon";
         document.querySelector("#quote-total").textContent = formatUsd(quote.total_cents);
-        lineItems.replaceChildren(...quote.line_items.map((lineItem) => { const item = document.createElement("li"); item.textContent = `${lineItem.name} — ${formatUsd(lineItem.unit_amount_cents)}/month`; return item; }));
+        lineItems.replaceChildren(...quote.line_items.map((lineItem) => { const item = document.createElement("li"); item.textContent = `${lineItem.name} — ${formatUsd(lineItem.unit_amount_cents)} one time`; return item; }));
         quotePanel.hidden = false;
         checkoutButton.disabled = !RELEASE_FLAGS.svgSubscriptionCheckout || !getCurrentUser() || !authorityAvailable;
-        status.textContent = RELEASE_FLAGS.svgSubscriptionCheckout ? "Review your monthly total before continuing to secure checkout." : "Quote calculated before tax. Checkout is not enabled.";
+        status.textContent = RELEASE_FLAGS.svgSubscriptionCheckout ? "Review your one-time total before continuing to secure checkout." : "One-time lifetime quote before tax. Checkout is not enabled.";
     } catch (error) { if (requestNumber === quoteRequestNumber) clearQuote(error.message); }
 }
 

@@ -56,7 +56,7 @@ export async function requireFreshDuplicateGeometryAccess(refreshSession) {
         fail("malformed");
     }
 
-    if (user.entitlements.includes(UNIVERSAL_ENTITLEMENT)) {
+    if (user.entitlements.includes(UNIVERSAL_ENTITLEMENT) || (user.entitlements.includes(DUPLICATE_GEOMETRY_ENTITLEMENT) && user.svg_lifetime_entitlements?.includes(DUPLICATE_GEOMETRY_ENTITLEMENT))) {
         return user;
     }
 
