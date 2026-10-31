@@ -1,5 +1,29 @@
 # SVG Path Closer Build Checklist
 
+## Block 31 - shared backend release reconciliation
+
+Frontend: `work/block31-backend-release-checkpoint`, base `f68fb3d`.
+Backend: `work/block31-shared-backend-reconciliation`, commit `a005c85`.
+
+- [x] Verify both starting commits; preserve existing untracked backend test runtime
+- [x] Confirm Render Live `4b0f3f2df51454f2c4ffd54443507668140d092d`
+- [x] Confirm current `e70ed0e` has identical backend tree; use current source base
+- [x] Selectively integrate SVG lifetime checkout without replacing current MAB code
+- [x] Preserve MAB $30 package, payment options, auth, licensing and activation
+- [x] Preserve Shopify/Gmail routes, legacy entitlements and startup indexes
+- [x] Retain six exact SVG one-time Prices and five-tool-only bundle grants
+- [x] Preserve signed shared webhook, owner checks, replay safety and fresh access
+- [x] 29 focused checks passed; syntax and whitespace passed
+- [ ] Inherited MAB Stripe fulfillment mismatch: 1 strict expected failure
+- [ ] Authorize narrow `mab_s1.5` payment-to-`mab_s1` entitlement correction
+- [ ] Real isolated Stripe delivery acceptance and existing recovery/access gates
+- [ ] Separate production release approval; no deployment currently recommended
+- [x] Frontend runtime and repair engines unchanged; no unrelated test suites
+- [x] Existing README/backend foundation updated; no new master documents
+- [x] No customer/Stripe-record writes, push, merge, deploy or purchase activation
+
+STOP after local commits. Reconciliation complete; deployment blocked.
+
 ## Block 30 - one-time lifetime checkout conversion
 
 Frontend: `work/block30-lifetime-checkout`, base `8af47b8`.

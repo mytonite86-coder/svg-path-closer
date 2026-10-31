@@ -4,6 +4,87 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
+## Shared backend reconciliation - Block 31 (2026-10-30)
+
+**Local reconciliation complete; production release BLOCKED by an inherited MAB
+Stripe fulfillment defect.** Frontend branch `work/block31-backend-release-checkpoint`,
+base `f68fb3d`; completion commit is the local commit adding this checkpoint
+(`git log -1` on that branch). Frontend runtime/repair code is unchanged.
+Backend companion: `work/block31-shared-backend-reconciliation`, commit
+`a005c85`, in the existing `mab-authoritative` directory. Prior Block 30 branches
+remain intact. No push, Git merge, deployment, activation or customer-data change.
+
+### Confirmed production baseline
+
+Authenticated read-only Render inspection confirmed MAB service
+`srv-d9a9us7avr4c73aqtusg`, Live deployment `dep-dbfc0uk9v7es73dagt40`, source
+`4b0f3f2df51454f2c4ffd54443507668140d092d` (the service's last successfully
+deployed commit link). Current protected `shared-product-access` branch head is
+`e70ed0e9ea7b7cf9c534d5f64434dd2b8a89fcbb`; its `Blueprint-Clean/backend` tree
+is identical to that deployed source. This distinction was verified, not inferred
+from the stale August deployment record or from branch HEAD alone.
+
+Backend reconciliation starts from the current branch head, then selectively
+transposes the completed `589414c` SVG changes. It does not promote the old
+isolated backend as a replacement. The existing shared MAB Render service,
+backend root, dependency/build/start configuration and environment remain reused.
+No secrets, customer records or deployed environment values were read/changed.
+
+### Preserved and integrated behavior
+
+- Preserve current MAB $30 one-time package, `mab_s1.5` checkout metadata, existing
+  payment options/legacy Stripe calls, subscription policy, return destinations,
+  authentication and token behavior. Preserve activation codes, Shopify/Gmail
+  fulfillment, recovery/duplicate handling and startup uniqueness indexes.
+- Integrate the six approved SVG one-time Price mappings, `mode=payment` shared
+  route, lifetime markers/current-user response, owner/amount/currency matching,
+  signature-gated payment fulfillment and idempotency. Individual purchases grant
+  only their SVG tool; the bundle grants exactly the five SVG tools, no MAB or
+  universal entitlement. Fresh access and purchase-disabled flags remain intact.
+- Only the SVG route uses an explicit StripeClient; current MAB SDK call sites
+  remain unchanged. Metadata conversion supports the installed SDK. Shared
+  signature verification depends on its signing secret rather than requiring an
+  API key before dispatch; existing MAB downstream API-key checks remain.
+- The single signed Stripe webhook dispatches both payment families through their
+  package-specific handlers. No second webhook service or backend is introduced.
+  Shopify signature/routes and activation behavior are unchanged.
+
+### Focused verification and inherited release blocker
+
+**29 focused checks passed**: 26 shared-release/SVG lifetime/signature checks
+plus 3 selected production activation/Shopify compatibility checks. Source checks
+prove protected MAB functions and auth/licensing/dependency modules match the
+actual deployed revision; its payment-handler tail is unchanged. Runtime mocks
+verify current MAB Checkout parameters and signed webhook dispatch for both MAB
+and SVG, all six SVG Prices, individual/bundle fulfillment, ownership/replay,
+paid-state denial, activation-code grants and duplicate-safe license delivery.
+No broad suite, frontend browser or geometry tests were repeated.
+
+**One strict expected failure is an actual deployment blocker, not acceptance:**
+`test_inherited_mab_s15_paid_checkout_requires_entitlement` shows the current
+MAB Stripe package writes `product_id=mab_s1.5`, while the deployed one-time
+fulfillment condition accepts `product_id == "mab_s1"`. An isolated paid/complete
+$30 checkout therefore returns success without adding `mab_s1` or enabling
+premium. AST equality proves this code path predates the SVG reconciliation.
+Shopify activation tests pass; this finding does not relabel that independent
+path as broken. The identifier correction was not made under this block's
+instruction to preserve existing MAB payment/entitlement behavior.
+
+Syntax and whitespace checks passed. The existing test environment lacked
+`cryptography`, required by current deployed licensing code; tests reused the
+already installed bundled copy via the test process search path. No dependency
+installation, persistent environment change, real Stripe payment or external
+customer/service write was performed. The backend's pre-existing untracked
+`.test-venv/` remains untouched. Existing Block 30 frontend evidence is retained.
+
+SESSION HANDOFF: Block 31 reconciliation COMMITTED LOCALLY; release BLOCKED.
+Next exact release step: HOLD deployment and separately authorize the narrow
+MAB Stripe identifier/entitlement correction; require its regression to pass
+before considering publication of these companion commits. Real isolated Stripe
+payment-delivery acceptance, existing recovery/access safeguards and separate
+production release approval also remain required. Purchasing stays disabled.
+Stop after local commits; do not push, merge, deploy or activate.
+
 ## One-time lifetime purchases - Block 30 (2026-10-30)
 
 **Local lifetime purchase integration COMPLETE; purchasing remains disabled.**
