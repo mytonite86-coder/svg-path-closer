@@ -1,5 +1,34 @@
 # SVG Path Closer Build Checklist
 
+## Block 28 - restored shared checkout foundation
+
+Verified 2026-10-30. Frontend: `work/block28-restore-shared-checkout`, base `0fc0304`.
+Backend companion: `work/block28-restore-svg-checkout`, commit `6ff8252` in the
+existing `mab-authoritative` worktree. README contains provenance and handoff.
+
+- [x] Targeted historical lookup; exact supplied ref absent, remote inaccessible
+- [x] Recover applicable client `05bc5f9` and backend chain through `33e1642`
+- [x] Restore shared session route, request model, parameter builder and reconciliation
+- [x] Reconcile all five existing manifest IDs with approved $9.99/discount terms
+- [x] Empty Price/Coupon/integration configuration placeholders; server default OFF
+- [x] Reconnect hub checkout/return behind false frontend release flag
+- [x] Keep all public purchase controls disabled, including local PathSeal button
+- [x] Restore real-SDK signed webhook tests with in-memory collections only
+- [x] Correct owner/selection/subscription bindings and duplicate success-query bug
+- [x] Duplicate delivery: one transaction and no duplicate entitlement effects
+- [x] Preserve lifetime, unrelated grants, other active bundles and direct PathSeal
+- [x] 43 backend tests / 19 subtests, 12 Node checks, 4 Chrome checks passed
+- [x] Syntax/whitespace and source/generated packaging checks passed
+- [x] Five repair engines, geometry, fixtures and Block 26 protections preserved
+- [x] Commercial catalog setup may proceed under separate authorization
+- [ ] Five live SVG Product/Price mappings and four approved discount Coupon IDs
+- [ ] Correct-environment API/webhook/integration configuration and signed delivery
+- [ ] Reconcile isolated backend patch with selected current MAB release before promotion
+- [ ] Existing recovery/access safeguards and separate activation/deployment approval
+- [x] No live Stripe/customer mutation, push, merge, publish, deploy or new dependencies
+
+STOP after local companion commits. No live activation authorized.
+
 ## Block 27 - commercial access completion (BLOCKED)
 
 Verified 2026-10-30: clean base `37d7f1c`; branch `work/block27-commercial-access`.

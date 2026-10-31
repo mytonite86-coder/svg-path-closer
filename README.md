@@ -4,6 +4,116 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
+## Restored shared checkout foundation - Block 28 (2026-10-30)
+
+**Local foundation recovered and verified; public purchasing remains disabled.**
+Frontend branch: `work/block28-restore-shared-checkout`, clean base `0fc0304`.
+Frontend completion commit is the commit adding this checkpoint (`git log -1`
+on that branch). Required backend companion in the existing `mab-authoritative`
+working directory: `work/block28-restore-svg-checkout`, commit `6ff8252`, based
+on its isolated `c4a6bcb` checkout. These are two separate repositories; neither
+commit alone is the complete recovery. No push, merge, deployment or live change.
+The backend's pre-existing untracked `.test-venv/` remains untouched.
+
+### Recovery provenance and files
+
+The supplied historical `a86e63d`/`feature/svg-subscription-checkout-wiring`
+reference was not in either local object store. Targeted remote lookups could
+not connect to GitHub. Applicable implementations were found locally instead:
+frontend `05bc5f9`; backend through `33e1642`, including signature proof
+`66e1828`. This is selective recovery, not a historical branch merge.
+
+- `modules/auth.js`: recovered `startSvgSubscriptionCheckout` and
+  `confirmSvgSubscriptionCheckout`; selection allowlist now derives from the
+  five implemented manifest IDs. Authenticated requests, Stripe-only redirects,
+  owner-scoped status and authoritative session refresh are reused. Checkout
+  return never invents an entitlement from a URL or paid-status flag.
+- `ecosystem.js` / `index.html`: existing quote surface now has the recovered
+  checkout/return connection. Its button is hidden/disabled behind the existing
+  false release flag; changed quote/account/selection invalidates readiness.
+  Tools 2-5 remain non-purchasable in the manifest. No hub redesign.
+- `app.js` / `pathseal.html`: the local PathSeal purchase button also remains
+  disabled and its handler refuses checkout while that flag is false, as
+  required by this block. Existing server PathSeal package behavior and paid
+  repair gates are preserved. Production is unchanged.
+- Generated Tool 3/4/5 classic entries were synchronized only to include the
+  recovered shared auth exports. Engine, geometry, preview and fixture source
+  files were not changed; generated/source equality checks pass.
+- Backend `server.py`: restored the gated shared session route, shared
+  `sync_product_subscription` branch, SDK-client calls and SDK metadata
+  conversion. Existing owner-scoped status route and signed `stripe_webhook`
+  boundary are reused. `models.py`, `svg_subscription.py`, `checkout_origins.py`
+  restore the request/parameter/selection/return contracts for all five tools.
+  `.env.svg-subscription.example` provides empty configuration placeholders,
+  not fabricated Stripe IDs. Existing backend foundation notes were updated.
+
+Recovery fixes remove a duplicated session query in the success URL, reject
+owner/subscription/pending-selection mismatches, and preserve independent direct
+PathSeal access during shared cancellation. Lifetime and other active bundle
+protections are retained. Duplicate deliveries have idempotent effects using the
+existing transaction and set-based entitlement updates; no new billing system
+or general event-ordering ledger was added. Analytics recovery was excluded.
+
+### Focused acceptance
+
+- **43 backend tests plus 19 subtests passed; zero failed.** Includes all five
+  individual tools and full-bundle mocked Checkout -> locally signed completion
+  -> signed subscription delivery -> correct selected entitlements. Repeated
+  completion/subscription delivery produces one transaction and no duplicate
+  entitlements. Invalid/missing signatures, missing configuration, unpaid/pending
+  checkout, unknown IDs, owner/selection mismatches, owner-only status,
+  cancellation, lifetime/other-bundle/independent access protection pass.
+  Two checks cover unchanged legacy PathSeal/MAB package checkout/status using
+  the recovered SDK client. Collections are in-memory; Stripe sessions are mocks.
+- **12 focused Node checks passed; zero failed:** client contracts, fresh return,
+  safe redirect/selection/auth denial, current manifest/access gates and generated
+  packaging. **4 focused Chrome checks passed:** all shared purchase controls
+  and the PathSeal purchase button stay disabled; paid/pending returns display
+  only freshly reported access. Zero live browser requests.
+- Syntax and whitespace checks passed. Original Block 26 repair-engine evidence
+  is retained. No repair-engine or unrelated full suite was repeated. Initial
+  backend test collection needed the existing backend working directory; after
+  correcting that invocation, the checks above all passed. No dependency install.
+
+Reproduce the new frontend scope with
+`node --test tests/svg-checkout-client.test.mjs tests/auth.test.mjs tests/suite-integration.test.mjs`.
+Use `SVG_SUITE_CASE_FILTER=^Shared checkout:` with the existing browser harness
+and existing Playwright/owner-fixture arguments. Backend tests are the recovered
+`test_svg_subscription`, `test_svg_checkout_session`,
+`test_svg_subscription_reconciliation`, `test_stripe_webhook_boundary`,
+`test_svg_route_source`, new `test_svg_commercial_integration`, and existing
+`test_checkout_origin_policy`; run from `Blueprint-Clean/backend` using the
+existing test runtime, fixture-only JWT, unused loopback Mongo URL, blank Stripe
+API key and in-memory collection fixtures. Do not run against a live database.
+
+### Exact remaining commercial configuration
+
+No approved-price decision is missing: USD **$9.99/month per tool**, discounts
+**0/5/10/15/20%** for 1/2/3/4/5 tools, totals
+**$9.99/$18.98/$26.97/$33.97/$39.96** before tax. Tax/pricing policy unchanged.
+The five entitlement IDs and Price environment keys are listed in Block 27 below.
+The correct live account still needs its own five SVG Products with matching
+recurring Prices; none of the three unrelated existing products may be reused.
+Four matching Coupons must populate `STRIPE_COUPON_SVG_TWO_TOOLS`,
+`STRIPE_COUPON_SVG_THREE_TOOLS`, `STRIPE_COUPON_SVG_FOUR_TOOLS`,
+`STRIPE_COUPON_SVG_FIVE_TOOLS`; also configure
+`STRIPE_SVG_INTEGRATION_IDENTIFIER` and the existing correct-environment
+`STRIPE_API_KEY`/`STRIPE_WEBHOOK_SECRET` through secret management. No secret
+was read or created, and deployed secret presence was not assessed.
+
+**Commercial catalog/configuration setup can proceed without another checkout
+foundation build.** It is not deployment approval: the companion backend patch
+must be reconciled with the selected current MAB release before promotion, and
+real isolated Stripe-originated webhook delivery plus existing recovery/access
+safeguards remain release gates. Local cryptographic fixture proof is not actual
+Stripe delivery. Keep frontend/server switches off and Tools 2-5 purchase flags
+false until valid mappings and separate activation approval exist.
+
+SESSION HANDOFF: Block 28 local recovery COMPLETE. Next single action: separately
+authorize the five-product Stripe catalog/configuration setup. No commercial
+activation, live purchase, customer-data write, publication or deployment occurred.
+Stop after the local companion commits.
+
 ## Commercial access checkpoint - Block 27 (2026-10-30)
 
 **BLOCKED: commercial completion is not established.** Verified clean base

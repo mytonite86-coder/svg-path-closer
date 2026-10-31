@@ -234,6 +234,52 @@ try {
             await repaired(s, tool); await download(s, tool);
         } finally { await s.context.close(); }
     });
+    await check("Shared checkout: PathSeal purchase stays disabled", async () => {
+        const s = await session({ entitlements: [] });
+        try {
+            await open(s, tools[0], false);
+            assert.equal(await s.page.locator("#subscribe-button").isDisabled(), true);
+            await s.page.locator("#subscribe-button").evaluate((element) => element.dispatchEvent(new Event("click")));
+            await s.page.evaluate(() => new Promise((done) => requestAnimationFrame(done)));
+            assert.deepEqual(s.state.unexpected, []);
+            assert.deepEqual(s.state.errors, []);
+        } finally { await s.context.close(); }
+    });
+    await check("Shared checkout: public controls remain disabled", async () => {
+        for (const user of [null, { entitlements: [] }, { entitlements: ["all_products_lifetime"] }]) {
+            const s = await session(user);
+            try {
+                await s.page.goto(`${base}/index.html`);
+                await s.page.waitForLoadState("networkidle");
+                const button = s.page.locator("#subscription-checkout");
+                assert.equal(await button.isVisible(), false);
+                assert.equal(await button.isDisabled(), true);
+                await button.evaluate((element) => element.dispatchEvent(new Event("click")));
+                await s.page.evaluate(() => new Promise((done) => requestAnimationFrame(done)));
+                assert.deepEqual(s.state.unexpected, []);
+                assert.deepEqual(s.state.errors, []);
+                assert.equal(await s.page.locator('[data-product-id]:not([data-product-id="pathseal"]) input').count(), 0);
+            } finally { await s.context.close(); }
+        }
+    });
+    for (const paid of [false, true]) await check(`Shared checkout: ${paid ? "paid" : "pending"} return refreshes actual entitlement`, async () => {
+        const s = await session({ entitlements: [] });
+        try {
+            await s.context.route("**/api/payments/checkout/status/*", async (route) => {
+                assert.equal(route.request().headers().authorization, "Bearer suite-fixture-token");
+                s.state.user = { entitlements: paid ? ["curve_repair"] : [] };
+                return route.fulfill({ status: 200, headers: { "access-control-allow-origin": "*", "content-type": "application/json" }, body: JSON.stringify({ payment_status: paid ? "paid" : "unpaid" }) });
+            });
+            await s.page.goto(`${base}/index.html?session_id=cs_fixture`);
+            await s.page.waitForFunction(() => /Payment received|Access remains pending/.test(document.querySelector("#subscription-status").textContent));
+            const curve = s.page.locator('[data-product-id="curve_repair"] [data-state]');
+            assert.equal(await curve.getAttribute("data-state"), paid ? "owned" : "preview");
+            assert.equal(await s.page.locator('[data-state="owned"]').count(), paid ? 1 : 0);
+            assert.ok(s.state.checks >= 2, "return must refresh authoritative access separately");
+            assert.deepEqual(s.state.errors, []);
+            assert.deepEqual(s.state.unexpected, []);
+        } finally { await s.context.close(); }
+    });
     await check("Shared hub: login return, session persistence and logout", async () => {
         const s = await session(null);
         try {

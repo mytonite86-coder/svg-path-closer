@@ -1,3 +1,4 @@
+import { PRODUCT_MANIFEST } from "./productManifest.js";
 export const API_BASE_URL =
     "https://mab-path-editor.onrender.com/api";
 
@@ -239,4 +240,88 @@ export function hasEntitlement(productId) {
         entitlements.includes(productId) ||
         entitlements.includes("all_products_lifetime")
     );
+}
+const SELECTABLE_SVG_CHECKOUT_PRODUCT_IDS = new Set(PRODUCT_MANIFEST.filter(({ lifecycle }) => lifecycle === "implemented").map(({ id }) => id));
+
+function validateSvgCheckoutSelection(selectedProductIds) {
+    if (
+        !Array.isArray(selectedProductIds) ||
+        selectedProductIds.length === 0
+    ) {
+        throw new Error("Select at least one available SVG tool.");
+    }
+
+    const uniqueProductIds = new Set(selectedProductIds);
+
+    if (
+        uniqueProductIds.size !== selectedProductIds.length ||
+        selectedProductIds.some(
+            (productId) =>
+                !SELECTABLE_SVG_CHECKOUT_PRODUCT_IDS.has(productId)
+        )
+    ) {
+        throw new Error("The SVG tool selection is not available.");
+    }
+
+    return [...uniqueProductIds];
+}
+
+export async function startSvgSubscriptionCheckout(
+    selectedProductIds
+) {
+    const selection = validateSvgCheckoutSelection(selectedProductIds);
+    const checkout = await apiRequest(
+        "/payments/svg-subscription/checkout/session",
+        {
+            method: "POST",
+            requiresAuth: true,
+            body: {
+                selected_product_ids: selection,
+                origin_url:
+                    window.location.origin +
+                    window.location.pathname,
+            },
+        }
+    );
+
+    let checkoutUrl;
+
+    try {
+        checkoutUrl = new URL(checkout?.url);
+    } catch {
+        throw new Error("Checkout did not return a safe destination.");
+    }
+
+    if (
+        checkoutUrl.protocol !== "https:" ||
+        checkoutUrl.hostname !== "checkout.stripe.com"
+    ) {
+        throw new Error("Checkout did not return a safe destination.");
+    }
+
+    window.location.assign(checkoutUrl.href);
+}
+
+export async function confirmSvgSubscriptionCheckout(
+    sessionId
+) {
+    if (!sessionId) {
+        throw new Error("Checkout session is required.");
+    }
+
+    const checkoutStatus = await apiRequest(
+        `/payments/checkout/status/${
+            encodeURIComponent(sessionId)
+        }`,
+        {
+            requiresAuth: true,
+        }
+    );
+
+    const user = await refreshSession();
+
+    return {
+        checkoutStatus,
+        user,
+    };
 }

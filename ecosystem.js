@@ -1,4 +1,5 @@
-import { login, registerAccount, refreshSession, clearSession, getCurrentUser } from "./modules/auth.js";
+import { RELEASE_FLAGS } from "./modules/releaseFlags.js";
+import { login, registerAccount, refreshSession, clearSession, getCurrentUser, getAccessToken, startSvgSubscriptionCheckout, confirmSvgSubscriptionCheckout } from "./modules/auth.js";
 import { PRODUCT_MANIFEST } from "./modules/productManifest.js";
 import { deriveToolAccessState, validateReturnDestination } from "./modules/accessFoundation.js";
 import { formatUsd, requestSvgSubscriptionQuote } from "./modules/svgSubscription.js?v=selector-20260820";
@@ -14,6 +15,7 @@ const accountName = document.querySelector("#hub-account-name");
 const email = document.querySelector("#hub-email");
 const username = document.querySelector("#hub-username");
 const password = document.querySelector("#hub-password");
+const checkoutButton = document.querySelector("#subscription-checkout");
 let authorityAvailable = true;
 let quoteRequestNumber = 0;
 
@@ -45,6 +47,9 @@ function toolCard(tool) {
 function render() {
     const user = getCurrentUser();
     cards.replaceChildren(...PRODUCT_MANIFEST.map(toolCard));
+    quoteRequestNumber += 1;
+    checkoutButton.hidden = !RELEASE_FLAGS.svgSubscriptionCheckout;
+    clearQuote("Select an available tool to see a monthly quote.");
     accountFields.hidden = Boolean(user); accountSession.hidden = !user;
     accountName.textContent = user ? user.username || user.email : "";
     if (!user) accountStatus.textContent = "Sign in to see verified tool access.";
@@ -54,10 +59,11 @@ function render() {
 }
 
 function selectedProductIds() { return [...cards.querySelectorAll('input[type="checkbox"]:checked')].map(({ value }) => value); }
-function clearQuote(message) { quotePanel.hidden = true; lineItems.replaceChildren(); status.textContent = message; }
+function clearQuote(message) { checkoutButton.disabled = true; quotePanel.hidden = true; lineItems.replaceChildren(); status.textContent = message; }
 async function updateQuote() {
     const productIds = selectedProductIds(); const requestNumber = ++quoteRequestNumber;
     if (!productIds.length) return clearQuote("Select an available tool to see a monthly quote.");
+    checkoutButton.disabled = true;
     status.textContent = "Calculating your approved monthly price…";
     try {
         const quote = await requestSvgSubscriptionQuote(productIds); if (requestNumber !== quoteRequestNumber) return;
@@ -66,7 +72,9 @@ async function updateQuote() {
         document.querySelector("#quote-discount").textContent = quote.discount_percent ? `${quote.discount_percent}% − ${formatUsd(quote.discount_cents)}` : "No discount";
         document.querySelector("#quote-total").textContent = formatUsd(quote.total_cents);
         lineItems.replaceChildren(...quote.line_items.map((lineItem) => { const item = document.createElement("li"); item.textContent = `${lineItem.name} — ${formatUsd(lineItem.unit_amount_cents)}/month`; return item; }));
-        quotePanel.hidden = false; status.textContent = "Quote calculated before tax. Checkout is not enabled from this Phase 1 hub.";
+        quotePanel.hidden = false;
+        checkoutButton.disabled = !RELEASE_FLAGS.svgSubscriptionCheckout || !getCurrentUser() || !authorityAvailable;
+        status.textContent = RELEASE_FLAGS.svgSubscriptionCheckout ? "Review your monthly total before continuing to secure checkout." : "Quote calculated before tax. Checkout is not enabled.";
     } catch (error) { if (requestNumber === quoteRequestNumber) clearQuote(error.message); }
 }
 
@@ -85,3 +93,27 @@ document.querySelector("#hub-register").addEventListener("click", () => authenti
 document.querySelector("#hub-logout").addEventListener("click", () => { clearSession(); authorityAvailable = true; render(); });
 render();
 if (getCurrentUser()) { accountStatus.textContent = "Checking account status…"; try { await refreshSession(); } catch { authorityAvailable = Boolean(getCurrentUser()) ? false : true; } render(); }
+
+checkoutButton.addEventListener("click", async () => {
+    if (!RELEASE_FLAGS.svgSubscriptionCheckout || checkoutButton.disabled) return;
+    checkoutButton.disabled = true;
+    const selection = selectedProductIds(), token = getAccessToken();
+    try {
+        await refreshSession();
+        if (!getCurrentUser() || token !== getAccessToken()) throw new Error("Sign in before checkout.");
+        if (JSON.stringify(selection) !== JSON.stringify(selectedProductIds())) throw new Error("Selection changed. Review your quote again.");
+        await startSvgSubscriptionCheckout(selection);
+    } catch (error) { status.textContent = error.message || "Checkout is unavailable."; }
+});
+
+const checkoutReturn = new URLSearchParams(location.search);
+if (checkoutReturn.get("session_id")) {
+    try {
+        const result = await confirmSvgSubscriptionCheckout(checkoutReturn.get("session_id"));
+        authorityAvailable = true;
+        render();
+        status.textContent = result.checkoutStatus.payment_status === "paid"
+            ? "Payment received. Your verified tool access is shown above."
+            : "Checkout status checked. Access remains pending until verified by the payment service.";
+    } catch (error) { status.textContent = error.message || "Checkout status could not be verified."; }
+}

@@ -1,3 +1,4 @@
+import { RELEASE_FLAGS } from "./modules/releaseFlags.js";
 import {
     login,
     registerAccount,
@@ -348,6 +349,7 @@ function getContourElements(analysis) {
 }
 
 function renderAccountState() {
+    subscribeButton.disabled = !RELEASE_FLAGS.svgSubscriptionCheckout;
     const user = getCurrentUser();
     const pathSealUnlocked =
         hasEntitlement("pathseal");
@@ -449,6 +451,7 @@ async function handleRegister() {
 }
 
 async function handleSubscribe() {
+    if (!RELEASE_FLAGS.svgSubscriptionCheckout) return;
     subscribeButton.disabled = true;
     accountStatus.textContent =
         "Opening secure checkout...";
@@ -464,7 +467,7 @@ async function handleSubscribe() {
             error.message ||
             "Checkout could not be opened.";
 
-        subscribeButton.disabled = false;
+        subscribeButton.disabled = !RELEASE_FLAGS.svgSubscriptionCheckout;
     }
 }
 

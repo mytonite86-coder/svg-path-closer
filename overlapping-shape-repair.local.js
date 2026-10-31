@@ -2,8 +2,32 @@
 // Classic script for direct file:// use; source modules remain authoritative.
 (() => {
 "use strict";
+// Source: modules/productManifest.js
+const module2 = (() => {
+const UNIVERSAL_ENTITLEMENT_ID = "all_products_lifetime";
+
+const PRODUCT_MANIFEST = Object.freeze([
+    Object.freeze({ id: "pathseal", name: "PathSeal", order: 1, lifecycle: "implemented", productionEnabled: true, route: "pathseal.html", description: "Find open contours, review questionable gaps, and seal only the paths you approve." }),
+    Object.freeze({ id: "duplicate_geometry", name: "Duplicate Line Remover", order: 2, lifecycle: "implemented", productionEnabled: false, route: "duplicate-geometry.html", description: "Find exact duplicate lines and prepare safe removals without touching questionable geometry." }),
+    Object.freeze({ id: "stray_node_cleaner", name: "Stray Node Cleaner", order: 3, lifecycle: "implemented", productionEnabled: false, route: "stray-node-cleaner.html", description: "Review stray-node findings and remove selected exact coincident nodes while preserving original geometry." }),
+    Object.freeze({ id: "overlapping_shape_repair", name: "Overlapping Shape Repair", order: 4, lifecycle: "implemented", productionEnabled: false, route: "overlapping-shape-repair.html", description: "Review overlaps and remove only selected safe exact duplicate rectangles." }),
+    Object.freeze({ id: "curve_repair", name: "Curve Repair", order: 5, lifecycle: "implemented", productionEnabled: false, route: "curve-repair.html", description: "Review curves and remove only selected, proven redundant interior cubic segments." }),
+]);
+
+function getProduct(productId) {
+    return PRODUCT_MANIFEST.find(({ id }) => id === productId) || null;
+}
+
+function getProductionSelectableProductIds() {
+    return PRODUCT_MANIFEST.filter(({ lifecycle, productionEnabled }) => lifecycle === "implemented" && productionEnabled).map(({ id }) => id);
+}
+
+return { UNIVERSAL_ENTITLEMENT_ID, PRODUCT_MANIFEST, getProduct, getProductionSelectableProductIds };
+})();
+
 // Source: modules/auth.js
 const module1 = (() => {
+const { PRODUCT_MANIFEST } = module2;
 const API_BASE_URL =
     "https://mab-path-editor.onrender.com/api";
 
@@ -246,11 +270,96 @@ function hasEntitlement(productId) {
         entitlements.includes("all_products_lifetime")
     );
 }
-return { API_BASE_URL, login, registerAccount, refreshSession, startPathSealCheckout, confirmPathSealCheckout, saveSession, clearSession, getAccessToken, getCurrentUser, hasEntitlement };
+const SELECTABLE_SVG_CHECKOUT_PRODUCT_IDS = new Set(PRODUCT_MANIFEST.filter(({ lifecycle }) => lifecycle === "implemented").map(({ id }) => id));
+
+function validateSvgCheckoutSelection(selectedProductIds) {
+    if (
+        !Array.isArray(selectedProductIds) ||
+        selectedProductIds.length === 0
+    ) {
+        throw new Error("Select at least one available SVG tool.");
+    }
+
+    const uniqueProductIds = new Set(selectedProductIds);
+
+    if (
+        uniqueProductIds.size !== selectedProductIds.length ||
+        selectedProductIds.some(
+            (productId) =>
+                !SELECTABLE_SVG_CHECKOUT_PRODUCT_IDS.has(productId)
+        )
+    ) {
+        throw new Error("The SVG tool selection is not available.");
+    }
+
+    return [...uniqueProductIds];
+}
+
+async function startSvgSubscriptionCheckout(
+    selectedProductIds
+) {
+    const selection = validateSvgCheckoutSelection(selectedProductIds);
+    const checkout = await apiRequest(
+        "/payments/svg-subscription/checkout/session",
+        {
+            method: "POST",
+            requiresAuth: true,
+            body: {
+                selected_product_ids: selection,
+                origin_url:
+                    window.location.origin +
+                    window.location.pathname,
+            },
+        }
+    );
+
+    let checkoutUrl;
+
+    try {
+        checkoutUrl = new URL(checkout?.url);
+    } catch {
+        throw new Error("Checkout did not return a safe destination.");
+    }
+
+    if (
+        checkoutUrl.protocol !== "https:" ||
+        checkoutUrl.hostname !== "checkout.stripe.com"
+    ) {
+        throw new Error("Checkout did not return a safe destination.");
+    }
+
+    window.location.assign(checkoutUrl.href);
+}
+
+async function confirmSvgSubscriptionCheckout(
+    sessionId
+) {
+    if (!sessionId) {
+        throw new Error("Checkout session is required.");
+    }
+
+    const checkoutStatus = await apiRequest(
+        `/payments/checkout/status/${
+            encodeURIComponent(sessionId)
+        }`,
+        {
+            requiresAuth: true,
+        }
+    );
+
+    const user = await refreshSession();
+
+    return {
+        checkoutStatus,
+        user,
+    };
+}
+
+return { API_BASE_URL, login, registerAccount, refreshSession, startPathSealCheckout, confirmPathSealCheckout, saveSession, clearSession, getAccessToken, getCurrentUser, hasEntitlement, startSvgSubscriptionCheckout, confirmSvgSubscriptionCheckout };
 })();
 
 // Source: modules/overlappingShapes.js
-const module3 = (() => {
+const module4 = (() => {
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SELECTOR = "rect,circle,ellipse,path,polygon,polyline,line,text,image,use";
 const NUMBER = /^[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?$/;
@@ -387,7 +496,7 @@ return { getOverlappingSourceElements, inspectOverlappingDocument, inspectOverla
 })();
 
 // Source: modules/overlappingShapePreview.js
-const module4 = (() => {
+const module5 = (() => {
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function renderOverlappingPreview(svg, shapes) {
@@ -438,7 +547,7 @@ return { renderOverlappingPreview, highlightOverlappingFinding };
 })();
 
 // Source: modules/strayNodeAnalyzer.js
-const module6 = (() => {
+const module7 = (() => {
 const STRAY_NODE_CLEANER_PRODUCT_ID = "stray_node_cleaner";
 
 const DEFAULTS = Object.freeze({
@@ -638,12 +747,12 @@ return { STRAY_NODE_CLEANER_PRODUCT_ID, parsePointsAttribute, parseLinearPathDat
 })();
 
 // Source: modules/strayNodeBrowserAdapter.js
-const module5 = (() => {
+const module6 = (() => {
 const {
     analyzeStrayNodes,
     parseLinearPathData,
     parsePointsAttribute,
-} = module6;
+} = module7;
 
 const SUPPORTED_SELECTOR = "line,polyline,polygon,path";
 
@@ -790,7 +899,7 @@ return { StrayNodeSvgInputError, normalizeSvgGeometry, readLocalSvgFile, inspect
 })();
 
 // Source: modules/pathCloser.js
-const module8 = (() => {
+const module9 = (() => {
 function parseSvg(svgText) {
     const parser = new DOMParser();
 
@@ -1597,9 +1706,9 @@ return { parseSvg, getPathElements, getPathData, isPathExplicitlyClosed, tokeniz
 })();
 
 // Source: modules/overlappingShapeRepair.js
-const module7 = (() => {
-const { getOverlappingSourceElements, inspectOverlappingDocument } = module3;
-const { parseSvg, serializeSvg, validateSvgText } = module8;
+const module8 = (() => {
+const { getOverlappingSourceElements, inspectOverlappingDocument } = module4;
+const { parseSvg, serializeSvg, validateSvgText } = module9;
 
 function createOverlappingRepairSession(source, { DOMParser: Parser = globalThis.DOMParser } = {}) {
     const original = new Parser().parseFromString(source, "image/svg+xml");
@@ -1697,32 +1806,9 @@ function createOverlappingRepairSession(source, { DOMParser: Parser = globalThis
 return { createOverlappingRepairSession };
 })();
 
-// Source: modules/productManifest.js
-const module11 = (() => {
-const UNIVERSAL_ENTITLEMENT_ID = "all_products_lifetime";
-
-const PRODUCT_MANIFEST = Object.freeze([
-    Object.freeze({ id: "pathseal", name: "PathSeal", order: 1, lifecycle: "implemented", productionEnabled: true, route: "pathseal.html", description: "Find open contours, review questionable gaps, and seal only the paths you approve." }),
-    Object.freeze({ id: "duplicate_geometry", name: "Duplicate Line Remover", order: 2, lifecycle: "implemented", productionEnabled: false, route: "duplicate-geometry.html", description: "Find exact duplicate lines and prepare safe removals without touching questionable geometry." }),
-    Object.freeze({ id: "stray_node_cleaner", name: "Stray Node Cleaner", order: 3, lifecycle: "implemented", productionEnabled: false, route: "stray-node-cleaner.html", description: "Review stray-node findings and remove selected exact coincident nodes while preserving original geometry." }),
-    Object.freeze({ id: "overlapping_shape_repair", name: "Overlapping Shape Repair", order: 4, lifecycle: "implemented", productionEnabled: false, route: "overlapping-shape-repair.html", description: "Review overlaps and remove only selected safe exact duplicate rectangles." }),
-    Object.freeze({ id: "curve_repair", name: "Curve Repair", order: 5, lifecycle: "implemented", productionEnabled: false, route: "curve-repair.html", description: "Review curves and remove only selected, proven redundant interior cubic segments." }),
-]);
-
-function getProduct(productId) {
-    return PRODUCT_MANIFEST.find(({ id }) => id === productId) || null;
-}
-
-function getProductionSelectableProductIds() {
-    return PRODUCT_MANIFEST.filter(({ lifecycle, productionEnabled }) => lifecycle === "implemented" && productionEnabled).map(({ id }) => id);
-}
-
-return { UNIVERSAL_ENTITLEMENT_ID, PRODUCT_MANIFEST, getProduct, getProductionSelectableProductIds };
-})();
-
 // Source: modules/accessFoundation.js
-const module10 = (() => {
-const { PRODUCT_MANIFEST, UNIVERSAL_ENTITLEMENT_ID } = module11;
+const module11 = (() => {
+const { PRODUCT_MANIFEST, UNIVERSAL_ENTITLEMENT_ID } = module2;
 
 const HUB_ROUTE = "index.html";
 const SAFE_RETURN_ROUTES = new Set(PRODUCT_MANIFEST.filter(({ lifecycle, route }) => lifecycle === "implemented" && route).map(({ route }) => route));
@@ -1758,9 +1844,9 @@ return { HUB_ROUTE, validateReturnDestination, deriveToolAccessState };
 })();
 
 // Source: modules/overlappingShapeAccess.js
-const module9 = (() => {
-const { deriveToolAccessState } = module10;
-const { getProduct, UNIVERSAL_ENTITLEMENT_ID } = module11;
+const module10 = (() => {
+const { deriveToolAccessState } = module11;
+const { getProduct, UNIVERSAL_ENTITLEMENT_ID } = module2;
 
 const OVERLAPPING_SHAPE_ENTITLEMENT = getProduct("overlapping_shape_repair").id;
 const EXPIRED = new Set(["canceled", "cancelled", "expired", "incomplete_expired", "paused", "unpaid"]);
@@ -1819,12 +1905,12 @@ return { cleanedSvgFilename, downloadCleanedSvg };
 })();
 
 // Source: overlapping-shape-repair.js
-const module2 = (() => {
-const { inspectOverlappingSvg } = module3;
-const { renderOverlappingPreview, highlightOverlappingFinding } = module4;
-const { readLocalSvgFile } = module5;
-const { createOverlappingRepairSession } = module7;
-const { runWithFreshOverlappingAccess } = module9;
+const module3 = (() => {
+const { inspectOverlappingSvg } = module4;
+const { renderOverlappingPreview, highlightOverlappingFinding } = module5;
+const { readLocalSvgFile } = module6;
+const { createOverlappingRepairSession } = module8;
+const { runWithFreshOverlappingAccess } = module10;
 const { downloadCleanedSvg } = module12;
 
 function initializeOverlappingShapePage({ refreshSession } = {}) {
@@ -2021,7 +2107,7 @@ return { initializeOverlappingShapePage };
 // Source: overlapping-shape-repair-entry.js
 const module0 = (() => {
 const { refreshSession } = module1;
-const { initializeOverlappingShapePage } = module2;
+const { initializeOverlappingShapePage } = module3;
 
 initializeOverlappingShapePage({ refreshSession });
 
