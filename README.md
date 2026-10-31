@@ -4,6 +4,89 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
+## Commercial access checkpoint - Block 27 (2026-10-30)
+
+**BLOCKED: commercial completion is not established.** Verified clean base
+`37d7f1c`; local branch `work/block27-commercial-access`. Completion record:
+the local commit adding this checkpoint (`git log -1` on that branch).
+Only README/checklist changed. Existing repair engines, free inspection,
+fresh entitlement gates, PathSeal purchase flow and disabled shared purchase
+controls remain unchanged. Block 26 software evidence is retained.
+
+### Established contracts
+
+Authority: `SVG-MICRO-ECO-MASTER-2026-10-11.2`, section 3;
+`SKALD-KREEPY-MASTER-2026-10-24.1`; continuity
+`SKP-WORK-CONTINUITY-2026-09-01.1`.
+
+All five tools have approved USD 999 cents/month standalone terms. Discounts
+for 1/2/3/4/5 tools are 0/5/10/15/20 percent; pre-tax monthly totals are
+999/1898/2697/3397/3996 cents. No terms were changed.
+
+| Tool | Product / entitlement ID | Shared backend Price configuration key |
+| --- | --- | --- |
+| PathSeal | `pathseal` | `STRIPE_PRICE_PATHSEAL_MONTHLY` |
+| Duplicate Line Remover | `duplicate_geometry` | `STRIPE_PRICE_DUPLICATE_GEOMETRY_MONTHLY` |
+| Stray Node Cleaner | `stray_node_cleaner` | `STRIPE_PRICE_STRAY_NODE_CLEANER_MONTHLY` |
+| Overlapping Shape Repair | `overlapping_shape_repair` | `STRIPE_PRICE_OVERLAPPING_SHAPE_REPAIR_MONTHLY` |
+| Curve Repair | `curve_repair` | `STRIPE_PRICE_CURVE_REPAIR_MONTHLY` |
+
+Universal access remains `all_products_lifetime`. The shared checkout package
+is `svg_micro_eco_selection`; individual PathSeal checkout uses the existing
+`pathseal_monthly` package and inline `price_data`, so a missing named catalog
+Price alone does not prove its existing checkout is broken. Do not route other
+tools through that PathSeal-only package.
+
+### Exact unresolved dependencies
+
+1. No verified existing SVG Stripe Product/Price mapping was available for shared
+   checkout. Read-only account discovery exposed only Kreepy Productions live
+   account `acct_1T3w8HGcjYPS3asv`. Its complete returned Price list
+   (`has_more: false`) contained three unrelated products (MAB S1, Blueprint Ai,
+   Belly Dump); none identified the five SVG offers. This does not prove that
+   another account or archived Sandbox lacks them. The correct existing account,
+   environment and five `price_`/`prod_` mappings must be supplied/verified.
+   No unrelated ID was substituted; no catalog objects were created.
+2. The 2/3/4/5-tool configuration names are `STRIPE_COUPON_SVG_TWO_TOOLS`,
+   `STRIPE_COUPON_SVG_THREE_TOOLS`, `STRIPE_COUPON_SVG_FOUR_TOOLS`,
+   `STRIPE_COUPON_SVG_FIVE_TOOLS`. Approved discount percentages exist, but their
+   matching deployment-ready Coupon IDs were not established here.
+3. Source reconciliation is required. The inspected existing MAB worktree
+   `mab-authoritative` is clean except its pre-existing untracked `.test-venv/`,
+   at `c4a6bcb` (`fix/mab-production-login`), backend root `Blueprint-Clean/backend`.
+   It has quote/planning code but no shared checkout session route. Preserved
+   local commit `33e1642` contains `/payments/svg-subscription/checkout/session`,
+   `SVG_SUBSCRIPTION_CHECKOUT_ENABLED` and the webhook/reconciler. Its catalog
+   still marks Tools 3-5 unavailable. The SVG frontend has only the shared quote
+   client; the recovered historical checkout client is not in this working tree.
+   No backend checkout was replaced or historical implementation bulk-merged.
+4. No isolated Stripe account was exposed. The approved isolated signed-webhook
+   receiver/database and its `STRIPE_WEBHOOK_SECRET` binding are unverified;
+   deployed secret presence was not inspected and must not be called missing.
+   No live secret, webhook, subscription or customer was read or changed.
+   Purchase-to-entitlement delivery and repeat-event database idempotency for
+   all five products remain unverified. Historical signed Tool 2 proof is not
+   relabelled current five-tool end-to-end acceptance.
+
+### Bounded evidence and handoff
+
+Ran the existing pure backend `test_svg_subscription.py`: **10 passed, 0 failed**.
+It verifies the approved price ladder, separate mocked Price line items, discount
+mapping, missing-configuration denial, invalid/unavailable selection rejection,
+bounded product metadata, grant/revoke planning and uncertain-status hold.
+It does not execute Checkout, verify webhook signatures, or prove database
+idempotency. No repair/browser tests repeated because runtime code did not change.
+Whitespace checks passed. Stripe inspection used GET-only account/catalog calls;
+no purchase, event submission, API-key access or production mutation occurred.
+
+SESSION HANDOFF: Block 27 BLOCKED. Correct IDs/configuration and an identified
+reconciled backend target are required before purchase wiring can proceed.
+Next single action: resolve the existing Stripe account/catalog and isolated
+webhook/backend contract above. Preserve all controls disabled until resolved.
+The suite is locally software-ready per Block 26 but **not ready for commercial
+production deployment**. Nothing pushed, merged, deployed, published or activated.
+Stop after this local blocked-checkpoint commit.
+
 ## Targeted software release repairs — Block 26 (2026-10-30)
 
 **Local software blockers resolved.** Clean base: `0ab3919`; branch:

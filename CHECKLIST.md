@@ -1,5 +1,29 @@
 # SVG Path Closer Build Checklist
 
+## Block 27 - commercial access completion (BLOCKED)
+
+Verified 2026-10-30: clean base `37d7f1c`; branch `work/block27-commercial-access`.
+README records contracts, exact source/configuration blockers and session handoff.
+
+- [x] Inspect existing manifest, purchase controls and bounded backend contracts
+- [x] Confirm five stable product/entitlement IDs and approved prices/discounts
+- [x] Read-only Stripe account/catalog inspection; no identifiable SVG Price mapping
+- [x] Locate preserved shared Checkout/webhook implementation at local `33e1642`
+- [x] Identify working-backend/source mismatch and Tools 3-5 unavailable catalog
+- [x] Existing pure pricing/checkout-plan policy checks: 10 passed, zero failed
+- [x] Preserve Block 26 evidence, original workflows, fresh gates and free review
+- [x] No runtime, engine, commercial configuration or backend worktree changes
+- [ ] Correct existing Stripe account and five verified Product/Price mappings
+- [ ] Matching 2/3/4/5-tool Coupon IDs and reconciled shared-backend target
+- [ ] Isolated signed-webhook receiver/DB and verified secret/environment binding
+- [ ] Five-tool purchase-to-entitlement and repeat-delivery idempotency acceptance
+- [ ] Shared purchase connection/activation after those dependencies are resolved
+- [ ] Commercial production deployment readiness: BLOCKED
+- [x] README/checklist and whitespace checks; local documentation commit only
+- [x] No live purchase, push, merge, publication, deployment or new Stripe objects
+
+STOP at missing configuration. No fabricated IDs or speculative activation.
+
 ## Block 26 — targeted release-blocker repairs
 
 Last checked: 2026-10-30. Branch: `work/block26-targeted-release-fixes`.
