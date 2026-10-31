@@ -4,6 +4,122 @@ SVG Path Closer is a browser-based CNC utility that detects and repairs open pat
 
 It is the first standalone micro-tool in the SVG Micro Eco repair system.
 
+## Stripe configuration readiness - Block 29 (2026-10-30)
+
+**Configuration plan ready; real Stripe test delivery BLOCKED. Purchasing OFF.**
+Verified frontend base `62baaaf`, backend base `6ff8252`. Frontend branch
+`work/block29-commercial-configuration`; completion commit is the local commit
+adding this checkpoint (`git log -1` on this branch). Backend companion:
+`work/block29-isolated-delivery`, commit `dc66f14` in existing `mab-authoritative`.
+Backend pre-existing untracked `.test-venv/` remains untouched. No runtime code,
+checkout route, webhook handler, repair engine, hub, deployed setting or live
+Stripe record was changed. This checkpoint supersedes configuration readiness
+wording below; historical evidence is preserved.
+
+### Exact catalog mapping to prepare
+
+One shared Kreepy Productions account, separate SVG Products and entitlements.
+Every Price must be active, USD **999 cents**, recurring **month** (interval count
+1), quantity 1, associated with its own matching SVG Product. Record each actual
+`prod_` and `price_` ID after separate authorized creation; IDs remain **uncreated
+and unconfigured** here. No MAB, Blueprint Ai or Belly Dump ID may be substituted.
+
+| Stripe Product name | Stable product / entitlement | Price environment variable |
+| --- | --- | --- |
+| PathSeal | `pathseal` | `STRIPE_PRICE_PATHSEAL_MONTHLY` |
+| Duplicate Line Remover | `duplicate_geometry` | `STRIPE_PRICE_DUPLICATE_GEOMETRY_MONTHLY` |
+| Stray Node Cleaner | `stray_node_cleaner` | `STRIPE_PRICE_STRAY_NODE_CLEANER_MONTHLY` |
+| Overlapping Shape Repair | `overlapping_shape_repair` | `STRIPE_PRICE_OVERLAPPING_SHAPE_REPAIR_MONTHLY` |
+| Curve Repair | `curve_repair` | `STRIPE_PRICE_CURVE_REPAIR_MONTHLY` |
+
+No Product-ID environment variables are required by the recovered route: each
+configured Price supplies its Product association. The resulting Product IDs
+must also be recorded to constrain Coupon applicability. Shared package remains
+`svg_micro_eco_selection`; never map another tool to `pathseal_monthly`.
+Universal entitlement remains `all_products_lifetime`, not a new purchasable SKU.
+
+| Selected tool count | Coupon configuration variable | Percent off | Monthly total before tax |
+| --- | --- | --- | --- |
+| 1 | None | 0% | $9.99 |
+| 2 | `STRIPE_COUPON_SVG_TWO_TOOLS` | 5% | $18.98 |
+| 3 | `STRIPE_COUPON_SVG_THREE_TOOLS` | 10% | $26.97 |
+| 4 | `STRIPE_COUPON_SVG_FOUR_TOOLS` | 15% | $33.97 |
+| 5 | `STRIPE_COUPON_SVG_FIVE_TOOLS` | 20% | $39.96 |
+
+Use percentage Coupons with recurring duration `forever`, preserving the existing
+two-tool recurring contract and approved monthly ladder. Restrict `applies_to`
+to the five actual SVG Product IDs, excluding MAB and unrelated products; the
+existing count-based builder chooses one Coupon for a selected bundle. Do not
+stack extra discounts, introduce promotions or change commercial terms. No
+additional price decision is needed. The four actual Coupon IDs are still absent.
+
+### Environment and webhook requirements
+
+The updated backend `.env.svg-subscription.example` retains empty Price/Coupon
+values and `SVG_SUBSCRIPTION_CHECKOUT_ENABLED=0`. Prepared non-secret label:
+`STRIPE_SVG_INTEGRATION_IDENTIFIER=svg_micro_eco_checkout_kvhrmtps`. A focused
+fixture confirms the eight-letter suffix and exact session-parameter pass-through;
+Stripe API acceptance and deployed configuration remain unverified. This label
+is not a Stripe record ID and has not been applied externally.
+
+Existing correct-environment `STRIPE_API_KEY` and `STRIPE_WEBHOOK_SECRET` must
+come from the existing secret store; never put values in Git or chat. For isolated
+verification, use only test-mode credentials, matching test Price/Coupon IDs,
+an authorized isolated receiver and nonproduction database. `STRIPE_TEST_API_KEY`
+is an optional historical test harness input, not the server's runtime key name.
+Retain existing shared `MONGO_URL`, `DB_NAME`, `JWT_SECRET` and approved
+`CHECKOUT_ALLOWED_ORIGINS`; isolated tests must never use the production database.
+Frontend `RELEASE_FLAGS.svgSubscriptionCheckout` remains false and Tools 2-5
+`productionEnabled` remains false; all public purchase handlers remain blocked.
+
+Reuse the existing shared `/api/webhook/stripe` endpoint and existing account;
+no second billing service is needed. Required handled events are
+`checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+`checkout.session.async_payment_failed`, and
+`customer.subscription.created`, `.updated`, `.deleted`, `.paused`, `.resumed`
+(the latter abbreviations share the `customer.subscription` prefix). Configure
+the correct environment's signature secret and retain existing MAB event handling;
+do not replace the production endpoint or its subscriptions during local work.
+
+### Verification and actual blockers
+
+- **9 new focused local tests passed, 0 failed** in
+  `tests/test_svg_delivery_denials.py`. Real SDK signature verification with local
+  fixture signatures and in-memory collections proves failed/asynchronous-failed,
+  unpaid, incomplete/incomplete-expired, canceled and unrelated events add no SVG
+  grants. A valid single-tool event adds only `stray_node_cleaner`; duplicate
+  delivery adds it once. Existing MAB subscription/permanent/founder/complimentary
+  entitlements and premium state remain unchanged. Integration label pass-through
+  is checked. Block 28's all-five successful mappings, full bundle and replay
+  results are retained without rerunning passed suites.
+- Syntax, configuration-name/manifest mapping and whitespace checks passed.
+  No frontend/runtime changes required repeated browser or repair tests.
+- **External Stripe test-mode checkout/webhook: NOT RUN / BLOCKED.** Account
+  discovery exposes only live `acct_1T3w8HGcjYPS3asv`. Process test/API/signing
+  settings and isolated DB target are absent. Existing Stripe CLI was located,
+  but the OS denied starting `stripe whoami --format json`; no escalation,
+  secret extraction or tooling changes were attempted. Historical Credential
+  Manager storage does not establish a usable authorized receiver/test setup.
+  No substitute live purchase or live webhook was attempted.
+
+Exact blockers to activation: actual five live Product/Price mappings and four
+Coupon IDs; correct environment credentials/signature/identifier configuration;
+authorized isolated test catalog/credential/receiver/database with real
+Stripe-originated checkout delivery; reconciliation of the isolated backend
+patch with the selected current shared MAB release; existing recovery/access
+safeguards and separate activation/deployment approval. Production secret presence
+was not queried and must not be described as missing.
+
+**A separately authorized live catalog-only creation task can safely use these
+approved mappings; it must not activate purchasing.** Successful record creation
+would not prove delivery. No live record was created or modified in this block.
+
+SESSION HANDOFF: Block 29 local mapping/negative-delivery proof COMPLETE;
+external delivery verification BLOCKED at environment availability. Next single
+action: provide/authorize the existing isolated Stripe test environment and
+receiver configuration. Stop after local companion commits; no activation,
+push, merge, deployment, publication or owner-led manual test.
+
 ## Restored shared checkout foundation - Block 28 (2026-10-30)
 
 **Local foundation recovered and verified; public purchasing remains disabled.**

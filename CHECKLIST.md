@@ -1,5 +1,32 @@
 # SVG Path Closer Build Checklist
 
+## Block 29 - Stripe configuration readiness and isolated delivery
+
+Frontend base `62baaaf`; branch `work/block29-commercial-configuration`.
+Backend base `6ff8252`; branch `work/block29-isolated-delivery`, commit `dc66f14`.
+README contains the exact Product/Price/Coupon/environment mapping and handoff.
+
+- [x] Verify both starting commits and preserve existing backend test runtime
+- [x] Map five separate SVG Products to USD 999 cents/month Prices and entitlements
+- [x] Map 5/10/15/20% recurring SVG-only Coupons; preserve approved totals
+- [x] Prepare and fixture-check non-secret integration label and environment names
+- [x] Keep actual Stripe ID placeholders empty and all purchase switches disabled
+- [x] Preserve shared MAB/SVG routes, signing handlers and repair engines
+- [x] Check test environment availability without secret disclosure or live writes
+- [x] Stop external verification: no exposed test account/usable isolated configuration
+- [x] 9 new local negative/mapping/MAB-preservation checks passed, zero failed
+- [x] Retain Block 28 successful selected-entitlement/replay evidence without reruns
+- [x] Syntax, mapping and whitespace checks passed
+- [ ] Actual five live Product/Price mappings and four matching Coupon IDs
+- [ ] Authorized usable test-mode credential/catalog/receiver/DB/signing configuration
+- [ ] Real Stripe-originated checkout/webhook delivery acceptance
+- [ ] Current shared backend release reconciliation and existing recovery/access gates
+- [ ] Separate purchasing activation and production deployment approval
+- [x] Live catalog-only creation plan ready for separate authorization
+- [x] No live Stripe/customer changes, push, merge, deployment or owner-led testing
+
+STOP after local commits. External delivery remains blocked, not passed.
+
 ## Block 28 - restored shared checkout foundation
 
 Verified 2026-10-30. Frontend: `work/block28-restore-shared-checkout`, base `0fc0304`.
