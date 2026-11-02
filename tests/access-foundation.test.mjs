@@ -57,7 +57,8 @@ test("hub retains account/session presentation without checkout wiring", async (
     }
     assert.match(hub, /src="ecosystem\.js\?v=access-foundation-1"/);
     assert.match(hubScript, /login, registerAccount, refreshSession, clearSession, getCurrentUser/);
-    assert.doesNotMatch(hubScript, /startSvgSubscriptionCheckout|confirmSvgSubscriptionCheckout/);
+    assert.match(hubScript, /!RELEASE_FLAGS\.svgSubscriptionCheckout/);
+    assert.match(hubScript, /checkoutButton\.hidden = !RELEASE_FLAGS\.svgSubscriptionCheckout/);
 });
 
 test("focused workspaces preserve current-main behavior and expose hub navigation", async () => {
