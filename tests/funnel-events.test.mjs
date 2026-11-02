@@ -45,16 +45,9 @@ test("PathSeal emits the canonical Stage 1 funnel events", () => {
 });
 
 
-test("checkout carries only bounded attribution field names", () => {
-    for (const field of [
-        "visitor_id",
-        "source",
-        "medium",
-        "campaign",
-    ]) {
-        assert.match(authSource, new RegExp(`\\b${field}:`));
-    }
-
+test("SVG checkout keeps selection scoped to the existing protected request", () => {
+    assert.match(authSource, /selected_product_ids:\s*selection/);
+    assert.match(authSource, /requiresAuth:\s*true/);
     assert.doesNotMatch(authSource, /utm_content|utm_term/);
 });
 

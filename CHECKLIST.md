@@ -1,5 +1,424 @@
 # SVG Path Closer Build Checklist
 
+## Block 31 - shared backend release reconciliation
+
+Frontend: `work/block31-backend-release-checkpoint`, base `f68fb3d`.
+Backend: `work/block31-shared-backend-reconciliation`, commit `a005c85`.
+
+- [x] Verify both starting commits; preserve existing untracked backend test runtime
+- [x] Confirm Render Live `4b0f3f2df51454f2c4ffd54443507668140d092d`
+- [x] Confirm current `e70ed0e` has identical backend tree; use current source base
+- [x] Selectively integrate SVG lifetime checkout without replacing current MAB code
+- [x] Preserve MAB $30 package, payment options, auth, licensing and activation
+- [x] Preserve Shopify/Gmail routes, legacy entitlements and startup indexes
+- [x] Retain six exact SVG one-time Prices and five-tool-only bundle grants
+- [x] Preserve signed shared webhook, owner checks, replay safety and fresh access
+- [x] 29 focused checks passed; syntax and whitespace passed
+- [ ] Inherited MAB Stripe fulfillment mismatch: 1 strict expected failure
+- [ ] Authorize narrow `mab_s1.5` payment-to-`mab_s1` entitlement correction
+- [ ] Real isolated Stripe delivery acceptance and existing recovery/access gates
+- [ ] Separate production release approval; no deployment currently recommended
+- [x] Frontend runtime and repair engines unchanged; no unrelated test suites
+- [x] Existing README/backend foundation updated; no new master documents
+- [x] No customer/Stripe-record writes, push, merge, deploy or purchase activation
+
+STOP after local commits. Reconciliation complete; deployment blocked.
+
+## Block 30 - one-time lifetime checkout conversion
+
+Frontend: `work/block30-lifetime-checkout`, base `8af47b8`.
+Backend: `work/block30-svg-lifetime-checkout`, commit `589414c`, base `dc66f14`.
+This work order supersedes all historical monthly SVG terms below.
+
+- [x] Six approved one-time Price IDs mapped into manifest/backend configuration
+- [x] USD $9.99/tool and $34.99 complete bundle; no SVG recurring Coupons
+- [x] Checkout payment mode; remove new-sale PathSeal monthly package
+- [x] Existing routes/backend reused; no MAB package or pricing change
+- [x] Individual grants scoped to purchased SVG tool; bundle scoped to five SVG tools
+- [x] No universal/MAB/premium grant from SVG lifetime fulfillment
+- [x] Require signed successful paid session and exact owner/amount/currency/metadata
+- [x] No grants from failed/incomplete/unpaid/unverified/wrong-owner sessions
+- [x] Repeat delivery idempotent; status polling cannot fulfill lifetime purchases
+- [x] Permanent SVG grants survive legacy expiry/cancellation; fresh authority required
+- [x] Free inspection, protected repair engines and original SVG processing preserved
+- [x] Active one-time messaging; shared/direct purchase buttons remain disabled
+- [x] 46 focused backend and 11 Node checks passed, zero failures
+- [x] Syntax/whitespace/generated packaging checks passed; no broad or live tests
+- [x] Existing README/backend foundation/configuration notes updated
+- [ ] Current shared MAB release reconciliation before deployment review
+- [ ] Separate deployment and real payment-delivery verification authorization
+- [ ] Existing recovery/access safeguards and purchasing activation approval
+- [x] No live record/customer changes, subscriptions, push, merge or deploy
+
+STOP after companion commits. Local lifetime integration complete; purchasing OFF.
+
+## Block 29 - Stripe configuration readiness and isolated delivery
+
+Frontend base `62baaaf`; branch `work/block29-commercial-configuration`.
+Backend base `6ff8252`; branch `work/block29-isolated-delivery`, commit `dc66f14`.
+README contains the exact Product/Price/Coupon/environment mapping and handoff.
+
+- [x] Verify both starting commits and preserve existing backend test runtime
+- [x] Map five separate SVG Products to USD 999 cents/month Prices and entitlements
+- [x] Map 5/10/15/20% recurring SVG-only Coupons; preserve approved totals
+- [x] Prepare and fixture-check non-secret integration label and environment names
+- [x] Keep actual Stripe ID placeholders empty and all purchase switches disabled
+- [x] Preserve shared MAB/SVG routes, signing handlers and repair engines
+- [x] Check test environment availability without secret disclosure or live writes
+- [x] Stop external verification: no exposed test account/usable isolated configuration
+- [x] 9 new local negative/mapping/MAB-preservation checks passed, zero failed
+- [x] Retain Block 28 successful selected-entitlement/replay evidence without reruns
+- [x] Syntax, mapping and whitespace checks passed
+- [ ] Actual five live Product/Price mappings and four matching Coupon IDs
+- [ ] Authorized usable test-mode credential/catalog/receiver/DB/signing configuration
+- [ ] Real Stripe-originated checkout/webhook delivery acceptance
+- [ ] Current shared backend release reconciliation and existing recovery/access gates
+- [ ] Separate purchasing activation and production deployment approval
+- [x] Live catalog-only creation plan ready for separate authorization
+- [x] No live Stripe/customer changes, push, merge, deployment or owner-led testing
+
+STOP after local commits. External delivery remains blocked, not passed.
+
+## Block 28 - restored shared checkout foundation
+
+Verified 2026-10-30. Frontend: `work/block28-restore-shared-checkout`, base `0fc0304`.
+Backend companion: `work/block28-restore-svg-checkout`, commit `6ff8252` in the
+existing `mab-authoritative` worktree. README contains provenance and handoff.
+
+- [x] Targeted historical lookup; exact supplied ref absent, remote inaccessible
+- [x] Recover applicable client `05bc5f9` and backend chain through `33e1642`
+- [x] Restore shared session route, request model, parameter builder and reconciliation
+- [x] Reconcile all five existing manifest IDs with approved $9.99/discount terms
+- [x] Empty Price/Coupon/integration configuration placeholders; server default OFF
+- [x] Reconnect hub checkout/return behind false frontend release flag
+- [x] Keep all public purchase controls disabled, including local PathSeal button
+- [x] Restore real-SDK signed webhook tests with in-memory collections only
+- [x] Correct owner/selection/subscription bindings and duplicate success-query bug
+- [x] Duplicate delivery: one transaction and no duplicate entitlement effects
+- [x] Preserve lifetime, unrelated grants, other active bundles and direct PathSeal
+- [x] 43 backend tests / 19 subtests, 12 Node checks, 4 Chrome checks passed
+- [x] Syntax/whitespace and source/generated packaging checks passed
+- [x] Five repair engines, geometry, fixtures and Block 26 protections preserved
+- [x] Commercial catalog setup may proceed under separate authorization
+- [ ] Five live SVG Product/Price mappings and four approved discount Coupon IDs
+- [ ] Correct-environment API/webhook/integration configuration and signed delivery
+- [ ] Reconcile isolated backend patch with selected current MAB release before promotion
+- [ ] Existing recovery/access safeguards and separate activation/deployment approval
+- [x] No live Stripe/customer mutation, push, merge, publish, deploy or new dependencies
+
+STOP after local companion commits. No live activation authorized.
+
+## Block 27 - commercial access completion (BLOCKED)
+
+Verified 2026-10-30: clean base `37d7f1c`; branch `work/block27-commercial-access`.
+README records contracts, exact source/configuration blockers and session handoff.
+
+- [x] Inspect existing manifest, purchase controls and bounded backend contracts
+- [x] Confirm five stable product/entitlement IDs and approved prices/discounts
+- [x] Read-only Stripe account/catalog inspection; no identifiable SVG Price mapping
+- [x] Locate preserved shared Checkout/webhook implementation at local `33e1642`
+- [x] Identify working-backend/source mismatch and Tools 3-5 unavailable catalog
+- [x] Existing pure pricing/checkout-plan policy checks: 10 passed, zero failed
+- [x] Preserve Block 26 evidence, original workflows, fresh gates and free review
+- [x] No runtime, engine, commercial configuration or backend worktree changes
+- [ ] Correct existing Stripe account and five verified Product/Price mappings
+- [ ] Matching 2/3/4/5-tool Coupon IDs and reconciled shared-backend target
+- [ ] Isolated signed-webhook receiver/DB and verified secret/environment binding
+- [ ] Five-tool purchase-to-entitlement and repeat-delivery idempotency acceptance
+- [ ] Shared purchase connection/activation after those dependencies are resolved
+- [ ] Commercial production deployment readiness: BLOCKED
+- [x] README/checklist and whitespace checks; local documentation commit only
+- [x] No live purchase, push, merge, publication, deployment or new Stripe objects
+
+STOP at missing configuration. No fabricated IDs or speculative activation.
+
+## Block 26 � targeted release-blocker repairs
+
+Last checked: 2026-10-30. Branch: `work/block26-targeted-release-fixes`.
+Clean base: `0ab3919`. README contains the completion commit locator and evidence.
+The Block 25 checklist below preserves its original historical assessment.
+
+- [x] Reproduce all five Block 25 failing Chrome checks before implementation
+- [x] PathSeal fresh authoritative access before both repair and download
+- [x] Deny revoked/expired/offline/malformed/signed-out access; retain free review
+- [x] Synchronize PathSeal safe preselection after review controls are appended
+- [x] Protect asynchronous paid actions against changed upload/selection/account
+- [x] Tool 2 resets approval/output/old selections on new upload
+- [x] Bind Tool 2 approval to the confirmed source and selection; reject stale work
+- [x] Block old pending downloads and retain newly uploaded file's valid state
+- [x] Five previously failed checks now pass; 19 focused Chrome checks pass total
+- [x] 10 relevant Node checks pass; syntax and whitespace checks pass
+- [x] Valid authorized downloads; original fixtures/files remain unchanged
+- [x] Tools 3�5, engines, shared hub/account and commercial configuration unchanged
+- [x] All-five local software release readiness; no known remaining Block 25 software blocker
+- [ ] Target-host release checks and separate owner deployment approval
+- [ ] Separately authorized commercial activation and live entitlement proof
+- [x] No push, merge, deploy, new dependencies or unrelated test suites
+
+Stop after the local Block 26 commit. No commercial activation or deployment.
+
+## Block 25 — final five-tool integration and release readiness
+
+Last checked: 2026-10-30. Branch: `work/block25-suite-release-readiness`.
+Clean base: `43125c6`. README holds the current readiness checkpoint, commit
+locator, evidence/provenance, exact blocker anchors and reproduction commands.
+
+- [x] All five tools open through the existing shared HTTP(S) hub
+- [x] Shared account return routes, synthetic login/session/lifetime/logout behavior
+- [x] Free upload/scan/review and explicit selection across all tools
+- [x] Normal entitled/lifetime repair → valid SVG download; original files preserved
+- [x] Signed-out/unentitled normal action denial across all five tools
+- [x] Tools 2–5 fresh authority and revoked-download denial
+- [x] Correct three stale embedded Tool 4/5 manifest records in Tool 3/4 packaging only
+- [x] In-memory bundle/source checks match; no completed engine rebuilt or redesigned
+- [x] 14 focused Node tests passed; 25 of 30 unique Chrome checks passed
+- [ ] Five release checks failed: PathSeal revoked repair, revoked download,
+  unavailable authority with cached access, preselected Repair readiness;
+  Tool 2 approval completing against a newer upload
+- [x] Controller blob identities confirm those faults predate Blocks 21–24
+- [x] Preserve out-of-scope controllers; report required separately authorized fixes
+- [x] Tools 2–5 purchases/shared checkout remain disabled; no commercial changes
+- [ ] Approved commercial activation and live checkout-to-entitlement/download proof
+- [ ] All-five software release readiness: BLOCKED by confirmed defects above
+- [ ] Deployment eligibility: only after software remediation/target-host checks
+  and separate owner approval; commercial activation requires its own authorization
+- [x] Syntax/whitespace/protected-source/fixture checks; no live customer/service writes
+- [x] No new dependencies, broad audits/tests, owner-led manual QA, push/merge/deploy
+
+Block 25 assessment COMPLETE; full-suite release BLOCKED, not approved for
+deployment. STOP after local commit. No additional work is authorized.
+
+## Tool 5 — Block 24 safe repair, validation, download and hub access
+
+Last checked: 2026-10-30. Branch: `work/block24-tool5-repair-access`.
+Clean base: `4b8a796`. README holds the current checkpoint, completion commit
+locator, precise safety/rollback contract and resume anchors.
+
+- [x] Fresh source/proposal/safety recheck before executing selected collapsed cubics
+- [x] Remove only approved source ranges from isolated copies; original preserved
+- [x] Refuse stale, unknown, manual, repeated/conflicting and unsupported selections
+- [x] Preserve exact retained commands/control points/endpoints, subpaths and closure
+- [x] Preserve unselected path data, attributes and all unrelated SVG content
+- [x] Transactional preview/SVG/count/serialization validation and whole-batch rollback
+- [x] Update findings, warnings, preview and counts; lock one successful batch per upload
+- [x] Revalidated cleaned SVG download using existing shared helpers
+- [x] New-upload and pending upload/selection/download invalidation
+- [x] Existing hub route and account return; Tool 5 purchase controls remain disabled
+- [x] Fresh manifest-confirmed `curve_repair`/universal lifetime check at each protected action
+- [x] Signed-out/unentitled/expired/malformed/offline denial and download revocation
+- [x] 33 focused Tool 5 tests + 7 affected hub/access tests passed (40 total, zero failures)
+- [x] Automated Chrome mocked-session hub/download/geometry/rollback/stale-state checks
+- [x] All three Block 23 fixtures unchanged; direct-file free inspection preserved
+- [x] Syntax/whitespace/generated-entry checks; Tools 1–4/hub/account sources unchanged
+- [x] No new repair categories, smoothing, commercial changes, owner-led QA or broad tests
+- [x] Local commit only; no push, merge, deployment or new dependencies
+
+Tool 5 locally complete within Block 23's approved scope. Actual blockers: none
+for local completion. Live commercial/production verification remains separate.
+STOP after Block 24; await the next work order.
+
+## Tool 5 — Block 23 curve detection and review
+
+Last checked: 2026-10-30. Branch: `work/block23-tool5-curve-review`.
+Clean base: `afd916a`. README contains the current checkpoint, completion commit
+locator, safety contract, fixture expectations and resume anchors.
+
+- [x] New local Curve Repair page using existing chassis/file reader/bundle builder
+- [x] Exact constant-point interior cubic detection with explicit neighboring cubics
+- [x] Absolute/relative coordinates, repeated command groups and SVG shorthand state
+- [x] Exact decimal proof; no float-rounded false coincidences
+- [x] Real loops, unsupported syntax/precision, closure and shorthand dependencies warn
+- [x] IDs, references, styles, transforms, strokes and uncertain contexts remain manual-only
+- [x] Numbered findings, point markers, location highlighting and safe numeric preview
+- [x] Individual unselected proposals, select/deselect and live selection counts
+- [x] Upload/error/stale-read reset; original source and unrelated geometry untouched
+- [x] Three lightweight manual SVG fixtures in `tests/fixtures/` (see README)
+- [x] 13 focused tests passed; syntax/whitespace/generated-entry checks passed
+- [x] Automated Chrome direct-file fixture/relative/selection/highlight/reset checks passed
+- [x] No curve reconstruction, smoothing, contour closing, execution or download
+- [x] No access, commercial, hub or Tools 1–4 changes; no broad tests or owner-led QA
+- [x] Local commit only; no push, merge, deployment or new dependencies
+
+Actual blockers: none. Block 24 is ready within the documented narrow scope,
+subject to the next work order. STOP after Block 23; do not begin Block 24.
+
+## Tool 4 — Block 22 safe execution, validation, download and hub access
+
+Last checked: 2026-10-30. Branch: `work/block22-tool4-repair-access`.
+Clean base: `511e8eb`. README holds the current checkpoint, completion commit
+locator, approved scope and resume anchors.
+
+- [x] Recheck selected proposal IDs, source identity and Block 21 safety rules
+- [x] Refuse unknown, stale, repeated/conflicting and review-only selections
+- [x] Remove only selected safe duplicate rectangles on isolated copies
+- [x] Preserve original, retained IDs/references/styles/groups and unrelated content
+- [x] Validate count, exact retained content, SVG structure and serialization round trip
+- [x] Handle XML whitespace-node merging on private comparison clones
+- [x] Discard failed candidates; retain previous valid working copy; permit clean retry
+- [x] Update remaining findings, preview and counts; lock one successful batch per upload
+- [x] Validated cleaned SVG download; revalidate every click; reset on upload
+- [x] Manifest-only hub integration; Tool 4 purchases remain disabled
+- [x] Shared account return; fresh `overlapping_shape_repair`/lifetime check at both actions
+- [x] Denied/expired/unavailable access and revoked download grants fail closed
+- [x] Ignore stale upload/selection checks and concurrent repeated clicks
+- [x] Preserve all three Block 21 fixtures and existing detection/review/highlighting
+- [x] 26 focused Tool 4 tests passed; syntax, whitespace and generated-bundle checks
+- [x] Automated Chrome access-state, completed download, preservation, rollback/retry,
+  whitespace, direct-file fixture and stale-action verification passed
+- [x] Tools 1–3/hub/auth/billing sources and release flags unchanged
+- [x] No owner-led QA, new dependencies, broad tests, push, merge or deployment
+
+Tool 4 locally complete within the approved exact-rectangle scope. Blockers:
+none for local completion. Block 23 is ready only on the next work order.
+STOP after this local commit; no Tool 5 work is authorized here.
+
+## Tool 4 — Block 21 detection and selection
+
+Last checked: 2026-10-30. Branch: `work/block21-tool4-detection-review`.
+Clean base: `1e2642c` (Block 20). README contains the current checkpoint,
+completion commit locator, conservative safety contract and resume anchors.
+
+- [x] Standalone local page using existing shared visual chassis and file reader
+- [x] Exact primitive duplicate detection; conservative rectangle-only proposals
+- [x] Opaque/no-stroke/crisp-edge, adjacent/same-parent/identical-attribute safety checks
+- [x] IDs, references, CSS, active content, styles, transforms and stacking risks excluded
+- [x] Possible partial/bounds overlap and unsupported geometry clearly manual-only
+- [x] Numbered findings and safe numeric-only schematic preview with pair highlighting
+- [x] Individual proposal selection/deselection; live selected/eligible count
+- [x] Unselected defaults and upload/error/stale-read resets
+- [x] Three lightweight SVG fixtures in `tests/fixtures/` (see README expectations)
+- [x] 11 new focused tests passed; syntax and whitespace checks passed
+- [x] Chrome file:// fixture/selection/highlight/reset acceptance, zero page errors
+- [x] Original source unchanged; no network, repair execution, serialization or download
+- [x] Tools 1–3/hub runtime, auth, billing and release flags unchanged
+- [x] Local commit only; no push, merge, deployment or new dependencies
+
+Ready for Block 22 within the documented narrow proposal scope, subject to its
+separate authorization. Actual blockers: none. STOP after Block 21.
+
+## Tool 3 — Block 20 shared hub and access integration
+
+Last checked: 2026-10-28. Branch: `work/block20-tool3-hub-access`.
+Clean starting point: QA001 `93fd0e6` after Block 19 `52a3130`; preserve both.
+README holds the current checkpoint, completion commit locator and resume anchors.
+
+- [x] Existing hub opens implemented Tool 3 workspace; purchases remain disabled
+- [x] Existing account hub accepts the registered Tool 3 return route
+- [x] Free local upload, scan, review, preview and selection
+- [x] Fresh shared session check before both Repair Selected and Download
+- [x] Require `stray_node_cleaner` or `all_products_lifetime` grants
+- [x] Deny signed-out, unentitled, expired, malformed and unavailable states
+- [x] Preserve lifetime access; recheck revocation before download
+- [x] Ignore stale checks after upload/selection changes; prevent concurrent actions
+- [x] Retain validated engine, original SVG protection and one-batch rule
+- [x] Regenerate classic bundle; preserve QA001 direct-file free inspection
+- [x] 26 focused integration/controller/hub tests passed; syntax/whitespace checks
+- [x] Chrome mocked-session integration passed all four access states, actual
+  authorized downloads, revocation denial, fixture preservation and file:// review
+- [x] Engine/auth/Tool 1/Tool 2 sources and commercial release flags unchanged
+- [x] No production calls, checkout changes, dependencies, clones, push or deployment
+
+Shared account handoff requires the existing hub on the same HTTP(S) origin;
+the existing hub does not load ES modules via file://. No hosting change made.
+Blockers: none for local integration. Next single action: owner acceptance of
+the shared-hub Tool 3 access flow. STOP after Block 20.
+
+## Tool 3 — QA Bug Report 001: direct local-file upload
+
+Verified 2026-10-28 on `work/block19-tool3-validation-download`, base `52a3130`.
+Root cause: opening the HTML as `file://` in Chrome blocks the external ES
+module with an origin-null CORS error, so its upload handler never registers.
+Prior Block 19 browser checks used HTTP and did not cover direct-file launch.
+
+- [x] Reproduce unchanged initial status with the exact owner-supplied fixture:
+  `C:\Users\Kreepy\Desktop\tool3-stray-node-manual-test.svg`
+- [x] Load a generated classic script (`stray-node-cleaner.local.js`) for both
+  direct-file and hosted use; existing source modules remain authoritative
+- [x] Add deterministic generator: `node scripts/build-tool3-local.mjs`
+  (regenerate after changing Tool 3 or its imported source dependencies)
+- [x] Regression checks classic entry, current bundle/source equality, syntax,
+  and runtime registration of the upload change handler
+- [x] 30 relevant entry/review/selection/preview tests passed; generator and
+  generated bundle syntax checks and whitespace checks passed
+- [x] Chrome direct `file://` acceptance passed with the supplied SVG: two
+  findings, one eligible proposal, repair, final validation, completed download,
+  exact retained coordinates, both rectangles unchanged, original file unchanged,
+  and upload reset; zero browser errors
+- [x] No repair engine/shared chassis source, billing, deployment, push or merge changes
+
+Status: fixed locally. Completion commit is the commit adding this QA entry.
+Stop after QA001; next single action is owner recheck by opening the existing
+`stray-node-cleaner.html` directly in Chrome and choosing the same fixture.
+
+## Tool 3 — Block 19 final validation and download
+
+Last checked: 2026-10-28. Branch: `work/block19-tool3-validation-download`.
+Verified clean base: `7b338db` (Block 18). README contains the current handoff,
+completion commit locator, continuity pointer and resume anchors.
+
+- [x] Download disabled until successful repair and final validation
+- [x] Compare recorded successful repairs with actual removed-node count
+- [x] Recheck repaired coordinates and all unselected/unsupported document content
+- [x] Reuse shared SVG validation, serialization and parsing utilities
+- [x] Validate serialized SVG and round-trip document equality
+- [x] Repeat validation on each download; block failed/stale results
+- [x] Reset session/count/download state immediately on every upload
+- [x] Download original basename plus `-cleaned.svg`, with SVG MIME type
+- [x] Preserve original upload, preview, selection count and one-batch rule
+- [x] 56 focused Tool 3 tests passed; syntax and whitespace checks passed
+- [x] Actual Edge download completed and contents/filename inspected
+- [x] Browser verified invalid serialization, stale/new/invalid upload blocking
+- [x] No PathSeal/Tool 2, repair algorithms, commerce, push, merge or deployment changes
+
+Block 19 COMPLETE. Blockers: none. Next single action: owner acceptance testing
+of the completed Tool 3 workflow. STOP; no subsequent development authorized.
+
+## Historical Tool 3 — Block 18 selected repair execution
+
+Last checked: 2026-10-28. Branch: `work/block18-tool3-execute-selected`.
+Verified clean base: `a07e1b8` (Block 17). See README for current handoff,
+commit locator, continuity pointer, resume anchors and single next action.
+
+- [x] Repair Selected reads existing checked eligible proposal IDs
+- [x] Replan and execute only existing exact point-list node removals
+- [x] Clone original document; retain accepted working copy separately
+- [x] Preserve all unselected/unsupported content and exact surviving numeric text
+- [x] Refuse unsafe/stale selections, overlapping repairs and precision ambiguity
+- [x] Validate point lists, topology, trace, preview and unchanged document content
+- [x] Roll back the entire batch on failure, with executed/skipped counts
+- [x] Lock a successful review against repeat execution; reset on upload
+- [x] Update working-copy preview, findings and selected count
+- [x] 49 focused Tool 3 tests; controller/executor syntax and whitespace checks
+- [x] Edge actual XML DOM and UI smoke, zero page errors
+- [x] No final export/download, push, merge, deploy, Tool 1/2 or commerce changes
+
+Next single action: define the separately authorized Tool 3 final-validation
+and download block. STOP after Block 18.
+
+## Historical Tool 3 — Block 17 proposal selection
+
+Last checked: 2026-10-28. Branch: `work/block17-tool3-proposal-selection`.
+Base: Block 16 `eea5760fd23130c6b917af6403f74d7a94cced98`.
+See the existing README checkpoint for source precedence, shared restart link,
+resume anchors, and the local completion commit locator. Deployed version UNKNOWN.
+
+- [x] Individual labeled checkboxes on existing planner-approved proposal cards
+- [x] Select/deselect independently with a live selected/eligible count
+- [x] Keep unsafe and review-only findings outside selection
+- [x] Start unselected and reset on every upload, including failed/cancelled input
+- [x] Ignore stale upload reads to preserve the current review
+- [x] Preserve before/after descriptions, findings, highlighting and preview
+- [x] Leave original geometry unchanged; no repair/output/download
+- [x] Focused Tool 3 verification: 39 passed, 0 failed (five new selection tests)
+- [x] JavaScript syntax check passed; Windows-aware diff whitespace check passed
+
+Verification uses all seven Tool 3 suites, including existing review/preview
+safety guards. Unrelated project-wide tests were not repeated. Source changes
+are limited to the Tool 3 controller/page, focused tests, and these existing docs.
+
+Next single development action: define a separately authorized bounded repair-
+execution block. STOP after Block 17; no Block 18 implementation is authorized.
+
 ## Project Setup
 
 * [x] Create project folder

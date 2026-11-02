@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="180" viewBox="0 0 360 180">
+  <title>Tool 4 unaffected geometry</title>
+  <rect id="rectangle" x="20" y="40" width="70" height="80" fill="#2563eb"/>
+  <circle id="circle" cx="170" cy="80" r="25" fill="#16a34a"/>
+  <ellipse id="ellipse" cx="280" cy="80" rx="30" ry="20" fill="#f59e0b"/>
+</svg>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
+  <title>Tool 5 real loop and unsupported quadratic</title>
+  <path id="legitimate-loop" d="M60 100 C120 10 180 190 60 100" fill="none" stroke="#dc2626"/>
+  <path id="unsupported-quadratic" d="M180 100 Q230 20 280 100" fill="none" stroke="#1f2937"/>
+</svg>

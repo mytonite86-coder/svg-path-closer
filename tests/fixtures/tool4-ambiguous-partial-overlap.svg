@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="180" viewBox="0 0 360 180">
+  <title>Tool 4 ambiguous partial overlap</title>
+  <rect id="keep-first" x="30" y="30" width="120" height="100" fill="#2563eb" opacity="0.6"/>
+  <rect id="keep-second" x="100" y="70" width="120" height="80" fill="#ef4444" opacity="0.6"/>
+</svg>

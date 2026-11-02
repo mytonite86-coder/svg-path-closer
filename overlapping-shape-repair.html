@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Overlapping Shape Repair | SVG Micro Eco</title>
+    <link rel="icon" href="assets/svg-micro-eco-badge.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="design-system/pathseal.css" />
+</head>
+<body class="eco-page">
+    <p class="eco-shell eco-muted"><a href="index.html">← SVG Micro Eco tools</a></p>
+    <main class="eco-shell eco-tool-shell eco-panel eco-panel--accent">
+        <header class="eco-header"><div class="eco-brand">
+            <img class="eco-brand__badge" src="assets/svg-micro-eco-badge.svg" alt="SVG Micro Eco" />
+            <div><p class="eco-brand__family">SVG Micro Eco</p><p class="eco-brand__tool">Overlapping Shape Repair</p></div>
+        </div></header>
+        <p class="eco-eyebrow">Tool 4 · Safe exact-duplicate repair</p>
+        <h1 class="eco-title">Review overlapping shapes before changing anything.</h1>
+        <p class="eco-subtitle">Upload → Scan → Preview/Review → Select → Repair → Validate → Download. Your SVG stays in this browser; the original is preserved.</p>
+        <section class="eco-upload"><label for="overlap-file">Choose an SVG file</label><input id="overlap-file" type="file" accept=".svg,image/svg+xml" /></section>
+        <section class="eco-panel" aria-label="Shared account access">
+            <p id="overlap-access" class="eco-status" role="status" aria-live="polite">Upload, scan and review are free. Repair and download require verified Tool 4 or universal lifetime access.</p>
+            <a href="index.html?return_to=overlapping-shape-repair.html#account" class="eco-button eco-button--secondary">Sign in or manage shared account</a>
+            <p class="eco-muted">Tool 4 purchases are not enabled yet.</p>
+        </section>
+        <section id="overlap-results" class="eco-section" data-state="empty" aria-busy="false">
+            <h2 class="eco-heading">Inspection results</h2>
+            <p id="overlap-status" class="eco-status" role="status" aria-live="polite">Choose a local SVG to begin inspection.</p>
+            <p id="overlap-summary" class="eco-muted"></p>
+            <section class="eco-panel" aria-labelledby="overlap-preview-heading">
+                <h2 id="overlap-preview-heading" class="eco-heading">Read-only schematic preview</h2>
+                <p class="eco-muted">Numbers identify source shapes. Only supported numeric rectangles, circles and ellipses are drawn. Source styles, effects and unsupported geometry are not rendered; bounds overlap does not prove an intersection.</p>
+                <p id="overlap-preview-status" class="eco-muted" role="status" aria-live="polite">Use a finding's Highlight geometry button.</p>
+                <svg id="overlap-preview" width="100%" height="360" focusable="false"></svg>
+            </section>
+            <p id="overlap-selection" class="eco-status" role="status" aria-live="polite">0 proposals selected. Nothing has been changed.</p>
+            <div id="overlap-findings" class="eco-review-list"></div>
+            <button id="overlap-repair" class="eco-button" type="button" disabled>Repair Selected</button>
+            <p id="overlap-execution" class="eco-status" role="status" aria-live="polite"></p>
+            <p id="overlap-validation" class="eco-status" role="status" aria-live="polite">Download requires a successful validated repair.</p>
+            <button id="overlap-download" class="eco-button" type="button" disabled>Download Cleaned SVG</button>
+        </section>
+        <section class="eco-section eco-panel"><h2 class="eco-heading">Exact safe removals only</h2>
+            <p class="eco-muted">Only adjacent exact opaque crisp-edge rectangles without reference, style or grouping risks can be proposed for removal. IDs, transforms, references, partial overlaps and uncertain shapes remain for manual review. All proposals start unselected. One validated repair batch is permitted per upload.</p>
+        </section>
+    </main>
+    <footer class="eco-footer"><div class="eco-shell"><p>Produced by Skald and Kreepy Productions.</p></div></footer>
+    <script defer src="overlapping-shape-repair.local.js?v=block22-1"></script>
+</body>
+</html>

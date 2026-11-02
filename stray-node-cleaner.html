@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stray Node Cleaner | SVG Micro Eco</title>
+    <link rel="icon" href="assets/svg-micro-eco-badge.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="design-system/pathseal.css" />
+</head>
+<body class="eco-page">
+    <p class="eco-shell eco-muted"><a href="index.html">← SVG Micro Eco tools</a></p>
+    <main class="eco-shell eco-tool-shell eco-panel eco-panel--accent">
+        <header class="eco-header">
+            <div class="eco-brand">
+                <img class="eco-brand__badge" src="assets/svg-micro-eco-badge.svg" alt="SVG Micro Eco" />
+                <div>
+                    <p class="eco-brand__family">SVG Micro Eco</p>
+                    <p class="eco-brand__tool">Stray Node Cleaner</p>
+                </div>
+            </div>
+        </header>
+
+        <p class="eco-eyebrow">Tool 3 review foundation</p>
+        <h1 class="eco-title">Inspect suspicious SVG nodes before changing anything.</h1>
+        <p class="eco-subtitle">
+            Review coincident nodes, near-coincident nodes, microscopic segments,
+            open endpoints, and possible malformed closures. Your SVG stays in
+            this browser and is never uploaded by this page.
+        </p>
+
+        <section class="eco-upload">
+            <label for="stray-node-file">Choose an SVG file</label>
+            <input id="stray-node-file" type="file" accept=".svg,image/svg+xml" />
+        </section>
+
+        <section class="eco-panel" aria-label="Shared account access">
+            <p id="stray-node-access-status" class="eco-status" role="status" aria-live="polite">Upload, scan and review are free. Repair and download require verified Tool 3 or universal lifetime access.</p>
+            <a href="index.html?return_to=stray-node-cleaner.html#account" class="eco-button eco-button--secondary">Sign in or manage shared account</a>
+            <p class="eco-muted">Tool 3 purchases are not enabled yet. Your SVG stays in this browser.</p>
+        </section>
+
+        <section id="stray-node-results" class="eco-section" data-state="empty" aria-busy="false">
+            <h2 class="eco-heading">Inspection results</h2>
+            <p id="stray-node-status" class="eco-status eco-status--accent" role="status" aria-live="polite">
+                Choose a local SVG file to begin a review-only inspection.
+            </p>
+            <p id="stray-node-summary" class="eco-muted"></p>
+            <section id="stray-node-categories" class="eco-panel" aria-labelledby="stray-node-categories-heading" hidden>
+                <h3 id="stray-node-categories-heading" class="eco-heading">Findings by category</h3>
+                <ul id="stray-node-category-list"></ul>
+            </section>
+            <section id="stray-node-preview-panel" class="eco-panel" aria-labelledby="stray-node-preview-heading" hidden>
+                <h3 id="stray-node-preview-heading" class="eco-heading">Read-only geometry preview</h3>
+                <p id="stray-node-preview-status" class="eco-muted" role="status" aria-live="polite">
+                    Select a mapped finding to highlight its geometry.
+                </p>
+                <svg id="stray-node-preview" width="100%" height="360" focusable="false"></svg>
+            </section>
+            <section id="stray-node-repair-review" class="eco-panel" aria-labelledby="stray-node-repair-heading" hidden>
+                <h3 id="stray-node-repair-heading" class="eco-heading">Repair proposal review</h3>
+                <p class="eco-muted">Select eligible proposals, then choose Repair Selected to apply them to a working copy. All start unselected. The original upload is preserved.</p>
+                <p id="stray-node-repair-status" class="eco-status" role="status" aria-live="polite"></p>
+                <div id="stray-node-repair-proposals" class="eco-review-list"></div>
+                <button id="stray-node-repair-selected" type="button" class="eco-button" disabled>Repair Selected</button>
+                <p id="stray-node-execution-status" class="eco-status" role="status" aria-live="polite"></p>
+                <p id="stray-node-validation-status" class="eco-status" role="status" aria-live="polite">Download requires a successful repair and final validation.</p>
+                <button id="stray-node-download" type="button" class="eco-button" disabled>Download Cleaned SVG</button>
+                <section id="stray-node-repair-rejections" aria-labelledby="stray-node-rejection-heading" hidden>
+                    <h4 id="stray-node-rejection-heading" class="eco-heading">Why other findings are not repair proposals</h4>
+                    <ul id="stray-node-repair-rejection-list"></ul>
+                </section>
+            </section>
+            <section aria-labelledby="stray-node-details-heading">
+                <h3 id="stray-node-details-heading" class="eco-heading">Detailed findings</h3>
+                <div id="stray-node-findings" class="eco-review-list"></div>
+            </section>
+        </section>
+
+        <section class="eco-section eco-panel">
+            <h2 class="eco-heading">Repair a working copy</h2>
+            <p class="eco-muted">
+                Only selected planner-approved exact coincident nodes can be removed.
+                Each review permits one validated repair batch. No geometry in the original
+                upload is altered. Download becomes available only after final validation.
+            </p>
+        </section>
+
+        <p class="eco-muted"><a href="index.html">Return to SVG Micro Eco tools</a></p>
+    </main>
+    <footer class="eco-footer">
+        <div class="eco-shell">
+            <p>Review and selected working-copy repairs for SVG Micro Eco Tool 3.</p>
+            <p>Produced by Skald and Kreepy Productions.</p>
+        </div>
+    </footer>
+    <script defer src="stray-node-cleaner.local.js?v=block20-access-1"></script>
+</body>
+</html>
