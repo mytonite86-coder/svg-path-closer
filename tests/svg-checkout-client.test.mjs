@@ -70,3 +70,13 @@ test('public checkout stays hidden, disabled and behind false release flag', asy
     const controller = await readFile(new URL('../ecosystem.js', import.meta.url), 'utf8');
     assert.match(controller, /if \(!RELEASE_FLAGS.svgSubscriptionCheckout \|\| checkoutButton.disabled\) return/);
 });
+
+test('hub includes the complete five-tool bundle with exclusive selection', async () => {
+    const controller = await readFile(new URL('../ecosystem.js', import.meta.url), 'utf8');
+    assert.match(controller, /import \{ PRODUCT_MANIFEST, SVG_COMPLETE_BUNDLE \}/);
+    assert.match(controller, /cards\.replaceChildren\(\.\.\.PRODUCT_MANIFEST\.map\(toolCard\), bundleCard\(\)\)/);
+    assert.match(controller, /checkbox\.value = SVG_COMPLETE_BUNDLE\.id/);
+    assert.match(controller, /if \(input !== checkbox\) input\.checked = false/);
+    assert.match(controller, /if \(bundleInput\) bundleInput\.checked = false/);
+    assert.equal(RELEASE_FLAGS.svgSubscriptionCheckout, false, 'bundle staging must not activate payments');
+});

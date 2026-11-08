@@ -1,6 +1,6 @@
 import { RELEASE_FLAGS } from "./modules/releaseFlags.js";
 import { login, registerAccount, refreshSession, clearSession, getCurrentUser, getAccessToken, startSvgSubscriptionCheckout, confirmSvgSubscriptionCheckout } from "./modules/auth.js";
-import { PRODUCT_MANIFEST } from "./modules/productManifest.js";
+import { PRODUCT_MANIFEST, SVG_COMPLETE_BUNDLE } from "./modules/productManifest.js";
 import { deriveToolAccessState, validateReturnDestination } from "./modules/accessFoundation.js";
 import { formatUsd, requestSvgSubscriptionQuote } from "./modules/svgSubscription.js?v=selector-20260820";
 
@@ -31,7 +31,13 @@ function toolCard(tool) {
     article.append(eyebrow, heading, description, badge);
     if (state.canSelect) {
         const choice = document.createElement("label"); choice.className = "ecosystem-tool-choice";
-        const input = document.createElement("input"); input.type = "checkbox"; input.value = tool.id; input.addEventListener("change", updateQuote);
+        const input = document.createElement("input"); input.type = "checkbox"; input.value = tool.id; input.addEventListener("change", () => {
+            if (input.checked) {
+                const bundleInput = cards.querySelector('input[value="svg_complete_bundle"]');
+                if (bundleInput) bundleInput.checked = false;
+            }
+            updateQuote();
+        });
         choice.append(input, ` Add ${tool.name}`); article.append(choice);
     } else if (tool.lifecycle === "planned") {
         const note = document.createElement("p"); note.className = "eco-muted"; note.textContent = "Coming later — not available for purchase."; article.append(note);
@@ -44,9 +50,53 @@ function toolCard(tool) {
     return article;
 }
 
+function bundleCard() {
+    const user = getCurrentUser();
+    const entitlements = Array.isArray(user?.entitlements) ? user.entitlements : [];
+    const owned = entitlements.includes("all_products_lifetime") ||
+        PRODUCT_MANIFEST.every(({ id }) => entitlements.includes(id));
+
+    const article = document.createElement("article");
+    article.className = "eco-card eco-panel--accent";
+    article.dataset.productId = SVG_COMPLETE_BUNDLE.id;
+    const eyebrow = document.createElement("p");
+    eyebrow.className = "eco-eyebrow";
+    eyebrow.textContent = "Complete set";
+    const heading = document.createElement("h3");
+    heading.className = "eco-heading";
+    heading.textContent = SVG_COMPLETE_BUNDLE.name;
+    const description = document.createElement("p");
+    description.className = "eco-muted";
+    description.textContent = `All five repair tools for ${formatUsd(SVG_COMPLETE_BUNDLE.amountCents)} one time.`;
+    const status = document.createElement("p");
+    status.className = "ecosystem-state";
+    status.textContent = owned ? "Already owned" : !user ? "Sign in to select" :
+        !authorityAvailable ? "Status unavailable" : "Available to add";
+    article.append(eyebrow, heading, description, status);
+
+    if (user && authorityAvailable && !owned) {
+        const label = document.createElement("label");
+        label.className = "ecosystem-tool-choice";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = SVG_COMPLETE_BUNDLE.id;
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+                cards.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+                    if (input !== checkbox) input.checked = false;
+                });
+            }
+            updateQuote();
+        });
+        label.append(checkbox, " Add complete five-tool bundle");
+        article.append(label);
+    }
+    return article;
+}
+
 function render() {
     const user = getCurrentUser();
-    cards.replaceChildren(...PRODUCT_MANIFEST.map(toolCard));
+    cards.replaceChildren(...PRODUCT_MANIFEST.map(toolCard), bundleCard());
     quoteRequestNumber += 1;
     checkoutButton.hidden = !RELEASE_FLAGS.svgSubscriptionCheckout;
     clearQuote("Select an available tool to see a one-time lifetime quote.");
