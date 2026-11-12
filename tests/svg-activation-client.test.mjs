@@ -1,3 +1,4 @@
+import { activateSvgLifetime } from "../modules/svgActivation.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -15,7 +16,7 @@ async function newClient() {
     return import("../modules/auth.js?svgtest=" + Math.random());
 }
 
-test("SVG single-use code activates through the authenticated API, then refreshes verified access", async () => {
+test("SVG single-use code activates through an authenticated API request, then refreshes verified access", async () => {
     const requests = [];
     const auth = await newClient();
     globalThis.fetch = async (url, options) => {
@@ -28,7 +29,7 @@ test("SVG single-use code activates through the authenticated API, then refreshe
         };
         throw new Error("Unexpected request");
     };
-    const response = await auth.activateSvgLifetime("SVG1-" + "A".repeat(32));
+    const response = await activateSvgLifetime("SVG1-" + "A".repeat(32), auth.getAccessToken());
     assert.equal(response.success,true);
     const actual = requests.at(-1);
     assert.match(actual.url,/\/api\/svg\/activate$/);
@@ -43,7 +44,7 @@ test("SVG activation is unavailable while signed out", async () => {
     const auth = await newClient();
     auth.clearSession();
     globalThis.fetch = async () => {throw Error("No request expected")};
-    await assert.rejects(auth.activateSvgLifetime("SVG1-"+"A".repeat(32)),/Sign in required/);
+    await assert.rejects(activateSvgLifetime("SVG1-"+"A".repeat(32), auth.getAccessToken()),/Sign in required/);
 });
 
 test("hub retains disabled checkout and limits activation UI to authenticated accounts", async () => {
