@@ -308,3 +308,10 @@ export async function confirmSvgSubscriptionCheckout(
         user,
     };
 }
+
+
+export async function activateSvgLifetime(code) {
+    return apiRequest("/svg/activate", {
+        method: "POST", requiresAuth: true, body: { code },
+    });
+}
