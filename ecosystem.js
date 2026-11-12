@@ -1,5 +1,6 @@
 import { RELEASE_FLAGS } from "./modules/releaseFlags.js";
-import { login, registerAccount, refreshSession, clearSession, getCurrentUser, getAccessToken, startSvgSubscriptionCheckout, confirmSvgSubscriptionCheckout, activateSvgLifetime } from "./modules/auth.js";
+import { login, registerAccount, refreshSession, clearSession, getCurrentUser, getAccessToken, startSvgSubscriptionCheckout, confirmSvgSubscriptionCheckout } from "./modules/auth.js";
+import { activateSvgLifetime } from "./modules/svgActivation.js";
 import { PRODUCT_MANIFEST } from "./modules/productManifest.js";
 import { deriveToolAccessState, validateReturnDestination } from "./modules/accessFoundation.js";
 import { formatUsd, requestSvgSubscriptionQuote } from "./modules/svgSubscription.js?v=selector-20260820";
@@ -133,7 +134,7 @@ activationButton.addEventListener("click", async () => {
     activationButton.disabled = true;
     activationStatus.textContent = "Verifying single-use lifetime code…";
     try {
-        await activateSvgLifetime(code);
+        await activateSvgLifetime(code, getAccessToken());
         await refreshSession();
         activationCode.value = "";
         render();
