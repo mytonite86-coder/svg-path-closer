@@ -1,5 +1,6 @@
 import { RELEASE_FLAGS } from "./modules/releaseFlags.js";
 import { login, registerAccount, refreshSession, clearSession, getCurrentUser, getAccessToken, startSvgSubscriptionCheckout, confirmSvgSubscriptionCheckout } from "./modules/auth.js";
+import { activateSvgLifetime } from "./modules/svgActivation.js";
 import { PRODUCT_MANIFEST } from "./modules/productManifest.js";
 import { deriveToolAccessState, validateReturnDestination } from "./modules/accessFoundation.js";
 import { formatUsd, requestSvgSubscriptionQuote } from "./modules/svgSubscription.js?v=selector-20260820";
@@ -16,6 +17,10 @@ const email = document.querySelector("#hub-email");
 const username = document.querySelector("#hub-username");
 const password = document.querySelector("#hub-password");
 const checkoutButton = document.querySelector("#subscription-checkout");
+const activationPanel = document.querySelector("#svg-activation-panel");
+const activationCode = document.querySelector("#svg-activation-code");
+const activationButton = document.querySelector("#svg-activate-button");
+const activationStatus = document.querySelector("#svg-activation-status");
 let authorityAvailable = true;
 let quoteRequestNumber = 0;
 
@@ -51,6 +56,7 @@ function render() {
     checkoutButton.hidden = !RELEASE_FLAGS.svgSubscriptionCheckout;
     clearQuote("Select an available tool to see a one-time lifetime quote.");
     accountFields.hidden = Boolean(user); accountSession.hidden = !user;
+    activationPanel.hidden = !user;
     accountName.textContent = user ? user.username || user.email : "";
     if (!user) accountStatus.textContent = "Sign in to see verified tool access.";
     else if (!authorityAvailable) accountStatus.textContent = "Account status is temporarily unavailable. Try again before a gated action.";
@@ -117,3 +123,25 @@ if (checkoutReturn.get("session_id")) {
             : "Checkout status checked. Access remains pending until verified by the payment service.";
     } catch (error) { status.textContent = error.message || "Checkout status could not be verified."; }
 }
+
+activationButton.addEventListener("click", async () => {
+    if (!getCurrentUser() || activationButton.disabled) return;
+    const code = activationCode.value.trim().toUpperCase();
+    if (!/^SVG1-[0-9A-F]{32}$/.test(code)) {
+        activationStatus.textContent = "Enter the SVG1 code from your purchase email.";
+        return;
+    }
+    activationButton.disabled = true;
+    activationStatus.textContent = "Verifying single-use lifetime code…";
+    try {
+        await activateSvgLifetime(code, getAccessToken());
+        await refreshSession();
+        activationCode.value = "";
+        render();
+        activationStatus.textContent = "SVG Micro Eco lifetime access activated.";
+    } catch (error) {
+        activationStatus.textContent = error.message || "Could not activate this code.";
+    } finally {
+        activationButton.disabled = false;
+    }
+});
