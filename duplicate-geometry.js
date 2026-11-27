@@ -1,7 +1,7 @@
 import {
     analyzeDuplicateGeometry,
     createDuplicateRemovalSvg,
-} from "./modules/duplicateGeometry.js?v=review-20260820";
+} from "./modules/duplicateGeometry.js?v=path-segments-1";
 import { refreshSession } from "./modules/auth.js";
 import { runWithFreshDuplicateGeometryAccess } from "./modules/duplicateGeometryAccess.js";
 
@@ -33,7 +33,8 @@ function updateActions() {
     downloadButton.disabled = pending || !hasCurrentApproval();
 }
 
-function formatGeometry(geometryKey) {
+function formatGeometry(geometryKey, outline) {
+    if (outline) return `${outline.type} centered at (${outline.center.join(", ")}) with radius ${outline.radii.join(" × ")}`;
     const [start, end] = geometryKey.split("|");
     return `(${start}) to (${end})`;
 }
@@ -80,12 +81,16 @@ function renderProposals(result) {
         checkbox.addEventListener("change", updateSelection);
 
         const title = document.createElement("strong");
+        const location = (element, index, segment) =>
+            `${element.tagName} ${index + 1}${segment === undefined ? "" : `, command ${segment + 1}`}`;
+        const kept = location(proposal.keptElement, proposal.keptIndex, proposal.keptSegmentIndex);
+        const duplicate = location(proposal.duplicateElement, proposal.duplicateIndex, proposal.duplicateSegmentIndex);
         title.textContent = isSafe
-            ? `Keep line ${proposal.keptIndex + 1}; remove duplicate line ${proposal.duplicateIndex + 1}`
-            : `Review lines ${proposal.keptIndex + 1} and ${proposal.duplicateIndex + 1}; leave unchanged`;
+            ? `Keep ${kept}. Remove duplicate ${duplicate}.`
+            : `Review ${kept} and ${duplicate}.`;
         const details = document.createElement("span");
         details.className = "eco-muted";
-        details.textContent = ` Exact geometry: ${formatGeometry(proposal.geometryKey)}. ${proposal.reason}`;
+        details.textContent = ` Exact geometry: ${formatGeometry(proposal.geometryKey, proposal.outline)}. ${proposal.reason}`;
 
         option.append(checkbox, " ", title, details);
         proposalList.append(option);
@@ -128,12 +133,12 @@ fileInput.addEventListener("change", async () => {
             (proposal) => proposal.recommendation === "review"
         ).length;
 
-        status.textContent = duplicateCount
-            ? `Proposed removal: ${duplicateCount} exact duplicate line${duplicateCount === 1 ? "" : "s"}.`
-            : "No exact duplicate lines were found.";
-        summary.textContent = `${result.lineCount} line elements scanned; ${result.unsupported.length} conservatively skipped.`;
+        status.textContent = result.proposals.length
+            ? `${result.proposals.length} matching cuts found. ${duplicateCount} eligible for removal.`
+            : "No matching cuts were found in the scanned geometry.";
+        summary.textContent = `${result.scannedSegmentCount} segments or outlines scanned. ${result.unsupported.length} elements supplied no supported geometry.`;
         review.textContent = reviewCount
-            ? `${reviewCount} exact geometric match${reviewCount === 1 ? " needs" : "es need"} customer review because presentation, grouping, metadata, or references differ. ${reviewCount === 1 ? "It was" : "They were"} left unchanged.`
+            ? `${reviewCount} match(es) need manual review. Each finding describes why.`
             : "No questionable exact matches require review.";
         renderProposals(result);
     } catch (error) {

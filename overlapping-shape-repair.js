@@ -60,7 +60,7 @@ export function initializeOverlappingShapePage({ refreshSession } = {}) {
     function renderInspection(inspection) {
         const rendered = renderOverlappingPreview(preview, inspection.shapes);
         eligible = new Set(completed ? [] : inspection.proposals.map(({ id }) => id));
-        const labels = { "exact-duplicate": "Exact duplicate geometry", "possible-overlap": "Possible overlap — manual review", "unsupported-geometry": "Unsupported geometry — manual review" };
+        const labels = { "exact-duplicate": "Exact duplicate geometry", "outline-crossing": "Outline crossing — manual review", "possible-overlap": "Possible overlap — manual review", "unsupported-geometry": "Unsupported geometry — manual review" };
         list.replaceChildren(...inspection.findings.map((finding) => {
             const card = document.createElement("article");
             card.className = "eco-card";

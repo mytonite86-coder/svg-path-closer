@@ -1,6 +1,7 @@
 const NS = "http://www.w3.org/2000/svg";
 const SCALE = 10n ** 30n;
 const ARITY = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4 };
+const EXTENDED_ARITY = { ...ARITY, Q: 4, T: 2, A: 7 };
 const ROOT_ATTRIBUTES = new Set(["xmlns", "width", "height", "viewBox", "preserveAspectRatio", "version", "id"]);
 const PATH_ATTRIBUTES = new Set(["d", "fill", "stroke", "opacity", "fill-opacity", "fill-rule"]);
 const OPAQUE = /^(?:#[0-9a-f]{3}|#[0-9a-f]{6}|black|white|red|green|blue|yellow)$/i;
@@ -42,7 +43,7 @@ function tokenize(data) {
     return tokens;
 }
 
-export function parseCurvePathData(data) {
+export function parseCurvePathData(data, { extended = false } = {}) {
     try {
         const tokens = tokenize(data);
         const commands = [];
@@ -61,17 +62,45 @@ export function parseCurvePathData(data) {
                 current = { ...origin }; lastControl = null; previous = "Z"; command = null; hasClose = true;
                 continue;
             }
-            if (!ARITY[upper]) throw new Error(`Command ${command} requires manual review; only M/L/H/V/C/S/Z are parsed.`);
-            const values = tokens.slice(cursor, cursor + ARITY[upper]);
-            if (values.length !== ARITY[upper] || values.some((token) => token.command)) throw new Error("Incomplete path command parameters.");
+            const arity = (extended ? EXTENDED_ARITY : ARITY)[upper];
+            if (!arity) throw new Error(`Command ${command} requires manual review; only M/L/H/V/C/S/Z are parsed.`);
+            const values = [];
+            for (let index = 0; index < arity; index++) {
+                const token = tokens[cursor++];
+                if (!token || token.command) throw new Error("Incomplete path command parameters.");
+                if (upper === "A" && (index === 3 || index === 4)) {
+                    if (!/^[01]/.test(token.text)) throw new Error("Invalid arc flag.");
+                    values.push({ ...token, text: token.text[0], end: token.start + 1 });
+                    if (token.text.length > 1) {
+                        tokens[--cursor] = { ...token, text: token.text.slice(1), start: token.start + 1 };
+                    }
+                } else {
+                    values.push(token);
+                }
+            }
             const numbers = values.map(({ text }) => exactNumber(text));
-            cursor += values.length;
             const start = { ...current };
             const point = (index) => ({ x: numbers[index] + (relative ? start.x : 0n), y: numbers[index + 1] + (relative ? start.y : 0n) });
             let type = upper, controls = [], collapsed = false;
             if (upper === "M" || upper === "L") current = point(0);
             else if (upper === "H") { current = { x: numbers[0] + (relative ? start.x : 0n), y: start.y }; type = "L"; }
             else if (upper === "V") { current = { x: start.x, y: numbers[0] + (relative ? start.y : 0n) }; type = "L"; }
+            else if (upper === "A") {
+                if (numbers[0] < 0n || numbers[1] < 0n) throw new Error("Invalid arc radii.");
+                current = point(5);
+                collapsed = same(start, current);
+                if (numbers[0] === 0n || numbers[1] === 0n) type = "L";
+            } else if (upper === "Q" || upper === "T") {
+                const control = upper === "Q" ? point(0)
+                    : (["Q", "T"].includes(previous) && lastControl
+                        ? { x: 2n * start.x - lastControl.x, y: 2n * start.y - lastControl.y }
+                        : start);
+                current = point(upper === "Q" ? 2 : 0);
+                controls = [control];
+                lastControl = control;
+                collapsed = same(control, start) && same(current, start);
+                type = "Q";
+            }
             else {
                 const first = upper === "S"
                     ? (["C", "S"].includes(previous) && lastControl ? { x: 2n * start.x - lastControl.x, y: 2n * start.y - lastControl.y } : start)
@@ -87,11 +116,13 @@ export function parseCurvePathData(data) {
             for (const p of [current, ...controls]) {
                 if (p.x > 1000000000000n * SCALE || p.x < -1000000000000n * SCALE || p.y > 1000000000000n * SCALE || p.y < -1000000000000n * SCALE) throw new Error("Resolved coordinates exceed the supported range.");
             }
+            const arc = type === "A" ? values.slice(0, 5).map(({ text }) => text) : undefined;
             commands.push({ type, sourceCommand: command, explicit, start: numberPoint(start), end: numberPoint(current), controls: controls.map(numberPoint), collapsed,
+                ...(arc ? { arc } : {}),
                 closedEnd: same(start, current), sourceRef: { start: startOffset, end: values.at(-1).end },
                 exactGeometry: { start: [String(start.x), String(start.y)], controls: controls.map(({ x, y }) => [String(x), String(y)]), end: [String(current.x), String(current.y)] } });
             if (upper === "M") { origin = { ...current }; subpathCount++; command = relative ? "l" : "L"; }
-            if (!["C", "S"].includes(upper)) lastControl = null;
+            if (!["C", "S", "Q", "T"].includes(upper)) lastControl = null;
             previous = upper;
         }
         if (!commands.length) throw new Error("Missing path commands.");

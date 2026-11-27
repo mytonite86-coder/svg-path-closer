@@ -1,8 +1,11 @@
 import {
+    analyzePathNodeCommands,
     analyzeStrayNodes,
-    parseLinearPathData,
+    drawingReferenceLength,
+    inspectSmallDetachedMarks,
     parsePointsAttribute,
 } from "./strayNodeAnalyzer.js";
+import { parseCurvePathData } from "./curveAnalyzer.js";
 
 const SUPPORTED_SELECTOR = "line,polyline,polygon,path";
 
@@ -27,6 +30,17 @@ function identity(element, index) {
     return element.getAttribute("id") || `${element.localName}-${index + 1}`;
 }
 
+export function getStrayCircleGeometry(document) {
+    return [...document.querySelectorAll("circle")].filter((node) =>
+        node.localName === "circle" && !node.closest?.("[transform], defs, symbol, clipPath, mask, pattern, marker"))
+        .map((node, index) => ({
+            node,
+            element: { id: identity(node, index), type: "circle" },
+            center: { x: finiteCoordinate(node, "cx") ?? 0, y: finiteCoordinate(node, "cy") ?? 0 },
+            radius: finiteCoordinate(node, "r"),
+        })).filter(({ radius }) => radius > 0);
+}
+
 export function normalizeSvgGeometry(element, index = 0) {
     const type = String(element?.localName || "").toLowerCase();
     const normalized = {
@@ -36,7 +50,7 @@ export function normalizeSvgGeometry(element, index = 0) {
         nodes: [],
     };
 
-    if (element.hasAttribute("transform")) {
+    if (type !== "path" && element.hasAttribute("transform")) {
         return { element: normalized, supported: false, reason: "Transformed geometry is not supported in this review foundation." };
     }
 
@@ -62,12 +76,19 @@ export function normalizeSvgGeometry(element, index = 0) {
     }
 
     if (type === "path") {
-        const parsed = parseLinearPathData(element.getAttribute("d"));
+        const data = element.getAttribute("d");
+        const parsed = parseCurvePathData(data, { extended: true });
         if (!parsed.supported) {
-            return { element: normalized, supported: false, reason: "Only linear M, L, H, V, and Z path commands are supported." };
+            return { element: normalized, supported: false, reason: parsed.reason };
         }
-        normalized.nodes = parsed.points;
-        normalized.closed = parsed.closed;
+        if (parsed.subpathCount > 1 || parsed.commands.length === 1
+            || element.closest?.("[transform]") || element.hasAttribute("transform")
+            || parsed.commands.some(({ type }) => !["M", "L", "Z"].includes(type))
+            || parsed.commands.slice(0, -1).some(({ type }) => type === "Z")) {
+            return { element: normalized, supported: true, commands: parsed.commands };
+        }
+        normalized.nodes = parsed.commands.filter(({ type }) => type !== "Z").map(({ end }) => end);
+        normalized.closed = parsed.hasClose;
         return { element: normalized, supported: true, reason: null };
     }
 
@@ -106,23 +127,43 @@ export function inspectStrayNodeSvg(source, { DOMParser: Parser = globalThis.DOM
         throw new StrayNodeSvgInputError("not_svg", "The selected XML document is not an SVG.");
     }
 
-    const geometry = [...document.querySelectorAll(SUPPORTED_SELECTOR)].map(normalizeSvgGeometry);
-    if (geometry.length === 0) {
+    const nodes = [...document.querySelectorAll(SUPPORTED_SELECTOR)];
+    const geometry = nodes.map(normalizeSvgGeometry);
+    const circles = getStrayCircleGeometry(document);
+    if (geometry.length === 0 && circles.length === 0) {
         throw new StrayNodeSvgInputError(
             "unsupported_svg",
             "No supported line, polyline, polygon, or linear path geometry was found."
         );
     }
 
-    const elements = geometry.map(({ element }) => element);
+    const elements = geometry.filter(({ commands }) => !commands).map(({ element }) => element);
+    const pathElements = geometry.filter(({ commands }) => commands);
     const unsupported = geometry
         .filter(({ supported }) => !supported)
         .map(({ element, reason }) => ({ elementId: element.id, elementType: element.type, reason }));
-    const analysis = analyzeStrayNodes(elements);
+    const referenceLength = drawingReferenceLength([
+        ...elements,
+        ...pathElements.map(({ commands }) => ({ nodes: commands.flatMap(({ end, controls = [] }) => [end, ...controls]) })),
+        ...circles.map(({ center: { x, y }, radius }) => ({
+            nodes: [{ x: x - radius, y: y - radius }, { x: x + radius, y: y + radius }],
+        })),
+    ]);
+    const analysis = analyzeStrayNodes(elements, { referenceLength });
+    const detached = inspectSmallDetachedMarks(elements, circles, referenceLength);
+    const detachedIds = new Set(detached.map(({ elementId }) => elementId));
 
     return {
         ...analysis,
-        supportedElementCount: geometry.length - unsupported.length,
+        elementCount: geometry.length + circles.length,
+        findings: [
+            ...analysis.findings.filter(({ elementId, classification }) =>
+                classification !== "isolated-endpoints" || !detachedIds.has(elementId)),
+            ...pathElements.flatMap(({ element, commands }) =>
+                analyzePathNodeCommands(element, commands, analysis.settings, referenceLength)),
+            ...detached,
+        ],
+        supportedElementCount: geometry.length - unsupported.length + circles.length,
         unsupported,
     };
 }
@@ -130,6 +171,8 @@ export function inspectStrayNodeSvg(source, { DOMParser: Parser = globalThis.DOM
 export function presentStrayNodeFinding(finding) {
     const labels = {
         "coincident-node": "Coincident node",
+        "isolated-node": "Isolated node",
+        "small-detached-mark": "Possible stray mark",
         "near-coincident-node": "Near-coincident node",
         "microscopic-segment": "Microscopic segment",
         "isolated-endpoints": "Open endpoints",

@@ -1,3 +1,5 @@
+import { parseCurvePathData } from "./curveAnalyzer.js";
+
 export function parseSvg(svgText) {
     const parser = new DOMParser();
 
@@ -16,9 +18,8 @@ export function parseSvg(svgText) {
 }
 
 export function getPathElements(svgDocument) {
-    const pathElements = svgDocument.querySelectorAll("path, line");
-
-    return Array.from(pathElements);
+    return [...svgDocument.querySelectorAll("path, line, polyline")].filter((element) =>
+        !element.closest("defs, symbol, clipPath, mask, pattern, marker, foreignObject"));
 }
 export function getPathData(pathElement) {
     if (pathElement.tagName.toLowerCase() === "line") {
@@ -104,6 +105,21 @@ export function getPathEndpoints(pathElement) {
     );
 }
 
+export function splitPathData(pathData) {
+    const parsed = parseCurvePathData(pathData, { extended: true });
+    if (!parsed.supported || parsed.subpathCount < 2) return [pathData];
+
+    const subpaths = [];
+    for (const command of parsed.commands) {
+        if (command.type === "M") subpaths.push([]);
+        const points = [...(command.controls ?? []), command.end].flatMap(({ x, y }) => [x, y]);
+        const argumentsList = command.type === "Z" ? [] : [...(command.arc ?? []), ...points];
+        subpaths.at(-1).push([command.type, ...argumentsList].join(" "));
+    }
+
+    return subpaths.filter((subpath) => subpath.length > 1).map((subpath) => subpath.join(" "));
+}
+
 function getDocumentPathEndpoints(pathElements) {
     if (pathElements.length === 0) {
         return new Map();
@@ -149,16 +165,14 @@ function getDocumentPathEndpoints(pathElements) {
     document.body.appendChild(measurementRoot);
 
     try {
-        const measurementElements = [
-            ...measurementRoot.querySelectorAll("path, line"),
-        ];
+        const measurementElements = getPathElements(measurementRoot);
         const rootMatrix = measurementRoot.getCTM();
 
         if (!rootMatrix) {
             return new Map(
                 pathElements.map((pathElement) => [
                     pathElement,
-                    getPathEndpoints(pathElement),
+                    [getPathEndpoints(pathElement)],
                 ])
             );
         }
@@ -175,34 +189,28 @@ function getDocumentPathEndpoints(pathElements) {
                 if (!measurementElement || !elementMatrix) {
                     return [
                         pathElement,
-                        getPathEndpoints(pathElement),
+                        [getPathEndpoints(pathElement)],
                     ];
                 }
 
-                const totalLength =
-                    measurementElement.getTotalLength();
-                const startPoint = measurementElement
-                    .getPointAtLength(0)
-                    .matrixTransform(elementMatrix)
-                    .matrixTransform(screenToRoot);
-                const endPoint = measurementElement
-                    .getPointAtLength(totalLength)
-                    .matrixTransform(elementMatrix)
-                    .matrixTransform(screenToRoot);
-
-                return [
-                    pathElement,
-                    {
-                        start: {
-                            x: startPoint.x,
-                            y: startPoint.y,
-                        },
-                        end: {
-                            x: endPoint.x,
-                            y: endPoint.y,
-                        },
-                    },
-                ];
+                const pathData = measurementElement.getAttribute("d");
+                const subpaths = pathData ? splitPathData(pathData) : [null];
+                const contours = subpaths.map((subpath) => {
+                    if (subpath !== null && subpath !== pathData) {
+                        measurementElement.setAttribute("d", subpath);
+                    }
+                    const length = measurementElement.getTotalLength();
+                    const pointAt = (offset) => measurementElement
+                        .getPointAtLength(offset)
+                        .matrixTransform(elementMatrix)
+                        .matrixTransform(screenToRoot);
+                    const scale = Math.max(
+                        Math.hypot(elementMatrix.a, elementMatrix.b) / Math.hypot(rootMatrix.a, rootMatrix.b),
+                        Math.hypot(elementMatrix.c, elementMatrix.d) / Math.hypot(rootMatrix.c, rootMatrix.d)
+                    );
+                    return { start: pointAt(0), end: pointAt(length), length: length * scale };
+                });
+                return [pathElement, contours];
             })
         );
     } finally {
@@ -279,14 +287,10 @@ export function pointsAreNear(
     ) <= tolerance;
 }
 
-export function getConnectionTolerance(pathElements) {
-    const referenceLength =
-        getDrawingReferenceLength(pathElements);
-
-    return Math.max(
-        referenceLength * 0.0000001,
-        0.01
-    );
+export function getConnectionTolerance() {
+    // Keep visible gaps in the graph. This epsilon only absorbs rounding in
+    // native SVG position measurements, not discrepancies in the drawing.
+    return 0.0000001;
 }
 
 function findNearbyNode(nodes, point, tolerance) {
@@ -321,17 +325,14 @@ function getOrCreateNode(nodes, point, tolerance) {
 }
 
 export function buildEndpointGraph(pathElements) {
-    const tolerance =
-        getConnectionTolerance(pathElements);
+    const tolerance = getConnectionTolerance();
 
     const endpointsByElement =
         getDocumentPathEndpoints(pathElements);
 
     const nodes = [];
 
-    const edges = pathElements.map((pathElement) => {
-        const endpoints =
-            endpointsByElement.get(pathElement);
+    const edges = pathElements.flatMap((pathElement) => endpointsByElement.get(pathElement).map((endpoints) => {
 
         const startNode = getOrCreateNode(
             nodes,
@@ -347,6 +348,7 @@ export function buildEndpointGraph(pathElements) {
 
         const edge = {
             pathElement,
+            referenceLength: endpoints.length,
             startNode,
             endNode,
         };
@@ -355,7 +357,7 @@ export function buildEndpointGraph(pathElements) {
         endNode.edges.push(edge);
 
         return edge;
-    });
+    }));
 
     return {
         nodes,
@@ -422,12 +424,7 @@ export function getComponentTerminalNodes(component) {
 export function getComponentReferenceLength(component) {
     const referenceLength = component.edges.reduce(
         (totalLength, edge) =>
-            totalLength +
-            measurePathElement(
-                edge.pathElement,
-                (measurementElement) =>
-                    measurementElement.getTotalLength()
-            ),
+            totalLength + (edge.referenceLength ?? getPathReferenceLength(edge.pathElement)),
         0
     );
 
@@ -539,8 +536,34 @@ function mergeCandidateComponents(firstComponent, secondComponent) {
     };
 }
 
-export function pairNearestTerminalNodes(components) {
-    const terminalEntries = getTerminalEntries(components);
+function getOvershootRepair(component, gapDistance, referenceLength) {
+    if (component.edges.length !== 1 || gapDistance > referenceLength * 0.02) return null;
+    const source = component.edges[0].pathElement;
+    if (source.localName !== "path") return null;
+    const data = source.getAttribute("d");
+    const parsed = parseCurvePathData(data, { extended: true });
+    if (!parsed.supported || parsed.subpathCount !== 1 || parsed.hasClose
+        || parsed.commands.length < 4 || parsed.commands.some(({ type }) => !["M", "L"].includes(type))) return null;
+    const [move, first] = parsed.commands;
+    const last = parsed.commands.at(-1);
+    const vector = (a, b) => ({ x: b.x - a.x, y: b.y - a.y });
+    const cross = (a, b) => a.x * b.y - a.y * b.x;
+    const firstDirection = vector(move.end, first.end);
+    const lastDirection = vector(last.start, last.end);
+    const crossDirections = cross(firstDirection, lastDirection);
+    if (!crossDirections) return null;
+    const t = cross(vector(last.start, move.end), firstDirection) / -crossDirections;
+    if (!(t > 0 && t < 1)) return null;
+    const crossing = { x: last.start.x + t * lastDirection.x, y: last.start.y + t * lastDirection.y };
+    const gap = getPointDistance(move.end, last.end);
+    const deviation = getPointDistance(move.end, crossing);
+    const firstLength = getPointDistance(move.end, first.end);
+    if (deviation > Math.min(gap * 0.25, firstLength * 0.02)) return null;
+    const prefix = data.slice(0, last.sourceRef.start).replace(/[\s,]+$/, "");
+    return `${prefix} Z`;
+}
+
+export function pairNearestTerminalNodes(components, terminalEntries = getTerminalEntries(components)) {
     const nearestByEntry = new Map(
         terminalEntries.map((entry) => [
             entry,
@@ -584,6 +607,7 @@ function analyzeTerminalPair(firstEntry, secondEntry) {
     };
     const gapDistance = getEndpointDistance(endpoints);
     const referenceLength = getComponentReferenceLength(component);
+    const retracesSingleEdge = component.edges.length === 1 && gapDistance >= referenceLength * 0.999999;
 
     return {
         component,
@@ -596,6 +620,9 @@ function analyzeTerminalPair(firstEntry, secondEntry) {
         hasSingleOpenGap: true,
         gapDistance,
         referenceLength,
+        retracesSingleEdge,
+        overshootPathData: firstEntry.component === secondEntry.component && !retracesSingleEdge
+            ? getOvershootRepair(component, gapDistance, referenceLength) : null,
         gapType: classifyGap(
             gapDistance,
             referenceLength
@@ -614,10 +641,41 @@ export function analyzeContours(pathElements) {
         .map((component) => analyzeComponent(component))
         .filter((analysis) => analysis.isClosed);
 
-    const openAnalyses = pairNearestTerminalNodes(components)
-        .map(([firstEntry, secondEntry]) =>
-            analyzeTerminalPair(firstEntry, secondEntry)
-        );
+    const openAnalyses = [];
+    const pairKeys = new Set();
+    const terminals = getTerminalEntries(components);
+    const terminalIds = new Map(terminals.map(({ node }, index) => [node, index]));
+    const paired = new Set();
+    const excluded = new Set();
+    const drawingLength = graph.edges.reduce((largest, edge) => Math.max(largest, edge.referenceLength ?? 0), 0);
+    function addPair(first, second, ambiguous = false) {
+        const key = [terminalIds.get(first.node), terminalIds.get(second.node)].sort((a, b) => a - b).join(":");
+        if (pairKeys.has(key)) return;
+        pairKeys.add(key);
+        paired.add(first.node);
+        paired.add(second.node);
+        openAnalyses.push({ ...analyzeTerminalPair(first, second), ambiguous });
+    }
+    for (const component of components) {
+        const local = getTerminalEntries([component]);
+        if (local.length !== 2) continue;
+        const candidate = analyzeTerminalPair(...local);
+        if (!candidate.retracesSingleEdge) addPair(...local);
+        else if (component.edges.length === 1) {
+            // A tiny isolated stroke is a stray-node candidate, not a bridge target.
+            if (candidate.referenceLength <= drawingLength * 0.005) {
+                local.forEach(({ node }) => excluded.add(node));
+            }
+        }
+    }
+    const remaining = terminals.filter(({ node }) => !excluded.has(node));
+    const pairs = pairNearestTerminalNodes(components, remaining);
+    for (const [first, second] of pairs) addPair(first, second, paired.has(first.node) || paired.has(second.node));
+    for (const entry of terminals) {
+        if (paired.has(entry.node) || excluded.has(entry.node)) continue;
+        const neighbor = findNearestTerminal(entry, remaining);
+        if (neighbor) addPair(entry, neighbor, true);
+    }
 
     return [
         ...closedAnalyses,
@@ -625,7 +683,7 @@ export function analyzeContours(pathElements) {
     ];
 }
 
-export function createContourBridge(analysis) {
+export function createContourBridge(analysis, svgDocument) {
     if (
         !isRepairableContour(analysis)
     ) {
@@ -639,8 +697,18 @@ export function createContourBridge(analysis) {
         return null;
     }
 
-    const svgDocument =
-        sourceElement.ownerDocument;
+    svgDocument ??= sourceElement.ownerDocument;
+    const sourceData = sourceElement.localName === "path" ? sourceElement.getAttribute("d") : null;
+    const parsed = sourceData && analysis.component.edges.length === 1
+        ? parseCurvePathData(sourceData, { extended: true }) : null;
+    const closeInPlace = parsed?.supported && parsed.subpathCount === 1 && !parsed.hasClose;
+    if (analysis.overshootPathData || closeInPlace) {
+        const index = getPathElements(sourceElement.ownerDocument).indexOf(sourceElement);
+        const workingPath = getPathElements(svgDocument)[index];
+        if (!workingPath || workingPath.localName !== "path") return null;
+        workingPath.setAttribute("d", analysis.overshootPathData ?? `${sourceData.trimEnd()} Z`);
+        return workingPath;
+    }
 
     const bridge = svgDocument.createElementNS(
         "http://www.w3.org/2000/svg",
@@ -676,16 +744,23 @@ export function createContourBridge(analysis) {
         "stroke-linejoin",
         "vector-effect",
     ].forEach((attributeName) => {
-        const attributeValue =
-            sourceElement.getAttribute(attributeName);
+        let source = sourceElement;
+        while (source && !source.hasAttribute(attributeName)) {
+            source = source.parentElement;
+        }
+        const attributeValue = source?.getAttribute(attributeName);
 
-        if (attributeValue !== null) {
+        if (attributeValue != null && (source === sourceElement || attributeName.startsWith("stroke"))) {
             bridge.setAttribute(
                 attributeName,
                 attributeValue
             );
         }
     });
+
+    if (!bridge.hasAttribute("stroke") || bridge.getAttribute("stroke") === "none") {
+        bridge.setAttribute("stroke", "black");
+    }
 
     bridge.setAttribute(
         "data-pathseal-repair",
@@ -715,7 +790,9 @@ export function isRepairableContour(analysis) {
     return Boolean(
         analysis?.hasSingleOpenGap &&
         analysis.endpoints &&
-        analysis.gapType !== "large-gap"
+        !analysis.retracesSingleEdge &&
+        Number.isFinite(analysis.gapDistance) &&
+        analysis.gapDistance > 0
     );
 }
 export function closePathData(pathData) {

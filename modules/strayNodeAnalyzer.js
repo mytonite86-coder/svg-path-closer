@@ -27,6 +27,63 @@ function issue(element, classification, reason, measurements, confidence) {
     };
 }
 
+export function analyzePathNodeCommands(element, commands, settings, referenceLength) {
+    const findings = [];
+    let moveIndex = null;
+    let drawn = false;
+    const microscopicThreshold = referenceLength * settings.microscopicRatio;
+
+    function reportLoneMove() {
+        if (moveIndex !== null && !drawn) {
+            findings.push(issue(element, "isolated-node", "This moveto has no drawing segment in its subpath.",
+                { segmentIndex: moveIndex, point: commands[moveIndex].end }, "deterministic"));
+        }
+    }
+
+    commands.forEach((command, segmentIndex) => {
+        if (command.type === "M") {
+            if (moveIndex !== 0 || command.sourceCommand !== "m") reportLoneMove();
+            moveIndex = segmentIndex;
+            drawn = false;
+            return;
+        }
+        if (command.type === "Z") return;
+        drawn = true;
+        const segmentLength = distance(command.start, command.end);
+        const measurements = { segmentIndex, segmentLength, microscopicThreshold, start: command.start, end: command.end };
+        if (command.collapsed || (command.type === "L" && command.closedEnd)) {
+            findings.push(issue(element, "coincident-node", "This path command creates a zero-length segment.",
+                measurements, "deterministic"));
+        } else if (command.type === "L" && segmentLength <= settings.connectionTolerance) {
+            findings.push(issue(element, "near-coincident-node", "Consecutive path nodes fall within the configured connection tolerance.",
+                { ...measurements, connectionTolerance: settings.connectionTolerance }, "tolerance-based"));
+        } else if (command.type === "L" && segmentLength <= microscopicThreshold) {
+            findings.push(issue(element, "microscopic-segment", "This straight segment is microscopic relative to the drawing bounds.",
+                measurements, "tolerance-based"));
+        }
+    });
+    reportLoneMove();
+    return findings;
+}
+
+export function inspectSmallDetachedMarks(elements, circles, referenceLength) {
+    const maximumSize = referenceLength * 0.0075;
+    const candidates = [];
+    for (const element of elements) {
+        if (element.closed || element.nodes.length !== 2 || !["line", "path", "polyline"].includes(element.type)) continue;
+        const [start, end] = element.nodes;
+        const size = distance(start, end);
+        if (size > 0 && size <= maximumSize) candidates.push({ element, size, start, end });
+    }
+    for (const { element, center, radius } of circles) {
+        if (radius > 0 && radius * 2 <= maximumSize) candidates.push({ element, size: radius * 2, point: center });
+    }
+    return candidates.map(({ element, size, ...location }) =>
+        issue(element, "small-detached-mark",
+            "This standalone mark is tiny relative to the drawing. Check whether it is an orphan speck or an intended detail.",
+            { segmentLength: size, ...location }, "ambiguous"));
+}
+
 export function parsePointsAttribute(value) {
     const numbers = String(value ?? "").match(
         /[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g
@@ -103,20 +160,27 @@ export function parseLinearPathData(pathData) {
     return { supported: points.length > 0, points, closed };
 }
 
-function drawingReferenceLength(elements) {
-    const points = elements.flatMap((element) => element.nodes ?? []).filter(finitePoint);
-    if (points.length < 2) return 1;
-    const xs = points.map(({ x }) => x);
-    const ys = points.map(({ y }) => y);
+export function drawingReferenceLength(elements) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const { nodes = [] } of elements) {
+        for (const point of nodes) {
+            if (!finitePoint(point)) continue;
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        }
+    }
+    if (!Number.isFinite(minX)) return 1;
     return Math.max(Math.hypot(
-        Math.max(...xs) - Math.min(...xs),
-        Math.max(...ys) - Math.min(...ys)
+        maxX - minX,
+        maxY - minY
     ), 1);
 }
 
 export function analyzeStrayNodes(elements, options = {}) {
-    const settings = { ...DEFAULTS, ...options };
-    const referenceLength = drawingReferenceLength(elements);
+    const { referenceLength = drawingReferenceLength(elements), ...overrides } = options;
+    const settings = { ...DEFAULTS, ...overrides };
     const microscopicThreshold = referenceLength * settings.microscopicRatio;
     const findings = [];
 

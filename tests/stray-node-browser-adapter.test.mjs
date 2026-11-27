@@ -74,14 +74,12 @@ test("converts supported SVG geometry and presents existing analyzer findings", 
     });
 
     assert.equal(result.elementCount, 2);
-    assert.equal(result.supportedElementCount, 1);
-    assert.equal(result.unsupported.length, 1);
+    assert.equal(result.supportedElementCount, 2);
+    assert.equal(result.unsupported.length, 0);
     assert.ok(result.findings.some(({ classification, elementId }) =>
         classification === "coincident-node" && elementId === "duplicate-node"
     ));
-    assert.ok(result.findings.some(({ classification, elementId }) =>
-        classification === "unsupported-geometry" && elementId === "curve"
-    ));
+    assert.ok(!result.findings.some(({ elementId }) => elementId === "curve"));
     assert.deepEqual(result.repairProposals, []);
     assert.ok(result.findings.every(({ safeToAutoRepair }) => safeToAutoRepair === false));
 
@@ -91,6 +89,19 @@ test("converts supported SVG geometry and presents existing analyzer findings", 
     assert.equal(presented.title, "Coincident node");
     assert.equal(presented.geometry, "polyline #duplicate-node");
     assert.equal(presented.reviewOnly, true);
+});
+
+test("finds repeated nodes in mixed paths and isolated movetos without flagging real loops", () => {
+    const geometry = [svgElement("path", {
+        id: "export",
+        d: "M0 0 Q5 5 10 0 h0 A5 5 0 0115 5 L15 5 M90 90 M30 30 C35 40 25 40 30 30",
+    })];
+    const result = inspectStrayNodeSvg("<svg/>", { DOMParser: parserFor({ geometry }) });
+    assert.deepEqual(result.findings.map(({ classification, measurements }) =>
+        [classification, measurements.segmentIndex]), [
+        ["coincident-node", 2], ["coincident-node", 4], ["isolated-node", 5],
+    ]);
+    assert.deepEqual(result.repairProposals, []);
 });
 
 test("rejects empty, malformed, non-SVG, and geometry-free SVG input safely", () => {
@@ -137,7 +148,7 @@ test("customer page keeps original geometry and repairs local working copies onl
     assert.doesNotMatch(page, /checkout|subscribe/i);
     assert.doesNotMatch(controller, /fetch\(|XMLHttpRequest|sendBeacon|Blob|createObjectURL|\.download/);
     assert.doesNotMatch(adapter, /XMLSerializer|remove\(|replaceWith|setAttribute|fetch\(/);
-    assert.match(adapter, /analyzeStrayNodes\(elements\)/);
+    assert.match(adapter, /analyzeStrayNodes\(elements, \{ referenceLength \}\)/);
 });
 
 test("input errors expose stable safe categories", () => {

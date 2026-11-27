@@ -1,3 +1,5 @@
+import { parseCurvePathData } from "./curveAnalyzer.js";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SELECTOR = "rect,circle,ellipse,path,polygon,polyline,line,text,image,use";
 const NUMBER = /^[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?$/;
@@ -14,14 +16,35 @@ function ancestors(node) {
 }
 function sourceLabel(node, index) { return `${node.localName} ${index + 1}${node.getAttribute("id") ? ` (#${node.getAttribute("id")})` : ""}`; }
 
+function rectanglePathBounds(node) {
+    const path = parseCurvePathData(node.getAttribute("d"));
+    if (!path.supported || path.commands.map(({ type }) => type).join("") !== "MLLLZ") return null;
+    const corners = path.commands.slice(0, 4).map(({ end }) => end);
+    const xs = [...new Set(corners.map(({ x }) => x))].sort((a, b) => a - b);
+    const ys = [...new Set(corners.map(({ y }) => y))].sort((a, b) => a - b);
+    if (xs.length !== 2 || ys.length !== 2 || new Set(corners.map(({ x, y }) => `${x},${y}`)).size !== 4
+        || corners.some(({ x, y }, index) => {
+            const next = corners[(index + 1) % 4];
+            return x !== next.x && y !== next.y;
+        })) return null;
+    return { x: xs[0], y: ys[0], width: xs[1] - xs[0], height: ys[1] - ys[0] };
+}
+
 function normalize(node, index) {
     const type = node.localName;
     const base = { index, type, label: sourceLabel(node, index), geometry: null, bounds: null };
-    if (node.namespaceURI !== SVG_NS || !GEOMETRY[type]) return { ...base, reason: "Unsupported shape type or namespace; manual review only." };
+    if (node.namespaceURI !== SVG_NS || (!GEOMETRY[type] && type !== "path")) return { ...base, reason: "Unsupported shape type or namespace; manual review only." };
     const context = [node, ...ancestors(node)];
     if (context.filter((item) => item.localName === "svg").length > 1
-        || context.some((item) => item.hasAttribute("transform") || !["svg", "g", "rect", "circle", "ellipse"].includes(item.localName))) {
+        || context.some((item) => item.hasAttribute("transform") || !["svg", "g", "rect", "circle", "ellipse", "path"].includes(item.localName))) {
         return { ...base, reason: "Transformed or definition/container geometry has no supported drawing-space mapping." };
+    }
+    if (type === "path") {
+        const bounds = rectanglePathBounds(node);
+        if (!bounds) return { ...base, reason: "Path is outside the supported rectangular path geometry." };
+        const { x, y, width, height } = bounds;
+        return { ...base, bounds, geometry: { d: `M${x} ${y} H${x + width} V${y + height} H${x} Z` },
+            exactKey: `rect-path:${Object.values(bounds).join("|")}`, reason: null };
     }
     if (type === "rect" && (node.hasAttribute("rx") || node.hasAttribute("ry"))) return { ...base, reason: "Rounded rectangles require manual review." };
     const geometry = {};
@@ -44,6 +67,17 @@ function normalize(node, index) {
         return { ...base, reason: "Drawing bounds exceed the supported finite range." };
     }
     return { ...base, geometry, bounds, exactKey: `${type}:${keys.join("|")}`, reason: null };
+}
+
+function circleCrossesRectangle({ cx, cy, r }, { x, y, width, height }) {
+    function crosses(centerAlong, centerAcross, start, end, edgePosition) {
+        const offset = Math.abs(centerAcross - edgePosition);
+        if (offset >= r) return false;
+        const reach = Math.sqrt((r - offset) * (r + offset));
+        return [centerAlong - reach, centerAlong + reach].some((hit) => hit > start && hit < end);
+    }
+    return crosses(cx, cy, x, x + width, y) || crosses(cx, cy, x, x + width, y + height)
+        || crosses(cy, cx, y, y + height, x) || crosses(cy, cx, y, y + height, x + width);
 }
 
 function safeRemoval(first, duplicate, documentRisk) {
@@ -108,11 +142,25 @@ export function inspectOverlappingDocument(document) {
             id: `remove-exact-overlap:${shape.index}`, kind: "remove-exact-duplicate-shape", keptIndex: first.index, duplicateIndex: shape.index,
         });
     }
+    const unique = [...canonical.values()];
     let capped = false;
-    for (let a = 0; a < shapes.length && !capped; a++) {
-        for (let b = a + 1; b < shapes.length; b++) {
-            const first = shapes[a], second = shapes[b];
+    for (let a = 0; a < unique.length && !capped; a++) {
+        for (let b = a + 1; b < unique.length; b++) {
+            const first = unique[a], second = unique[b];
             if (!first.bounds || !second.bounds || first.exactKey === second.exactKey) continue;
+            const circle = first.type === "circle" ? first : second.type === "circle" ? second : null;
+            const rectangle = circle === first ? second : first;
+            if (circle && ["rect", "path"].includes(rectangle.type) && circleCrossesRectangle(circle.geometry, rectangle.bounds)) {
+                if (findings.length >= 500) { capped = true; break; }
+                add("outline-crossing", [first.index, second.index], "The circle outline crosses a rectangle edge. Review where to join or trim both contours.");
+                continue;
+            }
+            if (first.type === "circle" && second.type === "circle"
+                && [first, second].every(({ index }) => nodes[index].getAttribute("fill") === "none")) {
+                const a = first.geometry, b = second.geometry;
+                const separation = Math.hypot(a.cx - b.cx, a.cy - b.cy);
+                if (separation < Math.abs(a.r - b.r) || separation > a.r + b.r) continue;
+            }
             const x = Math.max(first.bounds.x, second.bounds.x), y = Math.max(first.bounds.y, second.bounds.y);
             if (Math.min(first.bounds.x + first.bounds.width, second.bounds.x + second.bounds.width) > x
                 && Math.min(first.bounds.y + first.bounds.height, second.bounds.y + second.bounds.height) > y) {

@@ -1,4 +1,4 @@
-import { inspectStrayNodeSvg, normalizeSvgGeometry } from "./strayNodeBrowserAdapter.js";
+import { getStrayCircleGeometry, inspectStrayNodeSvg, normalizeSvgGeometry } from "./strayNodeBrowserAdapter.js";
 import { createStrayNodePreviewModel } from "./strayNodePreview.js";
 import { planExactCoincidentNodeRepairs } from "./strayNodeRepairPlanner.js";
 import { parseSvg, serializeSvg, validateSvgText } from "./pathCloser.js";
@@ -7,7 +7,11 @@ import { parseSvg, serializeSvg, validateSvgText } from "./pathCloser.js";
 export function inspectWorkingDocument(document) {
     const options = { DOMParser: class { parseFromString() { return document; } } };
     const inspection = inspectStrayNodeSvg("<svg/>", options);
-    const previewModel = createStrayNodePreviewModel("<svg/>", options);
+    let previewModel = null;
+    try { previewModel = createStrayNodePreviewModel("<svg/>", options); }
+    catch (error) {
+        if (error.message !== "No safely renderable geometry is available for preview.") throw error;
+    }
     return { inspection, previewModel };
 }
 
@@ -18,7 +22,53 @@ function geometry(document) {
 function planFor(document) {
     const { inspection } = inspectWorkingDocument(document);
     const normalized = geometry(document).map(normalizeSvgGeometry);
-    return planExactCoincidentNodeRepairs(normalized.filter(({ supported }) => supported).map(({ element }) => element), inspection);
+    const plan = planExactCoincidentNodeRepairs(normalized.filter(({ supported }) => supported).map(({ element }) => element), inspection);
+    const marks = findMarkProposals(document, inspection);
+    return {
+        ...plan,
+        proposals: [...plan.proposals, ...marks],
+        rejections: plan.rejections.filter(({ classification, elementId }) =>
+            classification !== "small-detached-mark" || !marks.some(({ elementRef }) => elementRef.id === elementId)),
+    };
+}
+
+function findMarkProposals(document, inspection) {
+    const all = [...document.querySelectorAll("*")];
+    if (document.doctype || all.some((node) => ["style", "script", "use", "set", "animate", "animateTransform", "animateMotion", "foreignObject"].includes(node.localName)
+        || [...(node.attributes ?? [])].some(({ name }) => /^(?:style|href|xlink:href|on)/i.test(name)))) return [];
+    const circles = getStrayCircleGeometry(document);
+    const linearNodes = geometry(document);
+    const allowed = new Set(["cx", "cy", "r", "d", "points", "x1", "y1", "x2", "y2", "fill", "stroke", "stroke-width"]);
+    return inspection.findings.filter(({ classification }) => classification === "small-detached-mark").flatMap((finding) => {
+        const matching = finding.elementType === "circle"
+            ? circles.filter(({ element }) => element.id === finding.elementId).map(({ node }) => node)
+            : linearNodes.filter((node, index) =>
+            (node.getAttribute("id") || `${node.localName}-${index + 1}`) === finding.elementId
+            && node.localName === finding.elementType);
+        const [node] = matching;
+        if (matching.length !== 1 || node.children.length
+            || [...node.attributes].some(({ name }) => !allowed.has(name))
+            || node.closest("[transform], defs, symbol, clipPath, mask, pattern, marker, [clip-path], [mask], [filter]")) return [];
+        const index = all.indexOf(node);
+        if (index === -1) return [];
+        return [{
+            id: `remove-standalone-mark:${index}`,
+            kind: "remove-standalone-mark",
+            elementRef: { id: finding.elementId, type: finding.elementType },
+            sourceRef: { index },
+            before: { coordinate: finding.measurements.point ?? finding.measurements.start, description: "Small standalone geometry." },
+            after: { description: "Remove this entire mark from the drawing." },
+            requiresReview: true,
+            safeToAutoApply: false,
+        }];
+    });
+}
+
+function restoreMarks(document, removals) {
+    for (const { parentIndex, childIndex, sourceNode } of [...removals].reverse()) {
+        const parent = document.querySelectorAll("*")[parentIndex];
+        parent.insertBefore(sourceNode.cloneNode(true), parent.childNodes[childIndex] ?? null);
+    }
 }
 
 function unchangedTrace(nodes) {
@@ -34,6 +84,7 @@ export function createStrayNodeRepairSession(source, { DOMParser: Parser = globa
     let acceptedDocument = null;
     let successfulRepairs = [];
     let acceptedChanges = [];
+    let acceptedRemovals = [];
 
     function validateRecordedRepairs(document, recordedCount) {
         if (!completed || !acceptedDocument || !Number.isInteger(recordedCount)
@@ -42,22 +93,27 @@ export function createStrayNodeRepairSession(source, { DOMParser: Parser = globa
             throw new Error("Final validation failed: successful repair count does not match the repair record.");
         }
         inspectWorkingDocument(document);
-        const comparison = document.cloneNode(true);
-        const nodes = geometry(comparison);
+        const expected = original.cloneNode(true);
+        const nodes = geometry(expected);
         const originalNodes = geometry(original);
-        let actualCount = 0;
-        for (const { index, oldPoints, newPoints } of acceptedChanges) {
-            if (nodes[index]?.getAttribute("points") !== newPoints) throw new Error("Final validation failed: repaired coordinates changed.");
+        let actualCount = acceptedRemovals.length;
+        for (const { index, newPoints } of acceptedChanges) {
+            nodes[index].setAttribute("points", newPoints);
             actualCount += normalizeSvgGeometry(originalNodes[index], index).element.nodes.length
                 - normalizeSvgGeometry(nodes[index], index).element.nodes.length;
-            nodes[index].setAttribute("points", oldPoints);
         }
-        if (actualCount !== recordedCount || !comparison.isEqualNode(original)) {
+        const elements = [...expected.querySelectorAll("*")];
+        for (const { sourceIndex } of acceptedRemovals) elements[sourceIndex].remove();
+        expected.normalize?.();
+        const comparison = document.cloneNode(true);
+        comparison.normalize?.();
+        if (actualCount !== recordedCount || !comparison.isEqualNode(expected)) {
             throw new Error("Final validation failed: repair count or unchanged geometry differs.");
         }
     }
 
     return {
+        get plan() { return structuredClone(initialPlan); },
         get workingDocument() { return acceptedDocument?.cloneNode(true) || null; },
         prepareDownload(recordedCount) {
             validateRecordedRepairs(acceptedDocument, recordedCount);
@@ -91,6 +147,7 @@ export function createStrayNodeRepairSession(source, { DOMParser: Parser = globa
                 const workingGeometry = geometry(working);
                 const groups = new Map();
                 for (const proposal of selected) {
+                    if (proposal.kind === "remove-standalone-mark") continue;
                     const index = originalGeometry.findIndex((node, position) => normalizeSvgGeometry(node, position).element.id === proposal.elementRef.id);
                     const group = groups.get(index) || [];
                     group.push(proposal);
@@ -136,11 +193,25 @@ export function createStrayNodeRepairSession(source, { DOMParser: Parser = globa
                     }
                     changed.push({ index, oldPoints, newPoints });
                 }
+                const all = [...working.querySelectorAll("*")];
+                const removals = [];
+                for (const { sourceRef } of selected.filter(({ kind }) => kind === "remove-standalone-mark")) {
+                    const node = all[sourceRef.index];
+                    const parent = node.parentElement;
+                    removals.push({
+                        sourceIndex: sourceRef.index,
+                        parentIndex: [...working.querySelectorAll("*")].indexOf(parent),
+                        childIndex: [...parent.childNodes].indexOf(node),
+                        sourceNode: node.cloneNode(true),
+                    });
+                    node.remove();
+                }
                 // Reinspect before committing. The caller can also validate staged preview rendering.
                 const view = inspectWorkingDocument(working);
                 if (validateWorkingCopy(working, view) !== true) throw new Error("Working copy validation failed.");
                 // Prove that every other attribute, element and unsupported subtree is untouched.
                 const comparison = working.cloneNode(true);
+                restoreMarks(comparison, removals);
                 const comparisonGeometry = geometry(comparison);
                 for (const { index, oldPoints, newPoints } of changed) {
                     if (comparisonGeometry[index]?.getAttribute("points") !== newPoints) throw new Error("Repair validation failed: repaired points changed.");
@@ -149,8 +220,10 @@ export function createStrayNodeRepairSession(source, { DOMParser: Parser = globa
                 if (!comparison.isEqualNode(original)) throw new Error("Repair validation failed: unrelated SVG content changed.");
                 completed = true;
                 acceptedDocument = working.cloneNode(true);
+                if (removals.length) acceptedDocument.normalize();
                 successfulRepairs = selected.map(({ id }) => id);
                 acceptedChanges = changed;
+                acceptedRemovals = removals;
                 return { ok: true, executedCount: selected.length, skippedCount: 0, workingDocument: working, ...view };
             } catch (error) {
                 return refused(error?.message || "Repair failed. The working copy was discarded.");

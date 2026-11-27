@@ -1,4 +1,4 @@
-import { normalizeSvgGeometry } from "./strayNodeBrowserAdapter.js";
+import { getStrayCircleGeometry, normalizeSvgGeometry } from "./strayNodeBrowserAdapter.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const SAFE_GEOMETRY_SELECTOR = "line,polyline,polygon,path";
@@ -36,8 +36,12 @@ export function createStrayNodePreviewModel(
 
     const normalized = [...document.querySelectorAll(SAFE_GEOMETRY_SELECTOR)]
         .map(normalizeSvgGeometry);
+    const circles = getStrayCircleGeometry(document);
     const idCounts = new Map();
     for (const { element } of normalized) {
+        idCounts.set(element.id, (idCounts.get(element.id) || 0) + 1);
+    }
+    for (const { element } of circles) {
         idCounts.set(element.id, (idCounts.get(element.id) || 0) + 1);
     }
 
@@ -51,6 +55,18 @@ export function createStrayNodePreviewModel(
             nodes: element.nodes.map(({ x, y }) => ({ x, y })),
             mappingKey: idCounts.get(element.id) === 1 ? element.id : null,
         }));
+    for (const { element, center, radius } of circles) {
+        shapes.push({
+            previewKey: `preview-${shapes.length + 1}`,
+            elementId: element.id,
+            sourceType: "circle",
+            shapeType: "circle",
+            center,
+            radius,
+            nodes: [{ x: center.x - radius, y: center.y - radius }, { x: center.x + radius, y: center.y + radius }],
+            mappingKey: idCounts.get(element.id) === 1 ? element.id : null,
+        });
+    }
 
     if (shapes.length === 0) {
         throw new Error("No safely renderable geometry is available for preview.");
@@ -84,7 +100,11 @@ export function renderStrayNodePreview(svg, model, documentFactory = svg.ownerDo
 
     for (const shape of model.shapes) {
         const node = documentFactory.createElementNS(SVG_NAMESPACE, shape.shapeType);
-        if (shape.shapeType === "line") {
+        if (shape.shapeType === "circle") {
+            node.setAttribute("cx", String(shape.center.x));
+            node.setAttribute("cy", String(shape.center.y));
+            node.setAttribute("r", String(shape.radius));
+        } else if (shape.shapeType === "line") {
             node.setAttribute("x1", String(shape.nodes[0].x));
             node.setAttribute("y1", String(shape.nodes[0].y));
             node.setAttribute("x2", String(shape.nodes[1].x));
