@@ -21,7 +21,7 @@ import {
     closePathData,
     serializeSvg,
     validateSvgText,
-} from "./modules/pathCloser.js";
+} from "./modules/pathCloser.js?v=gap-review-1";
 import {
     captureAttribution,
     trackPathSealEvent,
@@ -705,11 +705,8 @@ fileInput.addEventListener("change", async () => {
     pathsSkipped.textContent =
         skippedContours;
 
-    pendingRepairs = [
-        ...repairableContours,
-    ];
-
-    fixButton.disabled = pendingRepairs.length === 0;
+    pendingRepairs = [];
+    fixButton.disabled = true;
 
 
 
@@ -718,7 +715,9 @@ fileInput.addEventListener("change", async () => {
 
 
     resultsSection.hidden = false;
-    statusMessage.textContent = `Selected file: ${selectedFile.name}`;
+    statusMessage.textContent = openContours.length
+        ? `Select Open Paths to review gap candidates in ${selectedFile.name}.`
+        : `No open endpoint pairs found in ${selectedFile.name}.`;
 });
 openPathsCard.addEventListener("click", () => {
     openPathList.innerHTML = "";
@@ -732,13 +731,9 @@ openPathsCard.addEventListener("click", () => {
     previewNavigation = createPreviewNavigation(previewSvg);
     const originalPaths = getPathElements(svgDocument);
 
-    const previewPathElements = [
-        ...previewSvg.querySelectorAll("path, line"),
-    ];
+    const previewPathElements = getPathElements(previewSvg);
     requestAnimationFrame(() => {
-        const previewPaths = [
-    ...previewSvg.querySelectorAll("path, line"),
-];
+        const previewPaths = previewPathElements;
         const svgMatrix = previewSvg.getScreenCTM();
 
         if (previewPaths.length === 0 || !svgMatrix) {
@@ -906,7 +901,13 @@ openPathsCard.addEventListener("click", () => {
             })
             .filter(isRepairableContour);
 
+        const terminals = pendingRepairs.flatMap(({ terminalNodes }) => terminalNodes);
+        const conflict = new Set(terminals).size !== terminals.length;
+        if (conflict) pendingRepairs = [];
         fixButton.disabled = protectedActionPending || pendingRepairs.length === 0;
+        statusMessage.textContent = conflict
+            ? "Select only one bridge per endpoint."
+            : `${pendingRepairs.length} gap bridge(s) selected for repair.`;
 
         pathsSkipped.textContent =
             currentOpenPaths.length - pendingRepairs.length;
@@ -920,7 +921,8 @@ openPathsCard.addEventListener("click", () => {
         );
         checkbox.type = "checkbox";
         checkbox.dataset.pathIndex = index;
-        checkbox.checked = isRepairableContour(analysis);
+        checkbox.checked = false;
+        checkbox.disabled = !isRepairableContour(analysis);
 
         const previewContourElements =
             getContourElements(analysis)
@@ -972,18 +974,13 @@ openPathsCard.addEventListener("click", () => {
 
             bridge.classList.add("gap-bridge");
 
-            const updateBridgeVisibility = () => {
-                bridge.style.display =
-                    checkbox.checked ? "" : "none";
-            };
-
-            updateBridgeVisibility();
+            bridge.style.opacity = "0.45";
 
             previewSvg.append(bridge);
 
             checkbox.addEventListener(
                 "change",
-                updateBridgeVisibility
+                () => { bridge.style.opacity = checkbox.checked ? "1" : "0.45"; }
             );
         }
 
@@ -992,11 +989,14 @@ openPathsCard.addEventListener("click", () => {
             updateContourPreview
         );
 
-        const gapDistance = analysis.gapDistance.toFixed(2);
-        const recommendation =
-            analysis.gapType === "large-gap"
-                ? "Review only — gap too large to repair"
-                : "Recommended";
+        const gapDistance = Number(analysis.gapDistance.toPrecision(4));
+        const recommendation = analysis.overshootPathData
+            ? "Trim overshoot and close the contour"
+            : analysis.retracesSingleEdge
+            ? "Open segment — a bridge would retrace the cut"
+            : analysis.gapType === "large-gap" || analysis.ambiguous
+                ? "Possible bridge — check both endpoints before selecting"
+                : "Suggested bridge";
 
         option.append(
             checkbox,
@@ -1015,17 +1015,20 @@ fixButton.addEventListener("click", () => {
     }
 
     return withFreshPathSealAccess(() => {
+        const workingDocument = parseSvg(serializeSvg(svgDocument));
         const repairedCount = pendingRepairs.length;
         void trackPathSealEvent(
             "repair_selected",
             { attribution }
         );
 
-        pendingRepairs.forEach((repair) => {
-            createContourBridge(repair);
-    });
+        for (const repair of pendingRepairs) {
+            if (!createContourBridge(repair, workingDocument)) {
+                throw new Error("A selected gap could not be bridged. Review the file and try again.");
+            }
+        }
 
-    repairedSvgText = serializeSvg(svgDocument);
+    repairedSvgText = serializeSvg(workingDocument);
     const validationResult =
         validateSvgText(repairedSvgText);
 

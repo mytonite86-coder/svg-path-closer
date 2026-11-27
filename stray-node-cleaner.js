@@ -9,13 +9,14 @@ import {
     renderStrayNodePreview,
     setPreviewHighlight,
 } from "./modules/strayNodePreview.js";
-import { planExactCoincidentNodeRepairs } from "./modules/strayNodeRepairPlanner.js";
 import { createStrayNodeRepairSession } from "./modules/strayNodeRepairExecution.js";
 import { downloadCleanedSvg } from "./modules/strayNodeDownload.js";
 import { runWithFreshStrayNodeAccess } from "./modules/strayNodeAccess.js";
 
 const CATEGORY_LABELS = Object.freeze({
     "coincident-node": "Coincident nodes",
+    "isolated-node": "Isolated nodes",
+    "small-detached-mark": "Possible stray marks",
     "near-coincident-node": "Near-coincident nodes",
     "microscopic-segment": "Microscopic segments",
     "isolated-endpoints": "Open endpoints",
@@ -57,6 +58,8 @@ export function describeFindingLocation(finding) {
     const start = formatPoint(measurements.start);
     const end = formatPoint(measurements.end);
     if (start && end) details.push(`endpoints ${start} to ${end}`);
+    const point = formatPoint(measurements.point);
+    if (point) details.push(`point ${point}`);
     if (Number.isInteger(measurements.nodeCount)) {
         details.push(`${measurements.nodeCount} analysis node${measurements.nodeCount === 1 ? "" : "s"} available`);
     }
@@ -98,7 +101,8 @@ export function buildRepairProposalPresentation(proposal) {
     return {
         id: proposal.id,
         geometry: `${proposal.elementRef.type} #${proposal.elementRef.id}`,
-        location: `Segment ${proposal.sourceRef.segmentIndex + 1}; redundant node ${proposal.sourceRef.redundantNodeIndex + 1}`,
+        location: proposal.kind === "remove-standalone-mark" ? "Entire standalone mark"
+            : `Segment ${proposal.sourceRef.segmentIndex + 1}; redundant node ${proposal.sourceRef.redundantNodeIndex + 1}`,
         coordinate: formatPoint(proposal.before.coordinate),
         before: proposal.before.description,
         after: proposal.after.description,
@@ -256,7 +260,7 @@ export function initializeStrayNodePage({ refreshSession } = {}) {
         card.dataset.proposalId = presentation.id;
         const title = document.createElement("h4");
         title.className = "eco-heading";
-        title.textContent = "Proposed exact coincident-node cleanup";
+        title.textContent = proposal.kind === "remove-standalone-mark" ? "Proposed stray mark removal" : "Proposed exact coincident-node cleanup";
         const review = document.createElement("p");
         review.className = "eco-status eco-status--accent";
         review.textContent = presentation.reviewLabel;
@@ -265,9 +269,11 @@ export function initializeStrayNodePage({ refreshSession } = {}) {
         const location = document.createElement("p");
         location.textContent = `Source location: ${presentation.location}; coordinate ${presentation.coordinate}.`;
         const before = document.createElement("p");
-        before.textContent = `Before (${presentation.beforeNodeCount} nodes): ${presentation.before}`;
+        before.textContent = presentation.beforeNodeCount === undefined ? presentation.before
+            : `Before (${presentation.beforeNodeCount} nodes): ${presentation.before}`;
         const after = document.createElement("p");
-        after.textContent = `Proposed result (${presentation.afterNodeCount} nodes): ${presentation.after}`;
+        after.textContent = presentation.afterNodeCount === undefined ? presentation.after
+            : `Proposed result (${presentation.afterNodeCount} nodes): ${presentation.after}`;
         const option = document.createElement("label");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -323,13 +329,15 @@ export function initializeStrayNodePage({ refreshSession } = {}) {
             const outcome = repairSession.execute(selectedIds, (_working, { previewModel }) => {
                 // Stage rendering before accepting the batch; a failure leaves the displayed review intact.
                 const staged = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-                renderStrayNodePreview(staged, previewModel);
+                if (previewModel) renderStrayNodePreview(staged, previewModel);
                 return true;
             });
             executionStatus.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.ok ? "Working copy validated. Original upload preserved." : `${outcome.reason} Working copy discarded; original upload preserved.`}`;
             if (!outcome.ok) return;
             repaired = true;
-            const rendered = renderStrayNodePreview(previewSvg, outcome.previewModel);
+            previewSvg.replaceChildren();
+            const rendered = outcome.previewModel ? renderStrayNodePreview(previewSvg, outcome.previewModel) : new Map();
+            previewPanel.hidden = !outcome.previewModel;
             previewStatus.textContent = "Validated repaired working copy. Select a remaining finding to highlight its geometry.";
             renderCategories(summarizeFindingCategories(outcome.inspection.findings));
             findings.replaceChildren(...outcome.inspection.findings.map((finding) => renderFinding(finding, outcome.previewModel, rendered)));
@@ -399,11 +407,9 @@ export function initializeStrayNodePage({ refreshSession } = {}) {
             } catch {
                 previewStatus.textContent = "No safely renderable geometry is available. Findings remain text-only.";
             }
-            const repairPlan = planExactCoincidentNodeRepairs(
-                previewModelToPlannerElements(previewModel),
-                inspection
-            );
-            repairSession = repairPlan.proposals.length ? createStrayNodeRepairSession(source) : null;
+            const session = createStrayNodeRepairSession(source);
+            const repairPlan = session.plan;
+            repairSession = repairPlan.proposals.length ? session : null;
             renderCategories(summarizeFindingCategories(inspection.findings));
             renderRepairPlan(repairPlan);
             findings.replaceChildren(...inspection.findings.map((finding) =>

@@ -36,7 +36,7 @@ function syntheticInspection() {
             svgElement("polyline", { id: "duplicate-node", points: "0,0 5,0 5,0 10,0" }),
             svgElement("line", { id: "open-cut", x1: 0, y1: 10, x2: 20, y2: 10 }),
             svgElement("polyline", { id: "near-close", points: "0,20 20,20 0.005,20" }),
-            svgElement("path", { id: "curve", d: "M0 0 C1 2 3 4 5 6" }),
+            svgElement("path", { id: "invalid-curve", d: "M0 0 C1 2 3" }),
         ]),
     });
 }

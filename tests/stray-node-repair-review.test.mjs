@@ -97,7 +97,7 @@ test("page wiring shows review-only proposals and preserves preview behavior", a
     assert.match(page, /id="stray-node-repair-review"/);
     assert.match(page, /id="stray-node-repair-proposals"/);
     assert.match(page, /Why other findings are not repair proposals/);
-    assert.match(controller, /planExactCoincidentNodeRepairs/);
+    assert.match(controller, /const repairPlan = session\.plan/);
     assert.match(controller, /Proposed exact coincident-node cleanup/);
     assert.match(controller, /Requires customer review/);
     assert.match(controller, /Highlight affected geometry/);

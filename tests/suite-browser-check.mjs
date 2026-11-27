@@ -94,9 +94,6 @@ async function review(s, tool) {
     const boxes = s.page.locator('input[type="checkbox"]');
     assert.ok(await boxes.count() > 0, "Expected supported proposals from existing fixture");
     for (const box of await boxes.all()) if (await box.isEnabled()) {
-        // Exercise an explicit Select action; default-preselection readiness is
-        // checked independently below so it cannot mask the access checks.
-        if (tool.id === "pathseal" && await box.isChecked()) await box.uncheck();
         await box.check();
     }
 }
@@ -152,21 +149,102 @@ try {
             assert.equal(await unauthorizedDownload, false, "A revoked session still generated a download");
         } finally { await s.context.close(); }
     });
-    await check("PathSeal: preselected review is immediately repair-ready", async () => {
+    await check("PathSeal: a transformed compound path exposes its micro-gap and waits for approval", async () => {
         const s = await session({ entitlements: ["pathseal"] });
         try {
             await open(s, tools[0], false);
-            await s.page.locator(tools[0].input).setInputFiles(tools[0].fixture);
+            const source = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 55 55"><g transform="translate(5 5) scale(2)" stroke="red"><path d="M0 0 L10 0 L10 10 M10 10.002 L0 10 L0 0"/></g></svg>';
+            await s.page.locator(tools[0].input).setInputFiles({
+                name: "compound-cut.svg", mimeType: "image/svg+xml", buffer: Buffer.from(source),
+            });
             await s.page.waitForFunction(() => Number(document.querySelector("#paths-scanned").textContent) > 0);
             await s.page.locator("#open-paths-card").click();
-            assert.ok(await s.page.locator('#open-path-list input[type="checkbox"]:checked').count() > 0);
-            assert.equal(await s.page.locator(tools[0].repair).isDisabled(), false, "A preselected repair stays disabled until the checkbox is toggled");
+            const box = s.page.locator('#open-path-list input[type="checkbox"]');
+            assert.equal(await box.count(), 1);
+            assert.equal(await box.isChecked(), false);
+            assert.equal(await s.page.locator(tools[0].repair).isDisabled(), true);
+            assert.match(await s.page.locator("#open-path-list").innerText(), /0\.004\d* unit gap/);
+            await box.check();
+            await repaired(s, tools[0]);
+            const pendingDownload = s.page.waitForEvent("download");
+            await s.page.locator(tools[0].download).click();
+            const downloadFile = await pendingDownload;
+            const chunks = [];
+            for await (const chunk of await downloadFile.createReadStream()) chunks.push(chunk);
+            const result = Buffer.concat(chunks).toString("utf8");
+            assert.match(result, /stroke="red" data-pathseal-repair="true"/);
+            const endpoints = await s.page.evaluate((text) => {
+                const svg = new DOMParser().parseFromString(text, "image/svg+xml");
+                const bridge = svg.querySelector("[data-pathseal-repair]");
+                return ["x1", "y1", "x2", "y2"].map((name) => Number(bridge.getAttribute(name)));
+            }, result);
+            assert.ok(Math.abs(endpoints[0] - 25) < 0.0001 && Math.abs(endpoints[2] - 25) < 0.0001);
+            const vertical = [endpoints[1], endpoints[3]].sort((a, b) => a - b);
+            assert.ok(Math.abs(vertical[0] - 25) < 0.0001 && Math.abs(vertical[1] - 25.004) < 0.0001);
+            assert.equal(await s.page.locator(tools[0].input).evaluate((input) => input.files[0].text()), source);
         } finally { await s.context.close(); }
     });
     await check("PathSeal: revoked repair denied", async () => {
         const s = await session({ entitlements: ["pathseal"] });
         try { await open(s, tools[0], false); await review(s, tools[0]); s.state.user = { entitlements: [] }; await s.page.locator(tools[0].repair).click(); await denied(s, tools[0]); }
         finally { await s.context.close(); }
+    });
+    await check("PathSeal: an above-threshold gap stays selectable for explicit review", async () => {
+        const s = await session({ entitlements: ["pathseal"] });
+        try {
+            await open(s, tools[0], false);
+            const source = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><polyline points="0,0 10,0 10,10 0,10 0,2"/></svg>';
+            await s.page.locator(tools[0].input).setInputFiles({
+                name: "large-gap.svg", mimeType: "image/svg+xml", buffer: Buffer.from(source),
+            });
+            await s.page.waitForFunction(() => Number(document.querySelector("#open-paths-found").textContent) > 0);
+            await s.page.locator("#open-paths-card").click();
+            const box = s.page.locator('#open-path-list input[type="checkbox"]');
+            assert.equal(await box.isChecked(), false);
+            assert.match(await s.page.locator("#open-path-list").innerText(), /2 unit gap.*Possible bridge/);
+            await box.check();
+            await repaired(s, tools[0]);
+        } finally { await s.context.close(); }
+    });
+    await check("Tool 2: finds standalone and embedded duplicate cuts in path data", async () => {
+        const s = await session({ entitlements: ["duplicate_geometry"] });
+        try {
+            await open(s, tools[1], false);
+            const source = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0 H10"/><path d="m10 0 h-10"/><path d="M0 0 H10 Q20 10 20 20"/></svg>';
+            await s.page.locator(tools[1].input).setInputFiles({
+                name: "duplicate-cuts.svg", mimeType: "image/svg+xml", buffer: Buffer.from(source),
+            });
+            const list = s.page.locator("#duplicate-list");
+            await list.getByText(/Review path 1.*path 3/).waitFor();
+            assert.equal(await list.locator('input:enabled').count(), 1);
+            assert.equal(await list.locator('input:disabled').count(), 1);
+            assert.equal(await s.page.locator(tools[1].download).isDisabled(), true);
+            await repaired(s, tools[1]);
+            const pendingDownload = s.page.waitForEvent("download");
+            await s.page.locator(tools[1].download).click();
+            const downloadFile = await pendingDownload;
+            const chunks = [];
+            for await (const chunk of await downloadFile.createReadStream()) chunks.push(chunk);
+            const output = Buffer.concat(chunks).toString("utf8");
+            assert.match(output, /M0 0 H10 Q20 10 20 20/);
+            assert.doesNotMatch(output, /m10 0 h-10/);
+            assert.equal(await s.page.locator(tools[1].input).evaluate((input) => input.files[0].text()), source);
+        } finally { await s.context.close(); }
+    });
+    await check("Tool 3: reports repeated and isolated nodes inside mixed paths", async () => {
+        const s = await session(null);
+        try {
+            await open(s, tools[2], false);
+            const source = '<svg xmlns="http://www.w3.org/2000/svg"><path id="cut" d="M0 0 Q5 5 10 0 h0 M90 90 M20 20 L30 30"/></svg>';
+            await s.page.locator(tools[2].input).setInputFiles({
+                name: "mixed-nodes.svg", mimeType: "image/svg+xml", buffer: Buffer.from(source),
+            });
+            await s.page.getByRole("heading", { name: "Coincident node", exact: true }).waitFor();
+            await s.page.getByRole("heading", { name: "Isolated node", exact: true }).waitFor();
+            assert.equal(await s.page.locator(tools[2].repair).isDisabled(), true);
+            assert.equal(await s.page.locator(tools[2].download).isDisabled(), true);
+            assert.equal(s.state.checks, 0);
+        } finally { await s.context.close(); }
     });
     await check("PathSeal: unavailable authority denies cached grant", async () => {
         const s = await session({ username: "suite-test", entitlements: ["pathseal"] }, { offline: true });
@@ -182,7 +260,7 @@ try {
             s.state.delay = () => { const wait = new Promise((done) => { release = done; }); entered(); return wait; };
             await s.page.locator(tools[1].repair).click(); await started;
             await s.page.locator(tools[1].input).setInputFiles({ name: "new-upload.svg", mimeType: "image/svg+xml", buffer: Buffer.from(originals.get(tools[1].fixture)) });
-            await s.page.waitForFunction(() => document.querySelector("#duplicate-status").textContent.startsWith("Proposed removal"));
+            await s.page.waitForFunction(() => /eligible for removal/.test(document.querySelector("#duplicate-status").textContent));
             const response = s.page.waitForResponse((r) => r.url().endsWith("/auth/me"));
             release(); await response;
             await s.page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
@@ -224,7 +302,7 @@ try {
             s.state.delay = () => { const wait = new Promise((done) => { release = done; }); entered(); return wait; };
             await s.page.locator(tool.download).click(); await started;
             await s.page.locator(tool.input).setInputFiles({ name: "new-upload.svg", mimeType: "image/svg+xml", buffer: Buffer.from(originals.get(tool.fixture)) });
-            await s.page.waitForFunction(() => document.querySelector("#duplicate-status").textContent.startsWith("Proposed removal"));
+            await s.page.waitForFunction(() => /eligible for removal/.test(document.querySelector("#duplicate-status").textContent));
             const response = s.page.waitForResponse((r) => r.url().endsWith("/auth/me"));
             release(); await response;
             await s.page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));

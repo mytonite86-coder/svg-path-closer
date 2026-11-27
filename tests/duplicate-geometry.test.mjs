@@ -57,6 +57,20 @@ test("matches exact line geometry in either direction", () => {
     assert.equal(proposals[0].recommendation, "remove");
 });
 
+test("finds reversed path cuts and leaves duplicate segments inside longer paths for review", () => {
+    const parent = {};
+    const path = (d) => ({ ...line({ d }, parent), tagName: "path" });
+    const first = path("M0 0 H10");
+    const reversed = path("m10 0 h-10");
+    const mixed = path("M10 0 L0 0 Q4 8 8 8");
+    const matches = findExactDuplicateLines(documentWith(first, reversed, mixed));
+    assert.deepEqual(matches.map(({ duplicateIndex, recommendation }) =>
+        [duplicateIndex, recommendation]), [[1, "remove"], [2, "review"]]);
+    assert.equal(applyDuplicateLineRemovals(matches), 1);
+    assert.equal(reversed.removed, true);
+    assert.equal(mixed.removed, false);
+});
+
 test("does not treat near or invalid coordinates as exact duplicates", () => {
     const parent = {};
     const lines = [

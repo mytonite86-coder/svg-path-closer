@@ -375,6 +375,63 @@ function issue(element, classification, reason, measurements, confidence) {
     };
 }
 
+function analyzePathNodeCommands(element, commands, settings, referenceLength) {
+    const findings = [];
+    let moveIndex = null;
+    let drawn = false;
+    const microscopicThreshold = referenceLength * settings.microscopicRatio;
+
+    function reportLoneMove() {
+        if (moveIndex !== null && !drawn) {
+            findings.push(issue(element, "isolated-node", "This moveto has no drawing segment in its subpath.",
+                { segmentIndex: moveIndex, point: commands[moveIndex].end }, "deterministic"));
+        }
+    }
+
+    commands.forEach((command, segmentIndex) => {
+        if (command.type === "M") {
+            if (moveIndex !== 0 || command.sourceCommand !== "m") reportLoneMove();
+            moveIndex = segmentIndex;
+            drawn = false;
+            return;
+        }
+        if (command.type === "Z") return;
+        drawn = true;
+        const segmentLength = distance(command.start, command.end);
+        const measurements = { segmentIndex, segmentLength, microscopicThreshold, start: command.start, end: command.end };
+        if (command.collapsed || (command.type === "L" && command.closedEnd)) {
+            findings.push(issue(element, "coincident-node", "This path command creates a zero-length segment.",
+                measurements, "deterministic"));
+        } else if (command.type === "L" && segmentLength <= settings.connectionTolerance) {
+            findings.push(issue(element, "near-coincident-node", "Consecutive path nodes fall within the configured connection tolerance.",
+                { ...measurements, connectionTolerance: settings.connectionTolerance }, "tolerance-based"));
+        } else if (command.type === "L" && segmentLength <= microscopicThreshold) {
+            findings.push(issue(element, "microscopic-segment", "This straight segment is microscopic relative to the drawing bounds.",
+                measurements, "tolerance-based"));
+        }
+    });
+    reportLoneMove();
+    return findings;
+}
+
+function inspectSmallDetachedMarks(elements, circles, referenceLength) {
+    const maximumSize = referenceLength * 0.0075;
+    const candidates = [];
+    for (const element of elements) {
+        if (element.closed || element.nodes.length !== 2 || !["line", "path", "polyline"].includes(element.type)) continue;
+        const [start, end] = element.nodes;
+        const size = distance(start, end);
+        if (size > 0 && size <= maximumSize) candidates.push({ element, size, start, end });
+    }
+    for (const { element, center, radius } of circles) {
+        if (radius > 0 && radius * 2 <= maximumSize) candidates.push({ element, size: radius * 2, point: center });
+    }
+    return candidates.map(({ element, size, ...location }) =>
+        issue(element, "small-detached-mark",
+            "This standalone mark is tiny relative to the drawing. Check whether it is an orphan speck or an intended detail.",
+            { segmentLength: size, ...location }, "ambiguous"));
+}
+
 function parsePointsAttribute(value) {
     const numbers = String(value ?? "").match(
         /[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g
@@ -452,19 +509,26 @@ function parseLinearPathData(pathData) {
 }
 
 function drawingReferenceLength(elements) {
-    const points = elements.flatMap((element) => element.nodes ?? []).filter(finitePoint);
-    if (points.length < 2) return 1;
-    const xs = points.map(({ x }) => x);
-    const ys = points.map(({ y }) => y);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const { nodes = [] } of elements) {
+        for (const point of nodes) {
+            if (!finitePoint(point)) continue;
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        }
+    }
+    if (!Number.isFinite(minX)) return 1;
     return Math.max(Math.hypot(
-        Math.max(...xs) - Math.min(...xs),
-        Math.max(...ys) - Math.min(...ys)
+        maxX - minX,
+        maxY - minY
     ), 1);
 }
 
 function analyzeStrayNodes(elements, options = {}) {
-    const settings = { ...DEFAULTS, ...options };
-    const referenceLength = drawingReferenceLength(elements);
+    const { referenceLength = drawingReferenceLength(elements), ...overrides } = options;
+    const settings = { ...DEFAULTS, ...overrides };
     const microscopicThreshold = referenceLength * settings.microscopicRatio;
     const findings = [];
 
@@ -541,16 +605,234 @@ function analyzeStrayNodes(elements, options = {}) {
         repairProposals: [],
     };
 }
-return { STRAY_NODE_CLEANER_PRODUCT_ID, parsePointsAttribute, parseLinearPathData, analyzeStrayNodes };
+
+return { STRAY_NODE_CLEANER_PRODUCT_ID, analyzePathNodeCommands, inspectSmallDetachedMarks, parsePointsAttribute, parseLinearPathData, drawingReferenceLength, analyzeStrayNodes };
+})();
+
+// Source: modules/curveAnalyzer.js
+const module6 = (() => {
+const NS = "http://www.w3.org/2000/svg";
+const SCALE = 10n ** 30n;
+const ARITY = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4 };
+const EXTENDED_ARITY = { ...ARITY, Q: 4, T: 2, A: 7 };
+const ROOT_ATTRIBUTES = new Set(["xmlns", "width", "height", "viewBox", "preserveAspectRatio", "version", "id"]);
+const PATH_ATTRIBUTES = new Set(["d", "fill", "stroke", "opacity", "fill-opacity", "fill-rule"]);
+const OPAQUE = /^(?:#[0-9a-f]{3}|#[0-9a-f]{6}|black|white|red|green|blue|yellow)$/i;
+const same = (a, b) => a.x === b.x && a.y === b.y;
+const numberPoint = ({ x, y }) => ({ x: Number(x) / 1e30, y: Number(y) / 1e30 });
+
+function exactNumber(text) {
+    if (text.length > 80) throw new Error("Numeric precision exceeds the supported range.");
+    const [mantissa, exponentText = "0"] = text.toLowerCase().split("e");
+    const exponent = Number(exponentText);
+    if (!Number.isInteger(exponent) || Math.abs(exponent) > 60) throw new Error("Exponent outside the supported range.");
+    const fraction = mantissa.split(".")[1]?.length || 0;
+    let coefficient = BigInt(mantissa.replace(".", ""));
+    let shift = 30 + exponent - fraction;
+    if (coefficient === 0n) return 0n;
+    while (shift < 0 && coefficient % 10n === 0n) { coefficient /= 10n; shift++; }
+    if (shift < 0) throw new Error("Precision finer than 30 decimal places requires manual review.");
+    const value = coefficient * 10n ** BigInt(shift);
+    if (value > 1000000000000n * SCALE || value < -1000000000000n * SCALE) throw new Error("Coordinate magnitude exceeds the supported range.");
+    return value;
+}
+
+function tokenize(data) {
+    if (typeof data !== "string" || !data.trim() || data.length > 200000) throw new Error("Missing or oversized path data.");
+    const tokens = [];
+    let end = 0;
+    const pattern = /[a-zA-Z]|[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?/g;
+    for (const match of data.matchAll(pattern)) {
+        const text = match[0];
+        const command = /^[a-zA-Z]$/.test(text);
+        const gap = data.slice(end, match.index);
+        if (!/^[\t\r\n ]*(?:,[\t\r\n ]*)?$/.test(gap)
+            || (gap.includes(",") && (!tokens.length || tokens.at(-1).command || command))) throw new Error("Unsupported or malformed path separators.");
+        tokens.push({ text, command, start: match.index, end: match.index + text.length });
+        end = match.index + text.length;
+        if (tokens.length > 12000) throw new Error("Path command limit reached.");
+    }
+    if (!/^[\t\r\n ]*$/.test(data.slice(end))) throw new Error("Invalid trailing path syntax.");
+    return tokens;
+}
+
+function parseCurvePathData(data, { extended = false } = {}) {
+    try {
+        const tokens = tokenize(data);
+        const commands = [];
+        let cursor = 0, command = null, current = { x: 0n, y: 0n }, origin = null, lastControl = null, previous = null;
+        let subpathCount = 0, hasSmooth = false, hasClose = false;
+        while (cursor < tokens.length) {
+            const explicit = tokens[cursor].command;
+            const startOffset = tokens[cursor].start;
+            if (explicit) command = tokens[cursor++].text;
+            if (!command) throw new Error("A path command is required.");
+            const upper = command.toUpperCase(), relative = command !== upper;
+            if (!commands.length && upper !== "M") throw new Error("Path data must begin with moveto.");
+            if (upper === "Z") {
+                if (!explicit || !origin) throw new Error("Malformed closepath command.");
+                commands.push({ type: "Z", sourceCommand: command, explicit, start: numberPoint(current), end: numberPoint(origin), sourceRef: { start: startOffset, end: tokens[cursor - 1].end } });
+                current = { ...origin }; lastControl = null; previous = "Z"; command = null; hasClose = true;
+                continue;
+            }
+            const arity = (extended ? EXTENDED_ARITY : ARITY)[upper];
+            if (!arity) throw new Error(`Command ${command} requires manual review; only M/L/H/V/C/S/Z are parsed.`);
+            const values = [];
+            for (let index = 0; index < arity; index++) {
+                const token = tokens[cursor++];
+                if (!token || token.command) throw new Error("Incomplete path command parameters.");
+                if (upper === "A" && (index === 3 || index === 4)) {
+                    if (!/^[01]/.test(token.text)) throw new Error("Invalid arc flag.");
+                    values.push({ ...token, text: token.text[0], end: token.start + 1 });
+                    if (token.text.length > 1) {
+                        tokens[--cursor] = { ...token, text: token.text.slice(1), start: token.start + 1 };
+                    }
+                } else {
+                    values.push(token);
+                }
+            }
+            const numbers = values.map(({ text }) => exactNumber(text));
+            const start = { ...current };
+            const point = (index) => ({ x: numbers[index] + (relative ? start.x : 0n), y: numbers[index + 1] + (relative ? start.y : 0n) });
+            let type = upper, controls = [], collapsed = false;
+            if (upper === "M" || upper === "L") current = point(0);
+            else if (upper === "H") { current = { x: numbers[0] + (relative ? start.x : 0n), y: start.y }; type = "L"; }
+            else if (upper === "V") { current = { x: start.x, y: numbers[0] + (relative ? start.y : 0n) }; type = "L"; }
+            else if (upper === "A") {
+                if (numbers[0] < 0n || numbers[1] < 0n) throw new Error("Invalid arc radii.");
+                current = point(5);
+                collapsed = same(start, current);
+                if (numbers[0] === 0n || numbers[1] === 0n) type = "L";
+            } else if (upper === "Q" || upper === "T") {
+                const control = upper === "Q" ? point(0)
+                    : (["Q", "T"].includes(previous) && lastControl
+                        ? { x: 2n * start.x - lastControl.x, y: 2n * start.y - lastControl.y }
+                        : start);
+                current = point(upper === "Q" ? 2 : 0);
+                controls = [control];
+                lastControl = control;
+                collapsed = same(control, start) && same(current, start);
+                type = "Q";
+            }
+            else {
+                const first = upper === "S"
+                    ? (["C", "S"].includes(previous) && lastControl ? { x: 2n * start.x - lastControl.x, y: 2n * start.y - lastControl.y } : start)
+                    : point(0);
+                const second = point(upper === "S" ? 0 : 2);
+                current = point(upper === "S" ? 2 : 4);
+                controls = [first, second];
+                collapsed = controls.every((control) => same(control, start)) && same(current, start);
+                lastControl = second;
+                type = "C";
+                if (upper === "S") hasSmooth = true;
+            }
+            for (const p of [current, ...controls]) {
+                if (p.x > 1000000000000n * SCALE || p.x < -1000000000000n * SCALE || p.y > 1000000000000n * SCALE || p.y < -1000000000000n * SCALE) throw new Error("Resolved coordinates exceed the supported range.");
+            }
+            const arc = type === "A" ? values.slice(0, 5).map(({ text }) => text) : undefined;
+            commands.push({ type, sourceCommand: command, explicit, start: numberPoint(start), end: numberPoint(current), controls: controls.map(numberPoint), collapsed,
+                ...(arc ? { arc } : {}),
+                closedEnd: same(start, current), sourceRef: { start: startOffset, end: values.at(-1).end },
+                exactGeometry: { start: [String(start.x), String(start.y)], controls: controls.map(({ x, y }) => [String(x), String(y)]), end: [String(current.x), String(current.y)] } });
+            if (upper === "M") { origin = { ...current }; subpathCount++; command = relative ? "l" : "L"; }
+            if (!["C", "S", "Q", "T"].includes(upper)) lastControl = null;
+            previous = upper;
+        }
+        if (!commands.length) throw new Error("Missing path commands.");
+        return { supported: true, commands, subpathCount, hasSmooth, hasClose };
+    } catch (error) {
+        return { supported: false, commands: [], reason: error.message };
+    }
+}
+
+function attrs(node) { return [...node.attributes].map(({ name, value }) => [name, value]); }
+function contextRisk(path, documentRisk) {
+    if (documentRisk) return "Document CSS, references, active content or animation require manual review.";
+    if (path.children.length || attrs(path).some(([name]) => !PATH_ATTRIBUTES.has(name))) return "IDs, references, transforms, styles, markers, path-length settings or metadata must be preserved; manual review only.";
+    if (path.getAttribute("stroke") !== "none" || !OPAQUE.test(path.getAttribute("fill") || "")
+        || ["opacity", "fill-opacity"].some((name) => path.hasAttribute(name) && path.getAttribute(name) !== "1")) return "Only opaque, unstroked filled paths are eligible; stroke/dash/marker rendering is outside this proof.";
+    for (let parent = path.parentElement; parent; parent = parent.parentElement) {
+        if (!["svg", "g"].includes(parent.localName)) return "Unsupported parent coordinate context.";
+        const allowed = parent.localName === "svg" ? ROOT_ATTRIBUTES : new Set(["id"]);
+        if (attrs(parent).some(([name]) => !allowed.has(name))) return "Inherited styles, transforms or effects require manual review.";
+    }
+    return null;
+}
+
+function inspectCurveDocument(document) {
+    if (document?.documentElement?.localName !== "svg" || document.documentElement.namespaceURI !== NS || document.querySelector("parsererror")) throw new Error("Choose a valid SVG document with the SVG namespace.");
+    const all = [...document.querySelectorAll("*")];
+    const documentRisk = Boolean(document.doctype) || [...(document.childNodes || [])].some((node) => node.nodeType === 7)
+        || all.some((node) => ["style", "script", "use", "animate", "animateTransform", "animateMotion", "set", "foreignObject"].includes(node.localName)
+            || attrs(node).some(([name, value]) => name === "style" || name === "href" || name.endsWith(":href") || /^on/i.test(name) || /url\s*\(/i.test(value)));
+    const elements = [...document.querySelectorAll("path")];
+    const paths = [], findings = [], proposals = [];
+    let remainingData = 1000000, capped = false;
+    function add(pathIndex, segmentIndex, reason, eligible = false) {
+        if (findings.length >= 500) { capped = true; return; }
+        const number = findings.length + 1, id = `curve-finding-${number}`;
+        const proposalId = eligible ? `remove-collapsed-cubic:${pathIndex}:${segmentIndex}` : null;
+        findings.push({ id, number, pathIndex, segmentIndex, reason, proposalId });
+        if (eligible) {
+            const segment = paths[pathIndex].parsed.commands[segmentIndex];
+            proposals.push({ id: proposalId, findingId: id, kind: "remove-collapsed-cubic", pathIndex, segmentIndex,
+                sourceRef: { ...segment.sourceRef, command: segment.sourceCommand, text: paths[pathIndex].data.slice(segment.sourceRef.start, segment.sourceRef.end) },
+                preservesGeometry: true, requiresReview: true, safeToAutoApply: false });
+        }
+    }
+    elements.slice(0, 200).forEach((node, index) => {
+        const data = node.getAttribute("d") || "";
+        const label = `path ${index + 1}${node.getAttribute("id") ? ` (#${node.getAttribute("id")})` : ""}`;
+        const parsed = data.length <= remainingData ? parseCurvePathData(data) : { supported: false, commands: [], reason: "Total path-data inspection limit reached; manual review required." };
+        remainingData = Math.max(remainingData - data.length, 0);
+        let mappingRisk = node.namespaceURI !== NS ? "Unsupported namespace." : null;
+        let svgCount = 0;
+        for (let parent = node; parent; parent = parent.parentElement) {
+            if (parent.localName === "svg") svgCount++;
+            if (parent.hasAttribute("transform") || !["path", "svg", "g"].includes(parent.localName)) mappingRisk = "Transformed or definition/container path cannot be mapped safely in this preview.";
+        }
+        if (svgCount !== 1) mappingRisk = "Nested SVG viewports require manual review.";
+        paths.push({ index, label, data, parsed, previewable: parsed.supported && !mappingRisk });
+        if (!parsed.supported || mappingRisk) { add(index, null, mappingRisk || parsed.reason); return; }
+        const risk = contextRisk(node, documentRisk);
+        parsed.commands.forEach((segment, segmentIndex) => {
+            if (segment.type !== "C") return;
+            if (!segment.collapsed) {
+                if (segment.closedEnd) add(index, segmentIndex, "Endpoint returns to the start, but control points form a real curve/loop. It is not zero-length; manual review only.");
+                return;
+            }
+            const before = parsed.commands[segmentIndex - 1], after = parsed.commands[segmentIndex + 1];
+            const eligible = !risk && segment.sourceCommand.toUpperCase() === "C" && segment.explicit
+                && parsed.subpathCount === 1 && !parsed.hasClose && !parsed.hasSmooth
+                && before?.type === "C" && before.explicit && !before.collapsed && after?.type === "C" && !after.collapsed && after.explicit;
+            add(index, segmentIndex, eligible
+                ? "Both control points and endpoint equal the segment start exactly. The interior segment is a constant point already retained by adjacent explicit cubic geometry; removal preserves geometry."
+                : risk || "Collapsed cubic requires manual review: boundary/isolated segment, shorthand reflection, closure, multiple subpaths or implicit command dependencies are outside the safe scope.", eligible);
+        });
+    });
+    if (elements.length > paths.length) add(null, null, "Only the first 200 paths were inspected; remaining paths require manual review.");
+    if (capped) findings.push({ id: "curve-findings-limited", number: findings.length + 1, pathIndex: null, segmentIndex: null, proposalId: null, reason: "Finding limit reached; remaining curve geometry requires manual review." });
+    return { productId: "curve_repair", pathCount: elements.length, paths, findings, proposals };
+}
+
+function inspectCurveSvg(source, { DOMParser: Parser = globalThis.DOMParser } = {}) {
+    if (typeof source !== "string" || !source.trim() || typeof Parser !== "function") throw new Error("Choose a non-empty SVG file.");
+    return inspectCurveDocument(new Parser().parseFromString(source, "image/svg+xml"));
+}
+
+return { parseCurvePathData, inspectCurveDocument, inspectCurveSvg };
 })();
 
 // Source: modules/strayNodeBrowserAdapter.js
 const module4 = (() => {
 const {
+    analyzePathNodeCommands,
     analyzeStrayNodes,
-    parseLinearPathData,
+    drawingReferenceLength,
+    inspectSmallDetachedMarks,
     parsePointsAttribute,
 } = module5;
+const { parseCurvePathData } = module6;
 
 const SUPPORTED_SELECTOR = "line,polyline,polygon,path";
 
@@ -575,6 +857,17 @@ function identity(element, index) {
     return element.getAttribute("id") || `${element.localName}-${index + 1}`;
 }
 
+function getStrayCircleGeometry(document) {
+    return [...document.querySelectorAll("circle")].filter((node) =>
+        node.localName === "circle" && !node.closest?.("[transform], defs, symbol, clipPath, mask, pattern, marker"))
+        .map((node, index) => ({
+            node,
+            element: { id: identity(node, index), type: "circle" },
+            center: { x: finiteCoordinate(node, "cx") ?? 0, y: finiteCoordinate(node, "cy") ?? 0 },
+            radius: finiteCoordinate(node, "r"),
+        })).filter(({ radius }) => radius > 0);
+}
+
 function normalizeSvgGeometry(element, index = 0) {
     const type = String(element?.localName || "").toLowerCase();
     const normalized = {
@@ -584,7 +877,7 @@ function normalizeSvgGeometry(element, index = 0) {
         nodes: [],
     };
 
-    if (element.hasAttribute("transform")) {
+    if (type !== "path" && element.hasAttribute("transform")) {
         return { element: normalized, supported: false, reason: "Transformed geometry is not supported in this review foundation." };
     }
 
@@ -610,12 +903,19 @@ function normalizeSvgGeometry(element, index = 0) {
     }
 
     if (type === "path") {
-        const parsed = parseLinearPathData(element.getAttribute("d"));
+        const data = element.getAttribute("d");
+        const parsed = parseCurvePathData(data, { extended: true });
         if (!parsed.supported) {
-            return { element: normalized, supported: false, reason: "Only linear M, L, H, V, and Z path commands are supported." };
+            return { element: normalized, supported: false, reason: parsed.reason };
         }
-        normalized.nodes = parsed.points;
-        normalized.closed = parsed.closed;
+        if (parsed.subpathCount > 1 || parsed.commands.length === 1
+            || element.closest?.("[transform]") || element.hasAttribute("transform")
+            || parsed.commands.some(({ type }) => !["M", "L", "Z"].includes(type))
+            || parsed.commands.slice(0, -1).some(({ type }) => type === "Z")) {
+            return { element: normalized, supported: true, commands: parsed.commands };
+        }
+        normalized.nodes = parsed.commands.filter(({ type }) => type !== "Z").map(({ end }) => end);
+        normalized.closed = parsed.hasClose;
         return { element: normalized, supported: true, reason: null };
     }
 
@@ -654,23 +954,43 @@ function inspectStrayNodeSvg(source, { DOMParser: Parser = globalThis.DOMParser 
         throw new StrayNodeSvgInputError("not_svg", "The selected XML document is not an SVG.");
     }
 
-    const geometry = [...document.querySelectorAll(SUPPORTED_SELECTOR)].map(normalizeSvgGeometry);
-    if (geometry.length === 0) {
+    const nodes = [...document.querySelectorAll(SUPPORTED_SELECTOR)];
+    const geometry = nodes.map(normalizeSvgGeometry);
+    const circles = getStrayCircleGeometry(document);
+    if (geometry.length === 0 && circles.length === 0) {
         throw new StrayNodeSvgInputError(
             "unsupported_svg",
             "No supported line, polyline, polygon, or linear path geometry was found."
         );
     }
 
-    const elements = geometry.map(({ element }) => element);
+    const elements = geometry.filter(({ commands }) => !commands).map(({ element }) => element);
+    const pathElements = geometry.filter(({ commands }) => commands);
     const unsupported = geometry
         .filter(({ supported }) => !supported)
         .map(({ element, reason }) => ({ elementId: element.id, elementType: element.type, reason }));
-    const analysis = analyzeStrayNodes(elements);
+    const referenceLength = drawingReferenceLength([
+        ...elements,
+        ...pathElements.map(({ commands }) => ({ nodes: commands.flatMap(({ end, controls = [] }) => [end, ...controls]) })),
+        ...circles.map(({ center: { x, y }, radius }) => ({
+            nodes: [{ x: x - radius, y: y - radius }, { x: x + radius, y: y + radius }],
+        })),
+    ]);
+    const analysis = analyzeStrayNodes(elements, { referenceLength });
+    const detached = inspectSmallDetachedMarks(elements, circles, referenceLength);
+    const detachedIds = new Set(detached.map(({ elementId }) => elementId));
 
     return {
         ...analysis,
-        supportedElementCount: geometry.length - unsupported.length,
+        elementCount: geometry.length + circles.length,
+        findings: [
+            ...analysis.findings.filter(({ elementId, classification }) =>
+                classification !== "isolated-endpoints" || !detachedIds.has(elementId)),
+            ...pathElements.flatMap(({ element, commands }) =>
+                analyzePathNodeCommands(element, commands, analysis.settings, referenceLength)),
+            ...detached,
+        ],
+        supportedElementCount: geometry.length - unsupported.length + circles.length,
         unsupported,
     };
 }
@@ -678,6 +998,8 @@ function inspectStrayNodeSvg(source, { DOMParser: Parser = globalThis.DOMParser 
 function presentStrayNodeFinding(finding) {
     const labels = {
         "coincident-node": "Coincident node",
+        "isolated-node": "Isolated node",
+        "small-detached-mark": "Possible stray mark",
         "near-coincident-node": "Near-coincident node",
         "microscopic-segment": "Microscopic segment",
         "isolated-endpoints": "Open endpoints",
@@ -693,12 +1015,12 @@ function presentStrayNodeFinding(finding) {
     };
 }
 
-return { StrayNodeSvgInputError, normalizeSvgGeometry, readLocalSvgFile, inspectStrayNodeSvg, presentStrayNodeFinding };
+return { StrayNodeSvgInputError, getStrayCircleGeometry, normalizeSvgGeometry, readLocalSvgFile, inspectStrayNodeSvg, presentStrayNodeFinding };
 })();
 
 // Source: modules/strayNodePreview.js
-const module6 = (() => {
-const { normalizeSvgGeometry } = module4;
+const module7 = (() => {
+const { getStrayCircleGeometry, normalizeSvgGeometry } = module4;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const SAFE_GEOMETRY_SELECTOR = "line,polyline,polygon,path";
@@ -736,8 +1058,12 @@ function createStrayNodePreviewModel(
 
     const normalized = [...document.querySelectorAll(SAFE_GEOMETRY_SELECTOR)]
         .map(normalizeSvgGeometry);
+    const circles = getStrayCircleGeometry(document);
     const idCounts = new Map();
     for (const { element } of normalized) {
+        idCounts.set(element.id, (idCounts.get(element.id) || 0) + 1);
+    }
+    for (const { element } of circles) {
         idCounts.set(element.id, (idCounts.get(element.id) || 0) + 1);
     }
 
@@ -751,6 +1077,18 @@ function createStrayNodePreviewModel(
             nodes: element.nodes.map(({ x, y }) => ({ x, y })),
             mappingKey: idCounts.get(element.id) === 1 ? element.id : null,
         }));
+    for (const { element, center, radius } of circles) {
+        shapes.push({
+            previewKey: `preview-${shapes.length + 1}`,
+            elementId: element.id,
+            sourceType: "circle",
+            shapeType: "circle",
+            center,
+            radius,
+            nodes: [{ x: center.x - radius, y: center.y - radius }, { x: center.x + radius, y: center.y + radius }],
+            mappingKey: idCounts.get(element.id) === 1 ? element.id : null,
+        });
+    }
 
     if (shapes.length === 0) {
         throw new Error("No safely renderable geometry is available for preview.");
@@ -784,7 +1122,11 @@ function renderStrayNodePreview(svg, model, documentFactory = svg.ownerDocument)
 
     for (const shape of model.shapes) {
         const node = documentFactory.createElementNS(SVG_NAMESPACE, shape.shapeType);
-        if (shape.shapeType === "line") {
+        if (shape.shapeType === "circle") {
+            node.setAttribute("cx", String(shape.center.x));
+            node.setAttribute("cy", String(shape.center.y));
+            node.setAttribute("r", String(shape.radius));
+        } else if (shape.shapeType === "line") {
             node.setAttribute("x1", String(shape.nodes[0].x));
             node.setAttribute("y1", String(shape.nodes[0].y));
             node.setAttribute("x2", String(shape.nodes[1].x));
@@ -820,7 +1162,7 @@ return { createStrayNodePreviewModel, getFindingPreviewKey, renderStrayNodePrevi
 })();
 
 // Source: modules/strayNodeRepairPlanner.js
-const module7 = (() => {
+const module9 = (() => {
 const SUPPORTED_ELEMENT_TYPES = new Set(["polyline", "polygon"]);
 
 function finitePoint(point) {
@@ -999,7 +1341,9 @@ return { planExactCoincidentNodeRepairs };
 })();
 
 // Source: modules/pathCloser.js
-const module9 = (() => {
+const module10 = (() => {
+const { parseCurvePathData } = module6;
+
 function parseSvg(svgText) {
     const parser = new DOMParser();
 
@@ -1018,9 +1362,8 @@ function parseSvg(svgText) {
 }
 
 function getPathElements(svgDocument) {
-    const pathElements = svgDocument.querySelectorAll("path, line");
-
-    return Array.from(pathElements);
+    return [...svgDocument.querySelectorAll("path, line, polyline")].filter((element) =>
+        !element.closest("defs, symbol, clipPath, mask, pattern, marker, foreignObject"));
 }
 function getPathData(pathElement) {
     if (pathElement.tagName.toLowerCase() === "line") {
@@ -1106,6 +1449,21 @@ function getPathEndpoints(pathElement) {
     );
 }
 
+function splitPathData(pathData) {
+    const parsed = parseCurvePathData(pathData, { extended: true });
+    if (!parsed.supported || parsed.subpathCount < 2) return [pathData];
+
+    const subpaths = [];
+    for (const command of parsed.commands) {
+        if (command.type === "M") subpaths.push([]);
+        const points = [...(command.controls ?? []), command.end].flatMap(({ x, y }) => [x, y]);
+        const argumentsList = command.type === "Z" ? [] : [...(command.arc ?? []), ...points];
+        subpaths.at(-1).push([command.type, ...argumentsList].join(" "));
+    }
+
+    return subpaths.filter((subpath) => subpath.length > 1).map((subpath) => subpath.join(" "));
+}
+
 function getDocumentPathEndpoints(pathElements) {
     if (pathElements.length === 0) {
         return new Map();
@@ -1151,16 +1509,14 @@ function getDocumentPathEndpoints(pathElements) {
     document.body.appendChild(measurementRoot);
 
     try {
-        const measurementElements = [
-            ...measurementRoot.querySelectorAll("path, line"),
-        ];
+        const measurementElements = getPathElements(measurementRoot);
         const rootMatrix = measurementRoot.getCTM();
 
         if (!rootMatrix) {
             return new Map(
                 pathElements.map((pathElement) => [
                     pathElement,
-                    getPathEndpoints(pathElement),
+                    [getPathEndpoints(pathElement)],
                 ])
             );
         }
@@ -1177,34 +1533,28 @@ function getDocumentPathEndpoints(pathElements) {
                 if (!measurementElement || !elementMatrix) {
                     return [
                         pathElement,
-                        getPathEndpoints(pathElement),
+                        [getPathEndpoints(pathElement)],
                     ];
                 }
 
-                const totalLength =
-                    measurementElement.getTotalLength();
-                const startPoint = measurementElement
-                    .getPointAtLength(0)
-                    .matrixTransform(elementMatrix)
-                    .matrixTransform(screenToRoot);
-                const endPoint = measurementElement
-                    .getPointAtLength(totalLength)
-                    .matrixTransform(elementMatrix)
-                    .matrixTransform(screenToRoot);
-
-                return [
-                    pathElement,
-                    {
-                        start: {
-                            x: startPoint.x,
-                            y: startPoint.y,
-                        },
-                        end: {
-                            x: endPoint.x,
-                            y: endPoint.y,
-                        },
-                    },
-                ];
+                const pathData = measurementElement.getAttribute("d");
+                const subpaths = pathData ? splitPathData(pathData) : [null];
+                const contours = subpaths.map((subpath) => {
+                    if (subpath !== null && subpath !== pathData) {
+                        measurementElement.setAttribute("d", subpath);
+                    }
+                    const length = measurementElement.getTotalLength();
+                    const pointAt = (offset) => measurementElement
+                        .getPointAtLength(offset)
+                        .matrixTransform(elementMatrix)
+                        .matrixTransform(screenToRoot);
+                    const scale = Math.max(
+                        Math.hypot(elementMatrix.a, elementMatrix.b) / Math.hypot(rootMatrix.a, rootMatrix.b),
+                        Math.hypot(elementMatrix.c, elementMatrix.d) / Math.hypot(rootMatrix.c, rootMatrix.d)
+                    );
+                    return { start: pointAt(0), end: pointAt(length), length: length * scale };
+                });
+                return [pathElement, contours];
             })
         );
     } finally {
@@ -1281,14 +1631,10 @@ function pointsAreNear(
     ) <= tolerance;
 }
 
-function getConnectionTolerance(pathElements) {
-    const referenceLength =
-        getDrawingReferenceLength(pathElements);
-
-    return Math.max(
-        referenceLength * 0.0000001,
-        0.01
-    );
+function getConnectionTolerance() {
+    // Keep visible gaps in the graph. This epsilon only absorbs rounding in
+    // native SVG position measurements, not discrepancies in the drawing.
+    return 0.0000001;
 }
 
 function findNearbyNode(nodes, point, tolerance) {
@@ -1323,17 +1669,14 @@ function getOrCreateNode(nodes, point, tolerance) {
 }
 
 function buildEndpointGraph(pathElements) {
-    const tolerance =
-        getConnectionTolerance(pathElements);
+    const tolerance = getConnectionTolerance();
 
     const endpointsByElement =
         getDocumentPathEndpoints(pathElements);
 
     const nodes = [];
 
-    const edges = pathElements.map((pathElement) => {
-        const endpoints =
-            endpointsByElement.get(pathElement);
+    const edges = pathElements.flatMap((pathElement) => endpointsByElement.get(pathElement).map((endpoints) => {
 
         const startNode = getOrCreateNode(
             nodes,
@@ -1349,6 +1692,7 @@ function buildEndpointGraph(pathElements) {
 
         const edge = {
             pathElement,
+            referenceLength: endpoints.length,
             startNode,
             endNode,
         };
@@ -1357,7 +1701,7 @@ function buildEndpointGraph(pathElements) {
         endNode.edges.push(edge);
 
         return edge;
-    });
+    }));
 
     return {
         nodes,
@@ -1424,12 +1768,7 @@ function getComponentTerminalNodes(component) {
 function getComponentReferenceLength(component) {
     const referenceLength = component.edges.reduce(
         (totalLength, edge) =>
-            totalLength +
-            measurePathElement(
-                edge.pathElement,
-                (measurementElement) =>
-                    measurementElement.getTotalLength()
-            ),
+            totalLength + (edge.referenceLength ?? getPathReferenceLength(edge.pathElement)),
         0
     );
 
@@ -1541,8 +1880,34 @@ function mergeCandidateComponents(firstComponent, secondComponent) {
     };
 }
 
-function pairNearestTerminalNodes(components) {
-    const terminalEntries = getTerminalEntries(components);
+function getOvershootRepair(component, gapDistance, referenceLength) {
+    if (component.edges.length !== 1 || gapDistance > referenceLength * 0.02) return null;
+    const source = component.edges[0].pathElement;
+    if (source.localName !== "path") return null;
+    const data = source.getAttribute("d");
+    const parsed = parseCurvePathData(data, { extended: true });
+    if (!parsed.supported || parsed.subpathCount !== 1 || parsed.hasClose
+        || parsed.commands.length < 4 || parsed.commands.some(({ type }) => !["M", "L"].includes(type))) return null;
+    const [move, first] = parsed.commands;
+    const last = parsed.commands.at(-1);
+    const vector = (a, b) => ({ x: b.x - a.x, y: b.y - a.y });
+    const cross = (a, b) => a.x * b.y - a.y * b.x;
+    const firstDirection = vector(move.end, first.end);
+    const lastDirection = vector(last.start, last.end);
+    const crossDirections = cross(firstDirection, lastDirection);
+    if (!crossDirections) return null;
+    const t = cross(vector(last.start, move.end), firstDirection) / -crossDirections;
+    if (!(t > 0 && t < 1)) return null;
+    const crossing = { x: last.start.x + t * lastDirection.x, y: last.start.y + t * lastDirection.y };
+    const gap = getPointDistance(move.end, last.end);
+    const deviation = getPointDistance(move.end, crossing);
+    const firstLength = getPointDistance(move.end, first.end);
+    if (deviation > Math.min(gap * 0.25, firstLength * 0.02)) return null;
+    const prefix = data.slice(0, last.sourceRef.start).replace(/[\s,]+$/, "");
+    return `${prefix} Z`;
+}
+
+function pairNearestTerminalNodes(components, terminalEntries = getTerminalEntries(components)) {
     const nearestByEntry = new Map(
         terminalEntries.map((entry) => [
             entry,
@@ -1586,6 +1951,7 @@ function analyzeTerminalPair(firstEntry, secondEntry) {
     };
     const gapDistance = getEndpointDistance(endpoints);
     const referenceLength = getComponentReferenceLength(component);
+    const retracesSingleEdge = component.edges.length === 1 && gapDistance >= referenceLength * 0.999999;
 
     return {
         component,
@@ -1598,6 +1964,9 @@ function analyzeTerminalPair(firstEntry, secondEntry) {
         hasSingleOpenGap: true,
         gapDistance,
         referenceLength,
+        retracesSingleEdge,
+        overshootPathData: firstEntry.component === secondEntry.component && !retracesSingleEdge
+            ? getOvershootRepair(component, gapDistance, referenceLength) : null,
         gapType: classifyGap(
             gapDistance,
             referenceLength
@@ -1616,10 +1985,41 @@ function analyzeContours(pathElements) {
         .map((component) => analyzeComponent(component))
         .filter((analysis) => analysis.isClosed);
 
-    const openAnalyses = pairNearestTerminalNodes(components)
-        .map(([firstEntry, secondEntry]) =>
-            analyzeTerminalPair(firstEntry, secondEntry)
-        );
+    const openAnalyses = [];
+    const pairKeys = new Set();
+    const terminals = getTerminalEntries(components);
+    const terminalIds = new Map(terminals.map(({ node }, index) => [node, index]));
+    const paired = new Set();
+    const excluded = new Set();
+    const drawingLength = graph.edges.reduce((largest, edge) => Math.max(largest, edge.referenceLength ?? 0), 0);
+    function addPair(first, second, ambiguous = false) {
+        const key = [terminalIds.get(first.node), terminalIds.get(second.node)].sort((a, b) => a - b).join(":");
+        if (pairKeys.has(key)) return;
+        pairKeys.add(key);
+        paired.add(first.node);
+        paired.add(second.node);
+        openAnalyses.push({ ...analyzeTerminalPair(first, second), ambiguous });
+    }
+    for (const component of components) {
+        const local = getTerminalEntries([component]);
+        if (local.length !== 2) continue;
+        const candidate = analyzeTerminalPair(...local);
+        if (!candidate.retracesSingleEdge) addPair(...local);
+        else if (component.edges.length === 1) {
+            // A tiny isolated stroke is a stray-node candidate, not a bridge target.
+            if (candidate.referenceLength <= drawingLength * 0.005) {
+                local.forEach(({ node }) => excluded.add(node));
+            }
+        }
+    }
+    const remaining = terminals.filter(({ node }) => !excluded.has(node));
+    const pairs = pairNearestTerminalNodes(components, remaining);
+    for (const [first, second] of pairs) addPair(first, second, paired.has(first.node) || paired.has(second.node));
+    for (const entry of terminals) {
+        if (paired.has(entry.node) || excluded.has(entry.node)) continue;
+        const neighbor = findNearestTerminal(entry, remaining);
+        if (neighbor) addPair(entry, neighbor, true);
+    }
 
     return [
         ...closedAnalyses,
@@ -1627,7 +2027,7 @@ function analyzeContours(pathElements) {
     ];
 }
 
-function createContourBridge(analysis) {
+function createContourBridge(analysis, svgDocument) {
     if (
         !isRepairableContour(analysis)
     ) {
@@ -1641,8 +2041,18 @@ function createContourBridge(analysis) {
         return null;
     }
 
-    const svgDocument =
-        sourceElement.ownerDocument;
+    svgDocument ??= sourceElement.ownerDocument;
+    const sourceData = sourceElement.localName === "path" ? sourceElement.getAttribute("d") : null;
+    const parsed = sourceData && analysis.component.edges.length === 1
+        ? parseCurvePathData(sourceData, { extended: true }) : null;
+    const closeInPlace = parsed?.supported && parsed.subpathCount === 1 && !parsed.hasClose;
+    if (analysis.overshootPathData || closeInPlace) {
+        const index = getPathElements(sourceElement.ownerDocument).indexOf(sourceElement);
+        const workingPath = getPathElements(svgDocument)[index];
+        if (!workingPath || workingPath.localName !== "path") return null;
+        workingPath.setAttribute("d", analysis.overshootPathData ?? `${sourceData.trimEnd()} Z`);
+        return workingPath;
+    }
 
     const bridge = svgDocument.createElementNS(
         "http://www.w3.org/2000/svg",
@@ -1678,16 +2088,23 @@ function createContourBridge(analysis) {
         "stroke-linejoin",
         "vector-effect",
     ].forEach((attributeName) => {
-        const attributeValue =
-            sourceElement.getAttribute(attributeName);
+        let source = sourceElement;
+        while (source && !source.hasAttribute(attributeName)) {
+            source = source.parentElement;
+        }
+        const attributeValue = source?.getAttribute(attributeName);
 
-        if (attributeValue !== null) {
+        if (attributeValue != null && (source === sourceElement || attributeName.startsWith("stroke"))) {
             bridge.setAttribute(
                 attributeName,
                 attributeValue
             );
         }
     });
+
+    if (!bridge.hasAttribute("stroke") || bridge.getAttribute("stroke") === "none") {
+        bridge.setAttribute("stroke", "black");
+    }
 
     bridge.setAttribute(
         "data-pathseal-repair",
@@ -1717,7 +2134,9 @@ function isRepairableContour(analysis) {
     return Boolean(
         analysis?.hasSingleOpenGap &&
         analysis.endpoints &&
-        analysis.gapType !== "large-gap"
+        !analysis.retracesSingleEdge &&
+        Number.isFinite(analysis.gapDistance) &&
+        analysis.gapDistance > 0
     );
 }
 function closePathData(pathData) {
@@ -1802,21 +2221,25 @@ function validateRepairedPaths(repairs) {
     };
 }
 
-return { parseSvg, getPathElements, getPathData, isPathExplicitlyClosed, tokenizePathData, getPathEndpoints, getEndpointDistance, getPathReferenceLength, getDrawingReferenceLength, pointsAreNear, getConnectionTolerance, buildEndpointGraph, getConnectedEdgeComponents, getComponentTerminalNodes, getComponentReferenceLength, analyzeComponent, pairNearestTerminalNodes, analyzeContours, createContourBridge, classifyGap, isRepairableContour, closePathData, updatePathData, serializeSvg, analyzePath, validateSvgText, validateRepairedPaths };
+return { parseSvg, getPathElements, getPathData, isPathExplicitlyClosed, tokenizePathData, getPathEndpoints, splitPathData, getEndpointDistance, getPathReferenceLength, getDrawingReferenceLength, pointsAreNear, getConnectionTolerance, buildEndpointGraph, getConnectedEdgeComponents, getComponentTerminalNodes, getComponentReferenceLength, analyzeComponent, pairNearestTerminalNodes, analyzeContours, createContourBridge, classifyGap, isRepairableContour, closePathData, updatePathData, serializeSvg, analyzePath, validateSvgText, validateRepairedPaths };
 })();
 
 // Source: modules/strayNodeRepairExecution.js
 const module8 = (() => {
-const { inspectStrayNodeSvg, normalizeSvgGeometry } = module4;
-const { createStrayNodePreviewModel } = module6;
-const { planExactCoincidentNodeRepairs } = module7;
-const { parseSvg, serializeSvg, validateSvgText } = module9;
+const { getStrayCircleGeometry, inspectStrayNodeSvg, normalizeSvgGeometry } = module4;
+const { createStrayNodePreviewModel } = module7;
+const { planExactCoincidentNodeRepairs } = module9;
+const { parseSvg, serializeSvg, validateSvgText } = module10;
 
 // Adapt an in-memory document to the existing analysis/preview APIs. No serialization.
 function inspectWorkingDocument(document) {
     const options = { DOMParser: class { parseFromString() { return document; } } };
     const inspection = inspectStrayNodeSvg("<svg/>", options);
-    const previewModel = createStrayNodePreviewModel("<svg/>", options);
+    let previewModel = null;
+    try { previewModel = createStrayNodePreviewModel("<svg/>", options); }
+    catch (error) {
+        if (error.message !== "No safely renderable geometry is available for preview.") throw error;
+    }
     return { inspection, previewModel };
 }
 
@@ -1827,7 +2250,53 @@ function geometry(document) {
 function planFor(document) {
     const { inspection } = inspectWorkingDocument(document);
     const normalized = geometry(document).map(normalizeSvgGeometry);
-    return planExactCoincidentNodeRepairs(normalized.filter(({ supported }) => supported).map(({ element }) => element), inspection);
+    const plan = planExactCoincidentNodeRepairs(normalized.filter(({ supported }) => supported).map(({ element }) => element), inspection);
+    const marks = findMarkProposals(document, inspection);
+    return {
+        ...plan,
+        proposals: [...plan.proposals, ...marks],
+        rejections: plan.rejections.filter(({ classification, elementId }) =>
+            classification !== "small-detached-mark" || !marks.some(({ elementRef }) => elementRef.id === elementId)),
+    };
+}
+
+function findMarkProposals(document, inspection) {
+    const all = [...document.querySelectorAll("*")];
+    if (document.doctype || all.some((node) => ["style", "script", "use", "set", "animate", "animateTransform", "animateMotion", "foreignObject"].includes(node.localName)
+        || [...(node.attributes ?? [])].some(({ name }) => /^(?:style|href|xlink:href|on)/i.test(name)))) return [];
+    const circles = getStrayCircleGeometry(document);
+    const linearNodes = geometry(document);
+    const allowed = new Set(["cx", "cy", "r", "d", "points", "x1", "y1", "x2", "y2", "fill", "stroke", "stroke-width"]);
+    return inspection.findings.filter(({ classification }) => classification === "small-detached-mark").flatMap((finding) => {
+        const matching = finding.elementType === "circle"
+            ? circles.filter(({ element }) => element.id === finding.elementId).map(({ node }) => node)
+            : linearNodes.filter((node, index) =>
+            (node.getAttribute("id") || `${node.localName}-${index + 1}`) === finding.elementId
+            && node.localName === finding.elementType);
+        const [node] = matching;
+        if (matching.length !== 1 || node.children.length
+            || [...node.attributes].some(({ name }) => !allowed.has(name))
+            || node.closest("[transform], defs, symbol, clipPath, mask, pattern, marker, [clip-path], [mask], [filter]")) return [];
+        const index = all.indexOf(node);
+        if (index === -1) return [];
+        return [{
+            id: `remove-standalone-mark:${index}`,
+            kind: "remove-standalone-mark",
+            elementRef: { id: finding.elementId, type: finding.elementType },
+            sourceRef: { index },
+            before: { coordinate: finding.measurements.point ?? finding.measurements.start, description: "Small standalone geometry." },
+            after: { description: "Remove this entire mark from the drawing." },
+            requiresReview: true,
+            safeToAutoApply: false,
+        }];
+    });
+}
+
+function restoreMarks(document, removals) {
+    for (const { parentIndex, childIndex, sourceNode } of [...removals].reverse()) {
+        const parent = document.querySelectorAll("*")[parentIndex];
+        parent.insertBefore(sourceNode.cloneNode(true), parent.childNodes[childIndex] ?? null);
+    }
 }
 
 function unchangedTrace(nodes) {
@@ -1843,6 +2312,7 @@ function createStrayNodeRepairSession(source, { DOMParser: Parser = globalThis.D
     let acceptedDocument = null;
     let successfulRepairs = [];
     let acceptedChanges = [];
+    let acceptedRemovals = [];
 
     function validateRecordedRepairs(document, recordedCount) {
         if (!completed || !acceptedDocument || !Number.isInteger(recordedCount)
@@ -1851,22 +2321,27 @@ function createStrayNodeRepairSession(source, { DOMParser: Parser = globalThis.D
             throw new Error("Final validation failed: successful repair count does not match the repair record.");
         }
         inspectWorkingDocument(document);
-        const comparison = document.cloneNode(true);
-        const nodes = geometry(comparison);
+        const expected = original.cloneNode(true);
+        const nodes = geometry(expected);
         const originalNodes = geometry(original);
-        let actualCount = 0;
-        for (const { index, oldPoints, newPoints } of acceptedChanges) {
-            if (nodes[index]?.getAttribute("points") !== newPoints) throw new Error("Final validation failed: repaired coordinates changed.");
+        let actualCount = acceptedRemovals.length;
+        for (const { index, newPoints } of acceptedChanges) {
+            nodes[index].setAttribute("points", newPoints);
             actualCount += normalizeSvgGeometry(originalNodes[index], index).element.nodes.length
                 - normalizeSvgGeometry(nodes[index], index).element.nodes.length;
-            nodes[index].setAttribute("points", oldPoints);
         }
-        if (actualCount !== recordedCount || !comparison.isEqualNode(original)) {
+        const elements = [...expected.querySelectorAll("*")];
+        for (const { sourceIndex } of acceptedRemovals) elements[sourceIndex].remove();
+        expected.normalize?.();
+        const comparison = document.cloneNode(true);
+        comparison.normalize?.();
+        if (actualCount !== recordedCount || !comparison.isEqualNode(expected)) {
             throw new Error("Final validation failed: repair count or unchanged geometry differs.");
         }
     }
 
     return {
+        get plan() { return structuredClone(initialPlan); },
         get workingDocument() { return acceptedDocument?.cloneNode(true) || null; },
         prepareDownload(recordedCount) {
             validateRecordedRepairs(acceptedDocument, recordedCount);
@@ -1900,6 +2375,7 @@ function createStrayNodeRepairSession(source, { DOMParser: Parser = globalThis.D
                 const workingGeometry = geometry(working);
                 const groups = new Map();
                 for (const proposal of selected) {
+                    if (proposal.kind === "remove-standalone-mark") continue;
                     const index = originalGeometry.findIndex((node, position) => normalizeSvgGeometry(node, position).element.id === proposal.elementRef.id);
                     const group = groups.get(index) || [];
                     group.push(proposal);
@@ -1945,11 +2421,25 @@ function createStrayNodeRepairSession(source, { DOMParser: Parser = globalThis.D
                     }
                     changed.push({ index, oldPoints, newPoints });
                 }
+                const all = [...working.querySelectorAll("*")];
+                const removals = [];
+                for (const { sourceRef } of selected.filter(({ kind }) => kind === "remove-standalone-mark")) {
+                    const node = all[sourceRef.index];
+                    const parent = node.parentElement;
+                    removals.push({
+                        sourceIndex: sourceRef.index,
+                        parentIndex: [...working.querySelectorAll("*")].indexOf(parent),
+                        childIndex: [...parent.childNodes].indexOf(node),
+                        sourceNode: node.cloneNode(true),
+                    });
+                    node.remove();
+                }
                 // Reinspect before committing. The caller can also validate staged preview rendering.
                 const view = inspectWorkingDocument(working);
                 if (validateWorkingCopy(working, view) !== true) throw new Error("Working copy validation failed.");
                 // Prove that every other attribute, element and unsupported subtree is untouched.
                 const comparison = working.cloneNode(true);
+                restoreMarks(comparison, removals);
                 const comparisonGeometry = geometry(comparison);
                 for (const { index, oldPoints, newPoints } of changed) {
                     if (comparisonGeometry[index]?.getAttribute("points") !== newPoints) throw new Error("Repair validation failed: repaired points changed.");
@@ -1958,8 +2448,10 @@ function createStrayNodeRepairSession(source, { DOMParser: Parser = globalThis.D
                 if (!comparison.isEqualNode(original)) throw new Error("Repair validation failed: unrelated SVG content changed.");
                 completed = true;
                 acceptedDocument = working.cloneNode(true);
+                if (removals.length) acceptedDocument.normalize();
                 successfulRepairs = selected.map(({ id }) => id);
                 acceptedChanges = changed;
+                acceptedRemovals = removals;
                 return { ok: true, executedCount: selected.length, skippedCount: 0, workingDocument: working, ...view };
             } catch (error) {
                 return refused(error?.message || "Repair failed. The working copy was discarded.");
@@ -1972,7 +2464,7 @@ return { inspectWorkingDocument, createStrayNodeRepairSession };
 })();
 
 // Source: modules/strayNodeDownload.js
-const module10 = (() => {
+const module11 = (() => {
 function cleanedSvgFilename(originalName) {
     const basename = String(originalName || "drawing.svg").split(/[\\/]/).pop();
     const stem = basename.replace(/\.svg$/i, "").replace(/[<>:"|?*\x00-\x1f]/g, "_").trim() || "drawing";
@@ -2002,7 +2494,7 @@ return { cleanedSvgFilename, downloadCleanedSvg };
 })();
 
 // Source: modules/accessFoundation.js
-const module12 = (() => {
+const module13 = (() => {
 const { PRODUCT_MANIFEST, UNIVERSAL_ENTITLEMENT_ID } = module2;
 
 const HUB_ROUTE = "index.html";
@@ -2040,8 +2532,8 @@ return { HUB_ROUTE, validateReturnDestination, deriveToolAccessState };
 })();
 
 // Source: modules/strayNodeAccess.js
-const module11 = (() => {
-const { deriveToolAccessState } = module12;
+const module12 = (() => {
+const { deriveToolAccessState } = module13;
 const { getProduct } = module2;
 
 const PRODUCT_ID = "stray_node_cleaner";
@@ -2096,14 +2588,15 @@ const {
     getFindingPreviewKey,
     renderStrayNodePreview,
     setPreviewHighlight,
-} = module6;
-const { planExactCoincidentNodeRepairs } = module7;
+} = module7;
 const { createStrayNodeRepairSession } = module8;
-const { downloadCleanedSvg } = module10;
-const { runWithFreshStrayNodeAccess } = module11;
+const { downloadCleanedSvg } = module11;
+const { runWithFreshStrayNodeAccess } = module12;
 
 const CATEGORY_LABELS = Object.freeze({
     "coincident-node": "Coincident nodes",
+    "isolated-node": "Isolated nodes",
+    "small-detached-mark": "Possible stray marks",
     "near-coincident-node": "Near-coincident nodes",
     "microscopic-segment": "Microscopic segments",
     "isolated-endpoints": "Open endpoints",
@@ -2145,6 +2638,8 @@ function describeFindingLocation(finding) {
     const start = formatPoint(measurements.start);
     const end = formatPoint(measurements.end);
     if (start && end) details.push(`endpoints ${start} to ${end}`);
+    const point = formatPoint(measurements.point);
+    if (point) details.push(`point ${point}`);
     if (Number.isInteger(measurements.nodeCount)) {
         details.push(`${measurements.nodeCount} analysis node${measurements.nodeCount === 1 ? "" : "s"} available`);
     }
@@ -2186,7 +2681,8 @@ function buildRepairProposalPresentation(proposal) {
     return {
         id: proposal.id,
         geometry: `${proposal.elementRef.type} #${proposal.elementRef.id}`,
-        location: `Segment ${proposal.sourceRef.segmentIndex + 1}; redundant node ${proposal.sourceRef.redundantNodeIndex + 1}`,
+        location: proposal.kind === "remove-standalone-mark" ? "Entire standalone mark"
+            : `Segment ${proposal.sourceRef.segmentIndex + 1}; redundant node ${proposal.sourceRef.redundantNodeIndex + 1}`,
         coordinate: formatPoint(proposal.before.coordinate),
         before: proposal.before.description,
         after: proposal.after.description,
@@ -2344,7 +2840,7 @@ function initializeStrayNodePage({ refreshSession } = {}) {
         card.dataset.proposalId = presentation.id;
         const title = document.createElement("h4");
         title.className = "eco-heading";
-        title.textContent = "Proposed exact coincident-node cleanup";
+        title.textContent = proposal.kind === "remove-standalone-mark" ? "Proposed stray mark removal" : "Proposed exact coincident-node cleanup";
         const review = document.createElement("p");
         review.className = "eco-status eco-status--accent";
         review.textContent = presentation.reviewLabel;
@@ -2353,9 +2849,11 @@ function initializeStrayNodePage({ refreshSession } = {}) {
         const location = document.createElement("p");
         location.textContent = `Source location: ${presentation.location}; coordinate ${presentation.coordinate}.`;
         const before = document.createElement("p");
-        before.textContent = `Before (${presentation.beforeNodeCount} nodes): ${presentation.before}`;
+        before.textContent = presentation.beforeNodeCount === undefined ? presentation.before
+            : `Before (${presentation.beforeNodeCount} nodes): ${presentation.before}`;
         const after = document.createElement("p");
-        after.textContent = `Proposed result (${presentation.afterNodeCount} nodes): ${presentation.after}`;
+        after.textContent = presentation.afterNodeCount === undefined ? presentation.after
+            : `Proposed result (${presentation.afterNodeCount} nodes): ${presentation.after}`;
         const option = document.createElement("label");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -2411,13 +2909,15 @@ function initializeStrayNodePage({ refreshSession } = {}) {
             const outcome = repairSession.execute(selectedIds, (_working, { previewModel }) => {
                 // Stage rendering before accepting the batch; a failure leaves the displayed review intact.
                 const staged = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-                renderStrayNodePreview(staged, previewModel);
+                if (previewModel) renderStrayNodePreview(staged, previewModel);
                 return true;
             });
             executionStatus.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped. ${outcome.ok ? "Working copy validated. Original upload preserved." : `${outcome.reason} Working copy discarded; original upload preserved.`}`;
             if (!outcome.ok) return;
             repaired = true;
-            const rendered = renderStrayNodePreview(previewSvg, outcome.previewModel);
+            previewSvg.replaceChildren();
+            const rendered = outcome.previewModel ? renderStrayNodePreview(previewSvg, outcome.previewModel) : new Map();
+            previewPanel.hidden = !outcome.previewModel;
             previewStatus.textContent = "Validated repaired working copy. Select a remaining finding to highlight its geometry.";
             renderCategories(summarizeFindingCategories(outcome.inspection.findings));
             findings.replaceChildren(...outcome.inspection.findings.map((finding) => renderFinding(finding, outcome.previewModel, rendered)));
@@ -2487,11 +2987,9 @@ function initializeStrayNodePage({ refreshSession } = {}) {
             } catch {
                 previewStatus.textContent = "No safely renderable geometry is available. Findings remain text-only.";
             }
-            const repairPlan = planExactCoincidentNodeRepairs(
-                previewModelToPlannerElements(previewModel),
-                inspection
-            );
-            repairSession = repairPlan.proposals.length ? createStrayNodeRepairSession(source) : null;
+            const session = createStrayNodeRepairSession(source);
+            const repairPlan = session.plan;
+            repairSession = repairPlan.proposals.length ? session : null;
             renderCategories(summarizeFindingCategories(inspection.findings));
             renderRepairPlan(repairPlan);
             findings.replaceChildren(...inspection.findings.map((finding) =>
