@@ -3,7 +3,8 @@ const pointText = ({ x, y }) => `${x},${y}`;
 
 function commandText(command) {
     if (command.type === "Z") return "Z";
-    if (command.type === "C") return `C ${command.controls.map(pointText).join(" ")} ${pointText(command.end)}`;
+    if (["C", "Q"].includes(command.type)) return `${command.type} ${command.controls.map(pointText).join(" ")} ${pointText(command.end)}`;
+    if (command.type === "A") return `A ${command.arc.join(" ")} ${pointText(command.end)}`;
     return `${command.type} ${pointText(command.end)}`;
 }
 
@@ -15,9 +16,10 @@ export function renderCurvePreview(svg, paths, findings) {
     const pathNodes = new Map(), markers = new Map();
     let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
     for (const path of visible) for (const command of path.parsed.commands) {
+        const extent = command.arc ? Math.max(Number(command.arc[0]), Number(command.arc[1])) : 0;
         for (const point of [command.end, ...(command.controls || [])]) {
-            left = Math.min(left, point.x); top = Math.min(top, point.y);
-            right = Math.max(right, point.x); bottom = Math.max(bottom, point.y);
+            left = Math.min(left, point.x - extent); top = Math.min(top, point.y - extent);
+            right = Math.max(right, point.x + extent); bottom = Math.max(bottom, point.y + extent);
         }
     }
     if (!Number.isFinite(left)) { svg.setAttribute("viewBox", "0 0 100 100"); return { pathNodes, markers }; }
@@ -33,12 +35,13 @@ export function renderCurvePreview(svg, paths, findings) {
     }
     for (const finding of findings) {
         const path = paths[finding.pathIndex];
-        const segment = path?.previewable ? path.parsed.commands[finding.segmentIndex] : null;
-        if (!segment || segment.type !== "C") continue;
+        const segment = path?.previewable ? path.parsed.commands[finding.segmentIndex ?? 1] : null;
+        if (!segment || (!finding.replacement && segment.type !== "C")) continue;
         const overlay = svg.ownerDocument.createElementNS(NS, "path");
-        overlay.setAttribute("d", `M ${pointText(segment.start)} ${commandText(segment)}`);
+        overlay.setAttribute("d", finding.replacement || `M ${pointText(segment.start)} ${commandText(segment)}`);
         overlay.setAttribute("fill", "none"); overlay.setAttribute("stroke", "#64748b");
         overlay.setAttribute("stroke-width", "2"); overlay.setAttribute("vector-effect", "non-scaling-stroke");
+        if (finding.replacement) overlay.setAttribute("stroke-dasharray", "5 4");
         const marker = svg.ownerDocument.createElementNS(NS, "circle");
         marker.setAttribute("cx", String(segment.start.x)); marker.setAttribute("cy", String(segment.start.y));
         marker.setAttribute("r", String(span * 0.014)); marker.setAttribute("fill", "#64748b");

@@ -206,6 +206,30 @@ try {
             await repaired(s, tools[0]);
         } finally { await s.context.close(); }
     });
+    await check("PathSeal: a leading moveto does not prevent closing the arc in its own path", async () => {
+        const s = await session({ entitlements: ["pathseal"] });
+        try {
+            await open(s, tools[0], false);
+            const source = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><path d="M200,330 m-55,0 a55,55 0 1,1 54.7,-4.2" fill="none" stroke="black"/></svg>';
+            await s.page.locator(tools[0].input).setInputFiles({
+                name: "arc-gap.svg", mimeType: "image/svg+xml", buffer: Buffer.from(source),
+            });
+            await s.page.waitForFunction(() => Number(document.querySelector("#open-paths-found").textContent) > 0);
+            await s.page.locator("#open-paths-card").click();
+            const box = s.page.locator('#open-path-list input[type="checkbox"]');
+            assert.equal(await box.isChecked(), false);
+            assert.match(await s.page.locator("#open-path-list").innerText(), /54\.86 unit gap/);
+            await box.check();
+            await repaired(s, tools[0]);
+            const downloading = s.page.waitForEvent("download");
+            await s.page.locator(tools[0].download).click();
+            const chunks = [];
+            for await (const chunk of await (await downloading).createReadStream()) chunks.push(chunk);
+            const output = Buffer.concat(chunks).toString("utf8");
+            assert.match(output, /a55,55 0 1,1 54\.7,-4\.2 Z/);
+            assert.doesNotMatch(output, /data-pathseal-repair/);
+        } finally { await s.context.close(); }
+    });
     await check("Tool 2: finds standalone and embedded duplicate cuts in path data", async () => {
         const s = await session({ entitlements: ["duplicate_geometry"] });
         try {

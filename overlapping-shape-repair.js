@@ -38,7 +38,7 @@ export function initializeOverlappingShapePage({ refreshSession } = {}) {
         downloadButton.disabled = pending || !downloadReady;
         selection.textContent = completed
             ? "0 proposals selected. This repair batch is complete; upload an SVG to begin another review."
-            : `${selected.length} of ${eligible.size} eligible removal proposals selected. Nothing changes before an authorized repair.`;
+            : `${selected.length} of ${eligible.size} eligible repairs selected.`;
     }
     function reset() {
         session = null;
@@ -60,7 +60,8 @@ export function initializeOverlappingShapePage({ refreshSession } = {}) {
     function renderInspection(inspection) {
         const rendered = renderOverlappingPreview(preview, inspection.shapes);
         eligible = new Set(completed ? [] : inspection.proposals.map(({ id }) => id));
-        const labels = { "exact-duplicate": "Exact duplicate geometry", "outline-crossing": "Outline crossing — manual review", "possible-overlap": "Possible overlap — manual review", "unsupported-geometry": "Unsupported geometry — manual review" };
+        const proposals = new Map(inspection.proposals.map((proposal) => [proposal.id, proposal]));
+        const labels = { "exact-duplicate": "Exact duplicate geometry", "outline-crossing": "Outline crossing — manual review", "join-circle-tabs": "Join tabs to circle", "possible-overlap": "Possible overlap — manual review", "unsupported-geometry": "Unsupported geometry — manual review" };
         list.replaceChildren(...inspection.findings.map((finding) => {
             const card = document.createElement("article");
             card.className = "eco-card";
@@ -80,7 +81,8 @@ export function initializeOverlappingShapePage({ refreshSession } = {}) {
                 checkbox.checked = false;
                 checkbox.dataset.proposalId = finding.proposalId;
                 checkbox.addEventListener("change", updateSelection);
-                option.append(checkbox, ` Select removal proposal for finding ${finding.number} (keep the first shape).`);
+                option.append(checkbox, finding.kind === "join-circle-tabs" ? " Select this outline join."
+                    : ` Select removal proposal for finding ${finding.number} (keep the first shape).`);
                 card.append(option);
             } else {
                 const note = document.createElement("p");
@@ -95,9 +97,23 @@ export function initializeOverlappingShapePage({ refreshSession } = {}) {
                 const highlight = document.createElement("button");
                 highlight.type = "button";
                 highlight.className = "eco-button eco-button--secondary";
-                highlight.textContent = `Highlight geometry for finding ${finding.number}`;
+                const proposal = proposals.get(finding.proposalId);
+                highlight.textContent = proposal?.kind === "join-circle-tabs"
+                    ? "Preview joined outline" : `Highlight geometry for finding ${finding.number}`;
                 highlight.addEventListener("click", () => {
+                    preview.querySelector("[data-join-preview]")?.remove();
                     highlightOverlappingFinding(rendered, mapped);
+                    if (proposal?.kind === "join-circle-tabs") {
+                        const outline = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                        outline.setAttribute("data-join-preview", "");
+                        outline.setAttribute("d", proposal.outline);
+                        outline.setAttribute("fill", "none");
+                        outline.setAttribute("stroke", "#2563eb");
+                        outline.setAttribute("stroke-width", "2");
+                        outline.setAttribute("stroke-dasharray", "5 4");
+                        outline.setAttribute("vector-effect", "non-scaling-stroke");
+                        preview.append(outline);
+                    }
                     previewStatus.textContent = `Finding ${finding.number}: highlighted source shapes ${mapped.map((index) => index + 1).join(", ")}. The original SVG is unchanged.`;
                 });
                 card.append(highlight);
@@ -146,7 +162,7 @@ export function initializeOverlappingShapePage({ refreshSession } = {}) {
             renderInspection(outcome.inspection);
             previewStatus.textContent = "Validated repaired working copy. Remaining findings can still be highlighted.";
             results.dataset.state = "repaired";
-            status.textContent = "Selected safe rectangle removals completed and validated.";
+            status.textContent = "Selected outline repairs completed and validated.";
             summary.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped; ${outcome.inspection.findings.length} findings remain. Unselected and unsupported geometry preserved.`;
             validation.textContent = "SVG, removal count, unchanged content and serialization round-trip validation passed. Download is ready.";
         });

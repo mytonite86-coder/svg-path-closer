@@ -701,7 +701,7 @@ export function createContourBridge(analysis, svgDocument) {
     const sourceData = sourceElement.localName === "path" ? sourceElement.getAttribute("d") : null;
     const parsed = sourceData && analysis.component.edges.length === 1
         ? parseCurvePathData(sourceData, { extended: true }) : null;
-    const closeInPlace = parsed?.supported && parsed.subpathCount === 1 && !parsed.hasClose;
+    const closeInPlace = parsed?.supported && !parsed.hasClose && splitPathData(sourceData).length === 1;
     if (analysis.overshootPathData || closeInPlace) {
         const index = getPathElements(sourceElement.ownerDocument).indexOf(sourceElement);
         const workingPath = getPathElements(svgDocument)[index];

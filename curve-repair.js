@@ -39,7 +39,8 @@ export function initializeCurvePage({ refreshSession } = {}) {
         list.replaceChildren(...inspection.findings.map((finding) => {
             const card = document.createElement("article"); card.className = "eco-card"; card.dataset.findingId = finding.id;
             const title = document.createElement("h3"); title.className = "eco-heading";
-            title.textContent = `Finding ${finding.number}: ${finding.proposalId ? "Geometry-preserving cubic proposal" : "Manual review warning"}`;
+            title.textContent = `Finding ${finding.number}: ${finding.replacement ? "Proposed smoothed outline"
+                : finding.proposalId ? "Geometry-preserving cubic proposal" : "Manual review warning"}`;
             const location = document.createElement("p");
             location.textContent = `${inspection.paths[finding.pathIndex]?.label || "Additional paths"}${finding.segmentIndex === null ? "" : `; command ${finding.segmentIndex + 1}`}`;
             const reason = document.createElement("p"); reason.textContent = finding.reason;
@@ -48,7 +49,8 @@ export function initializeCurvePage({ refreshSession } = {}) {
                 const option = document.createElement("label"), input = document.createElement("input");
                 input.type = "checkbox"; input.checked = false; input.dataset.proposalId = finding.proposalId;
                 input.addEventListener("change", updateSelection);
-                option.append(input, ` Select proposed redundant segment removal for finding ${finding.number}.`); card.append(option);
+                option.append(input, finding.replacement ? " Select this fitted outline. This changes the cut geometry."
+                    : ` Select proposed redundant segment removal for finding ${finding.number}.`); card.append(option);
             } else {
                 const note = document.createElement("p"); note.className = "eco-muted";
                 note.textContent = completed && finding.proposalId ? "Not included in the completed batch. Upload an SVG to begin another review."
