@@ -4,6 +4,7 @@ import { activateSvgLifetime } from "./modules/svgActivation.js";
 import { PRODUCT_MANIFEST } from "./modules/productManifest.js";
 import { deriveToolAccessState, validateReturnDestination } from "./modules/accessFoundation.js";
 import { formatUsd, requestSvgSubscriptionQuote } from "./modules/svgSubscription.js?v=selector-20260820";
+import { initializePasswordRecovery } from "./modules/passwordRecovery.js";
 
 const cards = document.querySelector("#tool-cards");
 const status = document.querySelector("#subscription-status");
@@ -98,6 +99,7 @@ document.querySelector("#hub-login").addEventListener("click", () => authenticat
 document.querySelector("#hub-register").addEventListener("click", () => authenticate(true));
 document.querySelector("#hub-logout").addEventListener("click", () => { clearSession(); authorityAvailable = true; render(); });
 render();
+initializePasswordRecovery({ email, onComplete: render });
 if (getCurrentUser()) { accountStatus.textContent = "Checking account status…"; try { await refreshSession(); } catch { authorityAvailable = Boolean(getCurrentUser()) ? false : true; } render(); }
 
 checkoutButton.addEventListener("click", async () => {

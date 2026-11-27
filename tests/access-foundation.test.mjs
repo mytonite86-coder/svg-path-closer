@@ -55,7 +55,8 @@ test("hub retains account/session presentation without checkout wiring", async (
     for (const id of ["hub-account-status", "hub-account-fields", "hub-account-session", "hub-login", "hub-register", "hub-logout", "tool-cards"]) {
         assert.match(hub, new RegExp(`id="${id}"`));
     }
-    assert.match(hub, /src="ecosystem\.js\?v=access-foundation-1"/);
+    assert.match(hub, /src="ecosystem\.js\?v=[^"]+"/);
+    assert.match(hub, /id="hub-forgot-password"/);
     assert.match(hubScript, /login, registerAccount, refreshSession, clearSession, getCurrentUser/);
     assert.match(hubScript, /!RELEASE_FLAGS\.svgSubscriptionCheckout/);
     assert.match(hubScript, /checkoutButton\.hidden = !RELEASE_FLAGS\.svgSubscriptionCheckout/);
