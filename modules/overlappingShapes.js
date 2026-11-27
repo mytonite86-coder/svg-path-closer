@@ -1,4 +1,5 @@
 import { parseCurvePathData } from "./curveAnalyzer.js";
+import { buildCircleTabOutline } from "./circleTabJoin.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SELECTOR = "rect,circle,ellipse,path,polygon,polyline,line,text,image,use";
@@ -41,7 +42,20 @@ function normalize(node, index) {
     }
     if (type === "path") {
         const bounds = rectanglePathBounds(node);
-        if (!bounds) return { ...base, reason: "Path is outside the supported rectangular path geometry." };
+        if (!bounds) {
+            const d = node.getAttribute("d");
+            const parsed = parseCurvePathData(d, { extended: true });
+            if (!parsed.supported) return { ...base, reason: "Path is outside the supported rectangular path geometry." };
+            const points = parsed.commands.flatMap(({ end, controls = [], arc }) => {
+                if (!arc) return [end, ...controls];
+                const pad = Math.max(Number(arc[0]), Number(arc[1]));
+                return [{ x: end.x - pad, y: end.y - pad }, { x: end.x + pad, y: end.y + pad }];
+            });
+            const xs = points.map(({ x }) => x), ys = points.map(({ y }) => y);
+            const x = Math.min(...xs), y = Math.min(...ys);
+            return { ...base, geometry: { d }, bounds: { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y },
+                reason: "Curved path is shown for review. Its geometry is outside the rectangular overlap scan." };
+        }
         const { x, y, width, height } = bounds;
         return { ...base, bounds, geometry: { d: `M${x} ${y} H${x + width} V${y + height} H${x} Z` },
             exactKey: `rect-path:${Object.values(bounds).join("|")}`, reason: null };
@@ -78,6 +92,22 @@ function circleCrossesRectangle({ cx, cy, r }, { x, y, width, height }) {
     }
     return crosses(cx, cy, x, x + width, y) || crosses(cx, cy, x, x + width, y + height)
         || crosses(cy, cx, y, y + height, x) || crosses(cy, cx, y, y + height, x + width);
+}
+
+function canJoinCircleTabs(nodes, indexes, documentRisk) {
+    if (documentRisk) return false;
+    const elements = indexes.map((index) => nodes[index]);
+    const root = elements[0].ownerDocument?.documentElement;
+    if (!root || attributes(root).some(([name]) => !ROOT_ATTRIBUTES.has(name))) return false;
+    const presentation = (node) => attributes(node)
+        .filter(([name]) => !["d", "cx", "cy", "r", "x", "y", "width", "height"].includes(name));
+    const first = elements[0];
+    const signature = (node) => JSON.stringify(presentation(node).sort(([a], [b]) => a.localeCompare(b)));
+    return elements.every((node) => node.parentElement === root && !node.children.length
+        && node.getAttribute("fill") === "none"
+        && OPAQUE_COLOR.test(node.getAttribute("stroke") || "")
+        && presentation(node).every(([name]) => ["fill", "stroke", "stroke-width"].includes(name))
+        && signature(node) === signature(first));
 }
 
 function safeRemoval(first, duplicate, documentRisk) {
@@ -134,7 +164,7 @@ export function inspectOverlappingDocument(document) {
     }
     if (nodes.length > shapes.length) add("unsupported-geometry", [], "Only the first 300 shapes were inspected. Remaining geometry requires manual review.");
     const canonical = new Map();
-    for (const shape of shapes.filter(({ bounds }) => bounds)) {
+    for (const shape of shapes.filter(({ exactKey }) => exactKey)) {
         const first = canonical.get(shape.exactKey);
         if (!first) { canonical.set(shape.exactKey, shape); continue; }
         const risk = safeRemoval(nodes[first.index], nodes[shape.index], documentRisk);
@@ -143,6 +173,7 @@ export function inspectOverlappingDocument(document) {
         });
     }
     const unique = [...canonical.values()];
+    const crossings = new Map();
     let capped = false;
     for (let a = 0; a < unique.length && !capped; a++) {
         for (let b = a + 1; b < unique.length; b++) {
@@ -153,6 +184,9 @@ export function inspectOverlappingDocument(document) {
             if (circle && ["rect", "path"].includes(rectangle.type) && circleCrossesRectangle(circle.geometry, rectangle.bounds)) {
                 if (findings.length >= 500) { capped = true; break; }
                 add("outline-crossing", [first.index, second.index], "The circle outline crosses a rectangle edge. Review where to join or trim both contours.");
+                const entries = crossings.get(circle) ?? [];
+                entries.push({ rectangle, finding: findings.at(-1) });
+                crossings.set(circle, entries);
                 continue;
             }
             if (first.type === "circle" && second.type === "circle"
@@ -168,6 +202,24 @@ export function inspectOverlappingDocument(document) {
                 add("possible-overlap", [first.index, second.index], "Drawing bounds overlap. Partial intersection, containment, or equivalent geometry is ambiguous; bounds alone do not prove an intersection or a safe removal.");
             }
         }
+    }
+    for (const [circle, entries] of crossings) {
+        const tabIndexes = entries.map(({ rectangle }) => rectangle.index);
+        const indexes = [circle.index, ...tabIndexes];
+        if (shapes.filter(({ exactKey }) => exactKey === circle.exactKey).length !== 1) {
+            for (const { finding } of entries) finding.reason += " Remove stacked copies of the circle before joining the tabs.";
+            continue;
+        }
+        if (shapes.some((shape) => tabIndexes.includes(shape.index)
+            && shapes.some((other) => other.index !== shape.index && other.exactKey === shape.exactKey))
+            || [...crossings.values()].flat().filter(({ rectangle }) => tabIndexes.includes(rectangle.index)).length !== entries.length
+            || !canJoinCircleTabs(nodes, indexes, documentRisk)) continue;
+        const outline = buildCircleTabOutline(circle.geometry, entries.map(({ rectangle }) => rectangle.bounds));
+        if (!outline) continue;
+        const id = `join-circle-tabs:${circle.index}`;
+        add("join-circle-tabs", indexes, "Join the proposed tabs into one closed outer contour. The portions inside the circle will be removed.", {
+            id, kind: "join-circle-tabs", keptIndex: circle.index, tabIndexes, outline,
+        });
     }
     if (capped) add("unsupported-geometry", [], "Finding limit reached; additional pairs require manual review.");
     return { productId: "overlapping_shape_repair", shapeCount: nodes.length, inspectedCount: shapes.length, shapes, findings, proposals };

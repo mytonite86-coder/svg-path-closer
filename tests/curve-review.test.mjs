@@ -131,6 +131,32 @@ test("legitimate curved paths and sharp corners are not smoothed, closed or prop
     assert.equal(document.querySelectorAll("path")[0].getAttribute("d"), data);
 });
 
+test("round polylines and alternating kinks expose fitted geometry for explicit review", () => {
+    const ring = Array.from({ length: 16 }, (_, index) => {
+        const t = index * Math.PI / 8;
+        return `${Math.round(60 * Math.cos(t))},${Math.round(65 * Math.sin(t))}`;
+    });
+    const closed = `M${ring[0]} L${ring.slice(1).join(" ")} Z`;
+    const jagged = "M0 0 L10 -4 L20 4 L30 -4 L40 4 L50 -4 L60 0";
+    const result = inspectCurveDocument(doc([
+        path(closed, { fill: "none", stroke: "black", "stroke-width": "2" }),
+        path(jagged, { fill: "none", stroke: "black", "stroke-width": "2" }),
+    ]));
+    assert.equal(result.proposals.length, 2);
+    assert.ok(result.proposals.every((proposal) => proposal.requiresReview && !proposal.preservesGeometry));
+    assert.match(result.proposals[0].replacement, / A .* Z$/);
+    assert.match(result.proposals[1].replacement, /^M 0 0 C .* 60 0$/);
+});
+
+test("plain closed fills and explicitly sized solid strokes expose redundant cubic proposals", () => {
+    const closed = ABS + " L20 100 Z";
+    const result = inspectCurveDocument(doc([
+        new Element("path", { d: closed, fill: "black" }),
+        path(ABS, { fill: "none", stroke: "black", "stroke-width": "3" }),
+    ]));
+    assert.deepEqual(result.proposals.map(({ kind }) => kind), ["remove-collapsed-cubic", "remove-collapsed-cubic"]);
+});
+
 test("preview uses numeric geometry and locates a collapsed segment with a numbered point marker", () => {
     const inspection = inspectCurveDocument(doc([path()]));
     const children = [];

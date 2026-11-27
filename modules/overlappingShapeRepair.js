@@ -55,8 +55,10 @@ export function createOverlappingRepairSession(source, { DOMParser: Parser = glo
                     }
                     return proposal;
                 });
-                const removals = new Set(selected.map(({ duplicateIndex }) => duplicateIndex));
-                if (removals.size !== selected.length || selected.some(({ keptIndex }) => removals.has(keptIndex))) {
+                const removalIndexes = selected.flatMap(({ kind, duplicateIndex, tabIndexes }) =>
+                    kind === "join-circle-tabs" ? tabIndexes : [duplicateIndex]);
+                const removals = new Set(removalIndexes);
+                if (removals.size !== removalIndexes.length || selected.some(({ keptIndex }) => removals.has(keptIndex))) {
                     throw new Error("Conflicting removals would delete a shape another proposal retains.");
                 }
                 const working = original.cloneNode(true);
@@ -65,19 +67,30 @@ export function createOverlappingRepairSession(source, { DOMParser: Parser = glo
                 // are removed; retained/unselected nodes and their entire subtrees stay exact.
                 for (const copy of [working, expected]) {
                     const elements = getOverlappingSourceElements(copy);
+                    for (const { kind, keptIndex, outline } of selected) {
+                        if (kind !== "join-circle-tabs") continue;
+                        const circle = elements[keptIndex];
+                        if (circle?.localName !== "circle") throw new Error("Stale circle source mapping.");
+                        const path = copy.createElementNS("http://www.w3.org/2000/svg", "path");
+                        path.setAttribute("d", outline);
+                        for (const name of ["fill", "stroke", "stroke-width"]) {
+                            if (circle.hasAttribute(name)) path.setAttribute(name, circle.getAttribute(name));
+                        }
+                        circle.parentNode.replaceChild(path, circle);
+                    }
                     for (const index of [...removals].sort((a, b) => b - a)) {
                         const node = elements[index];
-                        if (!node || node.localName !== "rect") throw new Error("Stale rectangle source mapping.");
+                        if (!node || !["path", "rect"].includes(node.localName)) throw new Error("Stale rectangle source mapping.");
                         node.parentNode.removeChild(node);
                     }
                 }
-                const inspection = validateCopy(working, expected, ids.length);
+                const inspection = validateCopy(working, expected, removals.size);
                 if (validatePreview(working, inspection) !== true) throw new Error("Working preview validation failed.");
                 // Serialization and round-trip validation are part of the transaction.
                 // Any failure discards the candidate and leaves the previous valid copy.
-                validatedText(working, expected, ids.length);
+                validatedText(working, expected, removals.size);
                 accepted = working.cloneNode(true);
-                expectation = expected;
+                expectation = { expected, removedCount: removals.size };
                 successfulIds = [...ids];
                 return { ok: true, executedCount: ids.length, skippedCount: 0, workingDocument: working, inspection };
             } catch (error) {
@@ -89,7 +102,7 @@ export function createOverlappingRepairSession(source, { DOMParser: Parser = glo
                 || recordedCount !== successfulIds.length || new Set(successfulIds).size !== recordedCount) {
                 throw new Error("Download blocked: no matching successful repair record.");
             }
-            return { svgText: validatedText(accepted, expectation, recordedCount), executedCount: successfulIds.length };
+            return { svgText: validatedText(accepted, expectation.expected, expectation.removedCount), executedCount: successfulIds.length };
         },
     };
 }

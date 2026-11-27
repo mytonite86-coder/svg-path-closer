@@ -344,17 +344,101 @@ async function confirmSvgSubscriptionCheckout(
 return { API_BASE_URL, login, registerAccount, refreshSession, startPathSealCheckout, confirmPathSealCheckout, saveSession, clearSession, getAccessToken, getCurrentUser, hasEntitlement, startSvgSubscriptionCheckout, confirmSvgSubscriptionCheckout };
 })();
 
+// Source: modules/curveSmoothing.js
+const module6 = (() => {
+const point = ({ x, y }) => `${x} ${y}`;
+
+function ellipseOutline(points) {
+    if (points.length < 12) return null;
+    const xs = points.map(({ x }) => x), ys = points.map(({ y }) => y);
+    const left = Math.min(...xs), top = Math.min(...ys);
+    const rx = (Math.max(...xs) - left) / 2, ry = (Math.max(...ys) - top) / 2;
+    if (Math.min(rx, ry) <= 0) return null;
+    const cx = left + rx, cy = top + ry;
+    const radial = points.map(({ x, y }) => ({ x: (x - cx) / rx, y: (y - cy) / ry }));
+    if (radial.some(({ x, y }) => Math.abs(Math.hypot(x, y) - 1) > 0.115)) return null;
+    const turns = radial.map((a, index) => {
+        const b = radial[(index + 1) % radial.length];
+        return Math.atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y);
+    });
+    const clockwise = turns[0] > 0;
+    if (turns.some((angle) => (angle > 0) !== clockwise || Math.abs(angle) > Math.PI / 3)
+        || Math.abs(Math.abs(turns.reduce((sum, angle) => sum + angle, 0)) - 2 * Math.PI) > 1e-6) return null;
+    const args = `${rx} ${ry} 0 0 ${clockwise ? 1 : 0}`;
+    return `M ${left} ${cy} A ${args} ${left + 2 * rx} ${cy} A ${args} ${left} ${cy} Z`;
+}
+
+function fitOpenCurve(points) {
+    if (points.length < 7) return null;
+    const start = points[0], end = points.at(-1);
+    const dx = end.x - start.x, dy = end.y - start.y, length = Math.hypot(dx, dy);
+    if (!length) return null;
+    const monotonic = (positions) => positions.every((position, index) => index === 0 || position > positions[index - 1]);
+    let along = ({ x, y }) => ((x - start.x) * dx + (y - start.y) * dy) / length ** 2;
+    let positions = points.map(along);
+    if (!monotonic(positions)) {
+        along = Math.abs(dx) >= Math.abs(dy) ? ({ x }) => (x - start.x) / dx : ({ y }) => (y - start.y) / dy;
+        positions = points.map(along);
+        if (!monotonic(positions)) return null;
+    }
+    const turns = [];
+    for (let i = 1; i < points.length - 1; i++) {
+        const a = points[i - 1], b = points[i], c = points[i + 1];
+        const ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y;
+        const sine = (ux * vy - uy * vx) / (Math.hypot(ux, uy) * Math.hypot(vx, vy));
+        if (Math.abs(sine) > 0.2) turns.push(Math.sign(sine));
+    }
+    if (turns.filter((turn, i) => i > 0 && turn !== turns[i - 1]).length < 3) return null;
+    // Keep endpoints fixed and fit the two control points against the sampled outline.
+    let aa = 0, ab = 0, bb = 0, ax = 0, ay = 0, bx = 0, by = 0;
+    for (const [index, t] of positions.entries()) {
+        const u = 1 - t, a = 3 * u * u * t, b = 3 * u * t * t;
+        const x = points[index].x - u ** 3 * start.x - t ** 3 * end.x;
+        const y = points[index].y - u ** 3 * start.y - t ** 3 * end.y;
+        aa += a * a; ab += a * b; bb += b * b;
+        ax += a * x; ay += a * y; bx += b * x; by += b * y;
+    }
+    const determinant = aa * bb - ab * ab;
+    if (determinant <= 1e-10) return null;
+    const first = { x: (bb * ax - ab * bx) / determinant, y: (bb * ay - ab * by) / determinant };
+    const second = { x: (aa * bx - ab * ax) / determinant, y: (aa * by - ab * ay) / determinant };
+    if (!(along(first) > 0 && along(second) < 1 && along(first) <= along(second))) return null;
+    const miss = positions.some((t, i) => {
+        const u = 1 - t, a = 3 * u * u * t, b = 3 * u * t * t;
+        const x = u ** 3 * start.x + a * first.x + b * second.x + t ** 3 * end.x;
+        const y = u ** 3 * start.y + a * first.y + b * second.y + t ** 3 * end.y;
+        return Math.hypot(x - points[i].x, y - points[i].y) > length * 0.085;
+    });
+    return miss ? null : `M ${point(start)} C ${point(first)} ${point(second)} ${point(end)}`;
+}
+
+function planCurveSmoothing(parsed) {
+    if (parsed.subpathCount !== 1 || parsed.commands.some(({ type }) => !["M", "L", "Z"].includes(type))
+        || parsed.commands.slice(0, -1).some(({ type }) => type === "Z")) return null;
+    const points = parsed.commands.filter(({ type }) => type !== "Z").map(({ end }) => end);
+    if (parsed.hasClose && points[0].x === points.at(-1).x && points[0].y === points.at(-1).y) points.pop();
+    const path = parsed.hasClose ? ellipseOutline(points) : fitOpenCurve(points);
+    return path ? { path, reason: parsed.hasClose
+        ? "This outline is close to an ellipse. Review the fitted curve against the original cut before applying."
+        : "This open outline repeatedly changes direction. Review a fitted cubic that keeps both endpoints and smooths the turns." } : null;
+}
+
+return { planCurveSmoothing };
+})();
+
 // Source: modules/curveAnalyzer.js
 const module5 = (() => {
+const { planCurveSmoothing } = module6;
+
 const NS = "http://www.w3.org/2000/svg";
 const SCALE = 10n ** 30n;
 const ARITY = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4 };
 const EXTENDED_ARITY = { ...ARITY, Q: 4, T: 2, A: 7 };
 const ROOT_ATTRIBUTES = new Set(["xmlns", "width", "height", "viewBox", "preserveAspectRatio", "version", "id"]);
-const PATH_ATTRIBUTES = new Set(["d", "fill", "stroke", "opacity", "fill-opacity", "fill-rule"]);
+const PATH_ATTRIBUTES = new Set(["d", "fill", "stroke", "stroke-width", "opacity", "fill-opacity", "fill-rule"]);
 const OPAQUE = /^(?:#[0-9a-f]{3}|#[0-9a-f]{6}|black|white|red|green|blue|yellow)$/i;
 const same = (a, b) => a.x === b.x && a.y === b.y;
-const numberPoint = ({ x, y }) => ({ x: Number(x) / 1e30, y: Number(y) / 1e30 });
+const numberPoint = ({ x, y }) => ({ x: Number(`${x}e-30`), y: Number(`${y}e-30`) });
 
 function exactNumber(text) {
     if (text.length > 80) throw new Error("Numeric precision exceeds the supported range.");
@@ -484,8 +568,13 @@ function attrs(node) { return [...node.attributes].map(({ name, value }) => [nam
 function contextRisk(path, documentRisk) {
     if (documentRisk) return "Document CSS, references, active content or animation require manual review.";
     if (path.children.length || attrs(path).some(([name]) => !PATH_ATTRIBUTES.has(name))) return "IDs, references, transforms, styles, markers, path-length settings or metadata must be preserved; manual review only.";
-    if (path.getAttribute("stroke") !== "none" || !OPAQUE.test(path.getAttribute("fill") || "")
-        || ["opacity", "fill-opacity"].some((name) => path.hasAttribute(name) && path.getAttribute(name) !== "1")) return "Only opaque, unstroked filled paths are eligible; stroke/dash/marker rendering is outside this proof.";
+    const stroke = path.getAttribute("stroke") ?? "none";
+    const fill = path.getAttribute("fill") ?? "black";
+    const width = path.getAttribute("stroke-width");
+    const plainStroke = fill === "none" && OPAQUE.test(stroke)
+        && /^(?:\d+(?:\.\d+)?|\.\d+)$/.test(width || "") && Number(width) > 0;
+    if (!(plainStroke || (stroke === "none" && OPAQUE.test(fill)))
+        || ["opacity", "fill-opacity"].some((name) => path.hasAttribute(name) && path.getAttribute(name) !== "1")) return "Only plain solid fills or explicitly sized, solid strokes are eligible.";
     for (let parent = path.parentElement; parent; parent = parent.parentElement) {
         if (!["svg", "g"].includes(parent.localName)) return "Unsupported parent coordinate context.";
         const allowed = parent.localName === "svg" ? ROOT_ATTRIBUTES : new Set(["id"]);
@@ -503,12 +592,16 @@ function inspectCurveDocument(document) {
     const elements = [...document.querySelectorAll("path")];
     const paths = [], findings = [], proposals = [];
     let remainingData = 1000000, capped = false;
-    function add(pathIndex, segmentIndex, reason, eligible = false) {
+    function add(pathIndex, segmentIndex, reason, eligible = false, replacement = null) {
         if (findings.length >= 500) { capped = true; return; }
         const number = findings.length + 1, id = `curve-finding-${number}`;
-        const proposalId = eligible ? `remove-collapsed-cubic:${pathIndex}:${segmentIndex}` : null;
-        findings.push({ id, number, pathIndex, segmentIndex, reason, proposalId });
-        if (eligible) {
+        const proposalId = replacement ? `smooth-outline:${pathIndex}`
+            : eligible ? `remove-collapsed-cubic:${pathIndex}:${segmentIndex}` : null;
+        findings.push({ id, number, pathIndex, segmentIndex, reason, proposalId, ...(replacement ? { replacement } : {}) });
+        if (replacement) {
+            proposals.push({ id: proposalId, findingId: id, pathIndex, kind: "smooth-outline", replacement,
+                source: paths[pathIndex].data, preservesGeometry: false, requiresReview: true, safeToAutoApply: false });
+        } else if (eligible) {
             const segment = paths[pathIndex].parsed.commands[segmentIndex];
             proposals.push({ id: proposalId, findingId: id, kind: "remove-collapsed-cubic", pathIndex, segmentIndex,
                 sourceRef: { ...segment.sourceRef, command: segment.sourceCommand, text: paths[pathIndex].data.slice(segment.sourceRef.start, segment.sourceRef.end) },
@@ -518,7 +611,7 @@ function inspectCurveDocument(document) {
     elements.slice(0, 200).forEach((node, index) => {
         const data = node.getAttribute("d") || "";
         const label = `path ${index + 1}${node.getAttribute("id") ? ` (#${node.getAttribute("id")})` : ""}`;
-        const parsed = data.length <= remainingData ? parseCurvePathData(data) : { supported: false, commands: [], reason: "Total path-data inspection limit reached; manual review required." };
+        const parsed = data.length <= remainingData ? parseCurvePathData(data, { extended: true }) : { supported: false, commands: [], reason: "Total path-data inspection limit reached; manual review required." };
         remainingData = Math.max(remainingData - data.length, 0);
         let mappingRisk = node.namespaceURI !== NS ? "Unsupported namespace." : null;
         let svgCount = 0;
@@ -530,6 +623,11 @@ function inspectCurveDocument(document) {
         paths.push({ index, label, data, parsed, previewable: parsed.supported && !mappingRisk });
         if (!parsed.supported || mappingRisk) { add(index, null, mappingRisk || parsed.reason); return; }
         const risk = contextRisk(node, documentRisk);
+        const smoothing = planCurveSmoothing(parsed);
+        if (smoothing) add(index, null, risk || smoothing.reason, false, risk ? null : smoothing.path);
+        const close = parsed.commands.at(-1);
+        const endsAtStart = close.type === "Z" && same(close.start, close.end);
+        const usesReflection = parsed.hasSmooth || parsed.commands.some(({ sourceCommand }) => sourceCommand.toUpperCase() === "T");
         parsed.commands.forEach((segment, segmentIndex) => {
             if (segment.type !== "C") return;
             if (!segment.collapsed) {
@@ -538,7 +636,7 @@ function inspectCurveDocument(document) {
             }
             const before = parsed.commands[segmentIndex - 1], after = parsed.commands[segmentIndex + 1];
             const eligible = !risk && segment.sourceCommand.toUpperCase() === "C" && segment.explicit
-                && parsed.subpathCount === 1 && !parsed.hasClose && !parsed.hasSmooth
+                && parsed.subpathCount === 1 && (!parsed.hasClose || endsAtStart) && !usesReflection
                 && before?.type === "C" && before.explicit && !before.collapsed && after?.type === "C" && !after.collapsed && after.explicit;
             add(index, segmentIndex, eligible
                 ? "Both control points and endpoint equal the segment start exactly. The interior segment is a constant point already retained by adjacent explicit cubic geometry; removal preserves geometry."
@@ -558,9 +656,53 @@ function inspectCurveSvg(source, { DOMParser: Parser = globalThis.DOMParser } = 
 return { parseCurvePathData, inspectCurveDocument, inspectCurveSvg };
 })();
 
+// Source: modules/circleTabJoin.js
+const module7 = (() => {
+// Build the boundary of one circle and horizontal rectangular tabs.
+// Each rectangle must enter the circle at one vertical side and exit at the other.
+function buildCircleTabOutline({ cx, cy, r }, tabs) {
+    if (!tabs.length) return null;
+    const revolution = 2 * Math.PI;
+    const intervals = [];
+    const atHeight = (y, side) => {
+        const dy = y - cy;
+        return { x: cx + side * Math.sqrt((r - dy) * (r + dy)), y };
+    };
+    for (const { x, y, width, height } of tabs) {
+        const right = x + width, bottom = y + height;
+        const side = x > cx && right > cx + r ? 1 : right < cx && x < cx - r ? -1 : 0;
+        if (!side || y <= cy - r || bottom >= cy + r) return null;
+        const top = atHeight(y, side), lower = atHeight(bottom, side);
+        const inner = side === 1 ? x : right;
+        if (side * (top.x - inner) <= 0 || side * (lower.x - inner) <= 0) return null;
+        const start = side === 1 ? top : lower;
+        const end = side === 1 ? lower : top;
+        const startAngle = (Math.atan2(start.y - cy, start.x - cx) + revolution) % revolution;
+        const endAngle = (Math.atan2(end.y - cy, end.x - cx) + revolution) % revolution;
+        intervals.push({ start, end, startAngle, endAngle: endAngle <= startAngle ? endAngle + revolution : endAngle,
+            outside: side === 1 ? right : x });
+    }
+    intervals.sort((a, b) => a.startAngle - b.startAngle);
+    const point = ({ x, y }) => `${x} ${y}`;
+    const parts = [`M ${point(intervals[0].start)}`];
+    for (const [index, tab] of intervals.entries()) {
+        const next = intervals[(index + 1) % intervals.length];
+        const nextAngle = next.startAngle + (index === intervals.length - 1 ? revolution : 0);
+        const sweep = nextAngle - tab.endAngle;
+        if (sweep <= 1e-9) return null; // Overlapping or touching tabs need a different union.
+        parts.push(`L ${tab.outside} ${tab.start.y} L ${tab.outside} ${tab.end.y} L ${point(tab.end)}`,
+            `A ${r} ${r} 0 ${sweep > Math.PI ? 1 : 0} 1 ${point(next.start)}`);
+    }
+    return `${parts.join(" ")} Z`;
+}
+
+return { buildCircleTabOutline };
+})();
+
 // Source: modules/overlappingShapes.js
 const module4 = (() => {
 const { parseCurvePathData } = module5;
+const { buildCircleTabOutline } = module7;
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SELECTOR = "rect,circle,ellipse,path,polygon,polyline,line,text,image,use";
@@ -603,7 +745,20 @@ function normalize(node, index) {
     }
     if (type === "path") {
         const bounds = rectanglePathBounds(node);
-        if (!bounds) return { ...base, reason: "Path is outside the supported rectangular path geometry." };
+        if (!bounds) {
+            const d = node.getAttribute("d");
+            const parsed = parseCurvePathData(d, { extended: true });
+            if (!parsed.supported) return { ...base, reason: "Path is outside the supported rectangular path geometry." };
+            const points = parsed.commands.flatMap(({ end, controls = [], arc }) => {
+                if (!arc) return [end, ...controls];
+                const pad = Math.max(Number(arc[0]), Number(arc[1]));
+                return [{ x: end.x - pad, y: end.y - pad }, { x: end.x + pad, y: end.y + pad }];
+            });
+            const xs = points.map(({ x }) => x), ys = points.map(({ y }) => y);
+            const x = Math.min(...xs), y = Math.min(...ys);
+            return { ...base, geometry: { d }, bounds: { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y },
+                reason: "Curved path is shown for review. Its geometry is outside the rectangular overlap scan." };
+        }
         const { x, y, width, height } = bounds;
         return { ...base, bounds, geometry: { d: `M${x} ${y} H${x + width} V${y + height} H${x} Z` },
             exactKey: `rect-path:${Object.values(bounds).join("|")}`, reason: null };
@@ -640,6 +795,22 @@ function circleCrossesRectangle({ cx, cy, r }, { x, y, width, height }) {
     }
     return crosses(cx, cy, x, x + width, y) || crosses(cx, cy, x, x + width, y + height)
         || crosses(cy, cx, y, y + height, x) || crosses(cy, cx, y, y + height, x + width);
+}
+
+function canJoinCircleTabs(nodes, indexes, documentRisk) {
+    if (documentRisk) return false;
+    const elements = indexes.map((index) => nodes[index]);
+    const root = elements[0].ownerDocument?.documentElement;
+    if (!root || attributes(root).some(([name]) => !ROOT_ATTRIBUTES.has(name))) return false;
+    const presentation = (node) => attributes(node)
+        .filter(([name]) => !["d", "cx", "cy", "r", "x", "y", "width", "height"].includes(name));
+    const first = elements[0];
+    const signature = (node) => JSON.stringify(presentation(node).sort(([a], [b]) => a.localeCompare(b)));
+    return elements.every((node) => node.parentElement === root && !node.children.length
+        && node.getAttribute("fill") === "none"
+        && OPAQUE_COLOR.test(node.getAttribute("stroke") || "")
+        && presentation(node).every(([name]) => ["fill", "stroke", "stroke-width"].includes(name))
+        && signature(node) === signature(first));
 }
 
 function safeRemoval(first, duplicate, documentRisk) {
@@ -696,7 +867,7 @@ function inspectOverlappingDocument(document) {
     }
     if (nodes.length > shapes.length) add("unsupported-geometry", [], "Only the first 300 shapes were inspected. Remaining geometry requires manual review.");
     const canonical = new Map();
-    for (const shape of shapes.filter(({ bounds }) => bounds)) {
+    for (const shape of shapes.filter(({ exactKey }) => exactKey)) {
         const first = canonical.get(shape.exactKey);
         if (!first) { canonical.set(shape.exactKey, shape); continue; }
         const risk = safeRemoval(nodes[first.index], nodes[shape.index], documentRisk);
@@ -705,6 +876,7 @@ function inspectOverlappingDocument(document) {
         });
     }
     const unique = [...canonical.values()];
+    const crossings = new Map();
     let capped = false;
     for (let a = 0; a < unique.length && !capped; a++) {
         for (let b = a + 1; b < unique.length; b++) {
@@ -715,6 +887,9 @@ function inspectOverlappingDocument(document) {
             if (circle && ["rect", "path"].includes(rectangle.type) && circleCrossesRectangle(circle.geometry, rectangle.bounds)) {
                 if (findings.length >= 500) { capped = true; break; }
                 add("outline-crossing", [first.index, second.index], "The circle outline crosses a rectangle edge. Review where to join or trim both contours.");
+                const entries = crossings.get(circle) ?? [];
+                entries.push({ rectangle, finding: findings.at(-1) });
+                crossings.set(circle, entries);
                 continue;
             }
             if (first.type === "circle" && second.type === "circle"
@@ -731,6 +906,24 @@ function inspectOverlappingDocument(document) {
             }
         }
     }
+    for (const [circle, entries] of crossings) {
+        const tabIndexes = entries.map(({ rectangle }) => rectangle.index);
+        const indexes = [circle.index, ...tabIndexes];
+        if (shapes.filter(({ exactKey }) => exactKey === circle.exactKey).length !== 1) {
+            for (const { finding } of entries) finding.reason += " Remove stacked copies of the circle before joining the tabs.";
+            continue;
+        }
+        if (shapes.some((shape) => tabIndexes.includes(shape.index)
+            && shapes.some((other) => other.index !== shape.index && other.exactKey === shape.exactKey))
+            || [...crossings.values()].flat().filter(({ rectangle }) => tabIndexes.includes(rectangle.index)).length !== entries.length
+            || !canJoinCircleTabs(nodes, indexes, documentRisk)) continue;
+        const outline = buildCircleTabOutline(circle.geometry, entries.map(({ rectangle }) => rectangle.bounds));
+        if (!outline) continue;
+        const id = `join-circle-tabs:${circle.index}`;
+        add("join-circle-tabs", indexes, "Join the proposed tabs into one closed outer contour. The portions inside the circle will be removed.", {
+            id, kind: "join-circle-tabs", keptIndex: circle.index, tabIndexes, outline,
+        });
+    }
     if (capped) add("unsupported-geometry", [], "Finding limit reached; additional pairs require manual review.");
     return { productId: "overlapping_shape_repair", shapeCount: nodes.length, inspectedCount: shapes.length, shapes, findings, proposals };
 }
@@ -744,7 +937,7 @@ return { getOverlappingSourceElements, inspectOverlappingDocument, inspectOverla
 })();
 
 // Source: modules/overlappingShapePreview.js
-const module6 = (() => {
+const module8 = (() => {
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function renderOverlappingPreview(svg, shapes) {
@@ -795,7 +988,7 @@ return { renderOverlappingPreview, highlightOverlappingFinding };
 })();
 
 // Source: modules/strayNodeAnalyzer.js
-const module8 = (() => {
+const module10 = (() => {
 const STRAY_NODE_CLEANER_PRODUCT_ID = "stray_node_cleaner";
 
 const DEFAULTS = Object.freeze({
@@ -1060,14 +1253,14 @@ return { STRAY_NODE_CLEANER_PRODUCT_ID, analyzePathNodeCommands, inspectSmallDet
 })();
 
 // Source: modules/strayNodeBrowserAdapter.js
-const module7 = (() => {
+const module9 = (() => {
 const {
     analyzePathNodeCommands,
     analyzeStrayNodes,
     drawingReferenceLength,
     inspectSmallDetachedMarks,
     parsePointsAttribute,
-} = module8;
+} = module10;
 const { parseCurvePathData } = module5;
 
 const SUPPORTED_SELECTOR = "line,polyline,polygon,path";
@@ -1255,7 +1448,7 @@ return { StrayNodeSvgInputError, getStrayCircleGeometry, normalizeSvgGeometry, r
 })();
 
 // Source: modules/pathCloser.js
-const module10 = (() => {
+const module12 = (() => {
 const { parseCurvePathData } = module5;
 
 function parseSvg(svgText) {
@@ -1959,7 +2152,7 @@ function createContourBridge(analysis, svgDocument) {
     const sourceData = sourceElement.localName === "path" ? sourceElement.getAttribute("d") : null;
     const parsed = sourceData && analysis.component.edges.length === 1
         ? parseCurvePathData(sourceData, { extended: true }) : null;
-    const closeInPlace = parsed?.supported && parsed.subpathCount === 1 && !parsed.hasClose;
+    const closeInPlace = parsed?.supported && !parsed.hasClose && splitPathData(sourceData).length === 1;
     if (analysis.overshootPathData || closeInPlace) {
         const index = getPathElements(sourceElement.ownerDocument).indexOf(sourceElement);
         const workingPath = getPathElements(svgDocument)[index];
@@ -2139,9 +2332,9 @@ return { parseSvg, getPathElements, getPathData, isPathExplicitlyClosed, tokeniz
 })();
 
 // Source: modules/overlappingShapeRepair.js
-const module9 = (() => {
+const module11 = (() => {
 const { getOverlappingSourceElements, inspectOverlappingDocument } = module4;
-const { parseSvg, serializeSvg, validateSvgText } = module10;
+const { parseSvg, serializeSvg, validateSvgText } = module12;
 
 function createOverlappingRepairSession(source, { DOMParser: Parser = globalThis.DOMParser } = {}) {
     const original = new Parser().parseFromString(source, "image/svg+xml");
@@ -2197,8 +2390,10 @@ function createOverlappingRepairSession(source, { DOMParser: Parser = globalThis
                     }
                     return proposal;
                 });
-                const removals = new Set(selected.map(({ duplicateIndex }) => duplicateIndex));
-                if (removals.size !== selected.length || selected.some(({ keptIndex }) => removals.has(keptIndex))) {
+                const removalIndexes = selected.flatMap(({ kind, duplicateIndex, tabIndexes }) =>
+                    kind === "join-circle-tabs" ? tabIndexes : [duplicateIndex]);
+                const removals = new Set(removalIndexes);
+                if (removals.size !== removalIndexes.length || selected.some(({ keptIndex }) => removals.has(keptIndex))) {
                     throw new Error("Conflicting removals would delete a shape another proposal retains.");
                 }
                 const working = original.cloneNode(true);
@@ -2207,19 +2402,30 @@ function createOverlappingRepairSession(source, { DOMParser: Parser = globalThis
                 // are removed; retained/unselected nodes and their entire subtrees stay exact.
                 for (const copy of [working, expected]) {
                     const elements = getOverlappingSourceElements(copy);
+                    for (const { kind, keptIndex, outline } of selected) {
+                        if (kind !== "join-circle-tabs") continue;
+                        const circle = elements[keptIndex];
+                        if (circle?.localName !== "circle") throw new Error("Stale circle source mapping.");
+                        const path = copy.createElementNS("http://www.w3.org/2000/svg", "path");
+                        path.setAttribute("d", outline);
+                        for (const name of ["fill", "stroke", "stroke-width"]) {
+                            if (circle.hasAttribute(name)) path.setAttribute(name, circle.getAttribute(name));
+                        }
+                        circle.parentNode.replaceChild(path, circle);
+                    }
                     for (const index of [...removals].sort((a, b) => b - a)) {
                         const node = elements[index];
-                        if (!node || node.localName !== "rect") throw new Error("Stale rectangle source mapping.");
+                        if (!node || !["path", "rect"].includes(node.localName)) throw new Error("Stale rectangle source mapping.");
                         node.parentNode.removeChild(node);
                     }
                 }
-                const inspection = validateCopy(working, expected, ids.length);
+                const inspection = validateCopy(working, expected, removals.size);
                 if (validatePreview(working, inspection) !== true) throw new Error("Working preview validation failed.");
                 // Serialization and round-trip validation are part of the transaction.
                 // Any failure discards the candidate and leaves the previous valid copy.
-                validatedText(working, expected, ids.length);
+                validatedText(working, expected, removals.size);
                 accepted = working.cloneNode(true);
-                expectation = expected;
+                expectation = { expected, removedCount: removals.size };
                 successfulIds = [...ids];
                 return { ok: true, executedCount: ids.length, skippedCount: 0, workingDocument: working, inspection };
             } catch (error) {
@@ -2231,7 +2437,7 @@ function createOverlappingRepairSession(source, { DOMParser: Parser = globalThis
                 || recordedCount !== successfulIds.length || new Set(successfulIds).size !== recordedCount) {
                 throw new Error("Download blocked: no matching successful repair record.");
             }
-            return { svgText: validatedText(accepted, expectation, recordedCount), executedCount: successfulIds.length };
+            return { svgText: validatedText(accepted, expectation.expected, expectation.removedCount), executedCount: successfulIds.length };
         },
     };
 }
@@ -2240,7 +2446,7 @@ return { createOverlappingRepairSession };
 })();
 
 // Source: modules/accessFoundation.js
-const module12 = (() => {
+const module14 = (() => {
 const { PRODUCT_MANIFEST, UNIVERSAL_ENTITLEMENT_ID } = module2;
 
 const HUB_ROUTE = "index.html";
@@ -2278,8 +2484,8 @@ return { HUB_ROUTE, validateReturnDestination, deriveToolAccessState };
 })();
 
 // Source: modules/overlappingShapeAccess.js
-const module11 = (() => {
-const { deriveToolAccessState } = module12;
+const module13 = (() => {
+const { deriveToolAccessState } = module14;
 const { getProduct, UNIVERSAL_ENTITLEMENT_ID } = module2;
 
 const OVERLAPPING_SHAPE_ENTITLEMENT = getProduct("overlapping_shape_repair").id;
@@ -2309,7 +2515,7 @@ return { OVERLAPPING_SHAPE_ENTITLEMENT, runWithFreshOverlappingAccess };
 })();
 
 // Source: modules/strayNodeDownload.js
-const module13 = (() => {
+const module15 = (() => {
 function cleanedSvgFilename(originalName) {
     const basename = String(originalName || "drawing.svg").split(/[\\/]/).pop();
     const stem = basename.replace(/\.svg$/i, "").replace(/[<>:"|?*\x00-\x1f]/g, "_").trim() || "drawing";
@@ -2341,11 +2547,11 @@ return { cleanedSvgFilename, downloadCleanedSvg };
 // Source: overlapping-shape-repair.js
 const module3 = (() => {
 const { inspectOverlappingSvg } = module4;
-const { renderOverlappingPreview, highlightOverlappingFinding } = module6;
-const { readLocalSvgFile } = module7;
-const { createOverlappingRepairSession } = module9;
-const { runWithFreshOverlappingAccess } = module11;
-const { downloadCleanedSvg } = module13;
+const { renderOverlappingPreview, highlightOverlappingFinding } = module8;
+const { readLocalSvgFile } = module9;
+const { createOverlappingRepairSession } = module11;
+const { runWithFreshOverlappingAccess } = module13;
+const { downloadCleanedSvg } = module15;
 
 function initializeOverlappingShapePage({ refreshSession } = {}) {
     const file = document.querySelector("#overlap-file");
@@ -2380,7 +2586,7 @@ function initializeOverlappingShapePage({ refreshSession } = {}) {
         downloadButton.disabled = pending || !downloadReady;
         selection.textContent = completed
             ? "0 proposals selected. This repair batch is complete; upload an SVG to begin another review."
-            : `${selected.length} of ${eligible.size} eligible removal proposals selected. Nothing changes before an authorized repair.`;
+            : `${selected.length} of ${eligible.size} eligible repairs selected.`;
     }
     function reset() {
         session = null;
@@ -2402,7 +2608,8 @@ function initializeOverlappingShapePage({ refreshSession } = {}) {
     function renderInspection(inspection) {
         const rendered = renderOverlappingPreview(preview, inspection.shapes);
         eligible = new Set(completed ? [] : inspection.proposals.map(({ id }) => id));
-        const labels = { "exact-duplicate": "Exact duplicate geometry", "outline-crossing": "Outline crossing — manual review", "possible-overlap": "Possible overlap — manual review", "unsupported-geometry": "Unsupported geometry — manual review" };
+        const proposals = new Map(inspection.proposals.map((proposal) => [proposal.id, proposal]));
+        const labels = { "exact-duplicate": "Exact duplicate geometry", "outline-crossing": "Outline crossing — manual review", "join-circle-tabs": "Join tabs to circle", "possible-overlap": "Possible overlap — manual review", "unsupported-geometry": "Unsupported geometry — manual review" };
         list.replaceChildren(...inspection.findings.map((finding) => {
             const card = document.createElement("article");
             card.className = "eco-card";
@@ -2422,7 +2629,8 @@ function initializeOverlappingShapePage({ refreshSession } = {}) {
                 checkbox.checked = false;
                 checkbox.dataset.proposalId = finding.proposalId;
                 checkbox.addEventListener("change", updateSelection);
-                option.append(checkbox, ` Select removal proposal for finding ${finding.number} (keep the first shape).`);
+                option.append(checkbox, finding.kind === "join-circle-tabs" ? " Select this outline join."
+                    : ` Select removal proposal for finding ${finding.number} (keep the first shape).`);
                 card.append(option);
             } else {
                 const note = document.createElement("p");
@@ -2437,9 +2645,23 @@ function initializeOverlappingShapePage({ refreshSession } = {}) {
                 const highlight = document.createElement("button");
                 highlight.type = "button";
                 highlight.className = "eco-button eco-button--secondary";
-                highlight.textContent = `Highlight geometry for finding ${finding.number}`;
+                const proposal = proposals.get(finding.proposalId);
+                highlight.textContent = proposal?.kind === "join-circle-tabs"
+                    ? "Preview joined outline" : `Highlight geometry for finding ${finding.number}`;
                 highlight.addEventListener("click", () => {
+                    preview.querySelector("[data-join-preview]")?.remove();
                     highlightOverlappingFinding(rendered, mapped);
+                    if (proposal?.kind === "join-circle-tabs") {
+                        const outline = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                        outline.setAttribute("data-join-preview", "");
+                        outline.setAttribute("d", proposal.outline);
+                        outline.setAttribute("fill", "none");
+                        outline.setAttribute("stroke", "#2563eb");
+                        outline.setAttribute("stroke-width", "2");
+                        outline.setAttribute("stroke-dasharray", "5 4");
+                        outline.setAttribute("vector-effect", "non-scaling-stroke");
+                        preview.append(outline);
+                    }
                     previewStatus.textContent = `Finding ${finding.number}: highlighted source shapes ${mapped.map((index) => index + 1).join(", ")}. The original SVG is unchanged.`;
                 });
                 card.append(highlight);
@@ -2488,7 +2710,7 @@ function initializeOverlappingShapePage({ refreshSession } = {}) {
             renderInspection(outcome.inspection);
             previewStatus.textContent = "Validated repaired working copy. Remaining findings can still be highlighted.";
             results.dataset.state = "repaired";
-            status.textContent = "Selected safe rectangle removals completed and validated.";
+            status.textContent = "Selected outline repairs completed and validated.";
             summary.textContent = `${outcome.executedCount} repairs executed; ${outcome.skippedCount} skipped; ${outcome.inspection.findings.length} findings remain. Unselected and unsupported geometry preserved.`;
             validation.textContent = "SVG, removal count, unchanged content and serialization round-trip validation passed. Download is ready.";
         });

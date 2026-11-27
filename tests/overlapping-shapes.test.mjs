@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { buildCircleTabOutline } from "../modules/circleTabJoin.js";
 import { readFile } from "node:fs/promises";
 import { Script } from "node:vm";
 import { inspectOverlappingDocument, inspectOverlappingSvg } from "../modules/overlappingShapes.js";
@@ -144,4 +145,17 @@ test("direct-file bundle stays in sync, registers upload and keeps detection non
     const listeners = new Map();
     new Script(bundle).runInNewContext({ localStorage: { getItem: () => null }, document: { querySelector: (selector) => ({ addEventListener: (event, handler) => listeners.set(`${selector}:${event}`, handler) }) } });
     assert.equal(typeof listeners.get("#overlap-file:change"), "function");
+});
+
+test("one closed cut follows the circle and both tabs without internal crossing edges", () => {
+    const circle = { cx: 0, cy: 0, r: 10 };
+    const left = { x: -15, y: -2, width: 7, height: 4 };
+    const right = { x: 8, y: -2, width: 7, height: 4 };
+    const outline = buildCircleTabOutline(circle, [left, right]);
+    assert.match(outline, /L -15 2 L -15 -2/);
+    assert.match(outline, /L 15 -2 L 15 2/);
+    assert.equal(outline.match(/ A /g)?.length, 2);
+    assert.match(outline, / Z$/);
+    assert.equal(buildCircleTabOutline(circle, [left, { ...left, y: -1 }]), null);
+    assert.equal(buildCircleTabOutline(circle, [{ ...right, x: 11 }]), null);
 });

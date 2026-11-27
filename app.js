@@ -21,7 +21,7 @@ import {
     closePathData,
     serializeSvg,
     validateSvgText,
-} from "./modules/pathCloser.js?v=gap-review-1";
+} from "./modules/pathCloser.js?v=gap-review-2";
 import {
     captureAttribution,
     trackPathSealEvent,

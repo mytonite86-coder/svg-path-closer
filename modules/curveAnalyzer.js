@@ -1,12 +1,14 @@
+import { planCurveSmoothing } from "./curveSmoothing.js";
+
 const NS = "http://www.w3.org/2000/svg";
 const SCALE = 10n ** 30n;
 const ARITY = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4 };
 const EXTENDED_ARITY = { ...ARITY, Q: 4, T: 2, A: 7 };
 const ROOT_ATTRIBUTES = new Set(["xmlns", "width", "height", "viewBox", "preserveAspectRatio", "version", "id"]);
-const PATH_ATTRIBUTES = new Set(["d", "fill", "stroke", "opacity", "fill-opacity", "fill-rule"]);
+const PATH_ATTRIBUTES = new Set(["d", "fill", "stroke", "stroke-width", "opacity", "fill-opacity", "fill-rule"]);
 const OPAQUE = /^(?:#[0-9a-f]{3}|#[0-9a-f]{6}|black|white|red|green|blue|yellow)$/i;
 const same = (a, b) => a.x === b.x && a.y === b.y;
-const numberPoint = ({ x, y }) => ({ x: Number(x) / 1e30, y: Number(y) / 1e30 });
+const numberPoint = ({ x, y }) => ({ x: Number(`${x}e-30`), y: Number(`${y}e-30`) });
 
 function exactNumber(text) {
     if (text.length > 80) throw new Error("Numeric precision exceeds the supported range.");
@@ -136,8 +138,13 @@ function attrs(node) { return [...node.attributes].map(({ name, value }) => [nam
 function contextRisk(path, documentRisk) {
     if (documentRisk) return "Document CSS, references, active content or animation require manual review.";
     if (path.children.length || attrs(path).some(([name]) => !PATH_ATTRIBUTES.has(name))) return "IDs, references, transforms, styles, markers, path-length settings or metadata must be preserved; manual review only.";
-    if (path.getAttribute("stroke") !== "none" || !OPAQUE.test(path.getAttribute("fill") || "")
-        || ["opacity", "fill-opacity"].some((name) => path.hasAttribute(name) && path.getAttribute(name) !== "1")) return "Only opaque, unstroked filled paths are eligible; stroke/dash/marker rendering is outside this proof.";
+    const stroke = path.getAttribute("stroke") ?? "none";
+    const fill = path.getAttribute("fill") ?? "black";
+    const width = path.getAttribute("stroke-width");
+    const plainStroke = fill === "none" && OPAQUE.test(stroke)
+        && /^(?:\d+(?:\.\d+)?|\.\d+)$/.test(width || "") && Number(width) > 0;
+    if (!(plainStroke || (stroke === "none" && OPAQUE.test(fill)))
+        || ["opacity", "fill-opacity"].some((name) => path.hasAttribute(name) && path.getAttribute(name) !== "1")) return "Only plain solid fills or explicitly sized, solid strokes are eligible.";
     for (let parent = path.parentElement; parent; parent = parent.parentElement) {
         if (!["svg", "g"].includes(parent.localName)) return "Unsupported parent coordinate context.";
         const allowed = parent.localName === "svg" ? ROOT_ATTRIBUTES : new Set(["id"]);
@@ -155,12 +162,16 @@ export function inspectCurveDocument(document) {
     const elements = [...document.querySelectorAll("path")];
     const paths = [], findings = [], proposals = [];
     let remainingData = 1000000, capped = false;
-    function add(pathIndex, segmentIndex, reason, eligible = false) {
+    function add(pathIndex, segmentIndex, reason, eligible = false, replacement = null) {
         if (findings.length >= 500) { capped = true; return; }
         const number = findings.length + 1, id = `curve-finding-${number}`;
-        const proposalId = eligible ? `remove-collapsed-cubic:${pathIndex}:${segmentIndex}` : null;
-        findings.push({ id, number, pathIndex, segmentIndex, reason, proposalId });
-        if (eligible) {
+        const proposalId = replacement ? `smooth-outline:${pathIndex}`
+            : eligible ? `remove-collapsed-cubic:${pathIndex}:${segmentIndex}` : null;
+        findings.push({ id, number, pathIndex, segmentIndex, reason, proposalId, ...(replacement ? { replacement } : {}) });
+        if (replacement) {
+            proposals.push({ id: proposalId, findingId: id, pathIndex, kind: "smooth-outline", replacement,
+                source: paths[pathIndex].data, preservesGeometry: false, requiresReview: true, safeToAutoApply: false });
+        } else if (eligible) {
             const segment = paths[pathIndex].parsed.commands[segmentIndex];
             proposals.push({ id: proposalId, findingId: id, kind: "remove-collapsed-cubic", pathIndex, segmentIndex,
                 sourceRef: { ...segment.sourceRef, command: segment.sourceCommand, text: paths[pathIndex].data.slice(segment.sourceRef.start, segment.sourceRef.end) },
@@ -170,7 +181,7 @@ export function inspectCurveDocument(document) {
     elements.slice(0, 200).forEach((node, index) => {
         const data = node.getAttribute("d") || "";
         const label = `path ${index + 1}${node.getAttribute("id") ? ` (#${node.getAttribute("id")})` : ""}`;
-        const parsed = data.length <= remainingData ? parseCurvePathData(data) : { supported: false, commands: [], reason: "Total path-data inspection limit reached; manual review required." };
+        const parsed = data.length <= remainingData ? parseCurvePathData(data, { extended: true }) : { supported: false, commands: [], reason: "Total path-data inspection limit reached; manual review required." };
         remainingData = Math.max(remainingData - data.length, 0);
         let mappingRisk = node.namespaceURI !== NS ? "Unsupported namespace." : null;
         let svgCount = 0;
@@ -182,6 +193,11 @@ export function inspectCurveDocument(document) {
         paths.push({ index, label, data, parsed, previewable: parsed.supported && !mappingRisk });
         if (!parsed.supported || mappingRisk) { add(index, null, mappingRisk || parsed.reason); return; }
         const risk = contextRisk(node, documentRisk);
+        const smoothing = planCurveSmoothing(parsed);
+        if (smoothing) add(index, null, risk || smoothing.reason, false, risk ? null : smoothing.path);
+        const close = parsed.commands.at(-1);
+        const endsAtStart = close.type === "Z" && same(close.start, close.end);
+        const usesReflection = parsed.hasSmooth || parsed.commands.some(({ sourceCommand }) => sourceCommand.toUpperCase() === "T");
         parsed.commands.forEach((segment, segmentIndex) => {
             if (segment.type !== "C") return;
             if (!segment.collapsed) {
@@ -190,7 +206,7 @@ export function inspectCurveDocument(document) {
             }
             const before = parsed.commands[segmentIndex - 1], after = parsed.commands[segmentIndex + 1];
             const eligible = !risk && segment.sourceCommand.toUpperCase() === "C" && segment.explicit
-                && parsed.subpathCount === 1 && !parsed.hasClose && !parsed.hasSmooth
+                && parsed.subpathCount === 1 && (!parsed.hasClose || endsAtStart) && !usesReflection
                 && before?.type === "C" && before.explicit && !before.collapsed && after?.type === "C" && !after.collapsed && after.explicit;
             add(index, segmentIndex, eligible
                 ? "Both control points and endpoint equal the segment start exactly. The interior segment is a constant point already retained by adjacent explicit cubic geometry; removal preserves geometry."

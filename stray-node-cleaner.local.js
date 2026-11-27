@@ -609,17 +609,101 @@ function analyzeStrayNodes(elements, options = {}) {
 return { STRAY_NODE_CLEANER_PRODUCT_ID, analyzePathNodeCommands, inspectSmallDetachedMarks, parsePointsAttribute, parseLinearPathData, drawingReferenceLength, analyzeStrayNodes };
 })();
 
+// Source: modules/curveSmoothing.js
+const module7 = (() => {
+const point = ({ x, y }) => `${x} ${y}`;
+
+function ellipseOutline(points) {
+    if (points.length < 12) return null;
+    const xs = points.map(({ x }) => x), ys = points.map(({ y }) => y);
+    const left = Math.min(...xs), top = Math.min(...ys);
+    const rx = (Math.max(...xs) - left) / 2, ry = (Math.max(...ys) - top) / 2;
+    if (Math.min(rx, ry) <= 0) return null;
+    const cx = left + rx, cy = top + ry;
+    const radial = points.map(({ x, y }) => ({ x: (x - cx) / rx, y: (y - cy) / ry }));
+    if (radial.some(({ x, y }) => Math.abs(Math.hypot(x, y) - 1) > 0.115)) return null;
+    const turns = radial.map((a, index) => {
+        const b = radial[(index + 1) % radial.length];
+        return Math.atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y);
+    });
+    const clockwise = turns[0] > 0;
+    if (turns.some((angle) => (angle > 0) !== clockwise || Math.abs(angle) > Math.PI / 3)
+        || Math.abs(Math.abs(turns.reduce((sum, angle) => sum + angle, 0)) - 2 * Math.PI) > 1e-6) return null;
+    const args = `${rx} ${ry} 0 0 ${clockwise ? 1 : 0}`;
+    return `M ${left} ${cy} A ${args} ${left + 2 * rx} ${cy} A ${args} ${left} ${cy} Z`;
+}
+
+function fitOpenCurve(points) {
+    if (points.length < 7) return null;
+    const start = points[0], end = points.at(-1);
+    const dx = end.x - start.x, dy = end.y - start.y, length = Math.hypot(dx, dy);
+    if (!length) return null;
+    const monotonic = (positions) => positions.every((position, index) => index === 0 || position > positions[index - 1]);
+    let along = ({ x, y }) => ((x - start.x) * dx + (y - start.y) * dy) / length ** 2;
+    let positions = points.map(along);
+    if (!monotonic(positions)) {
+        along = Math.abs(dx) >= Math.abs(dy) ? ({ x }) => (x - start.x) / dx : ({ y }) => (y - start.y) / dy;
+        positions = points.map(along);
+        if (!monotonic(positions)) return null;
+    }
+    const turns = [];
+    for (let i = 1; i < points.length - 1; i++) {
+        const a = points[i - 1], b = points[i], c = points[i + 1];
+        const ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y;
+        const sine = (ux * vy - uy * vx) / (Math.hypot(ux, uy) * Math.hypot(vx, vy));
+        if (Math.abs(sine) > 0.2) turns.push(Math.sign(sine));
+    }
+    if (turns.filter((turn, i) => i > 0 && turn !== turns[i - 1]).length < 3) return null;
+    // Keep endpoints fixed and fit the two control points against the sampled outline.
+    let aa = 0, ab = 0, bb = 0, ax = 0, ay = 0, bx = 0, by = 0;
+    for (const [index, t] of positions.entries()) {
+        const u = 1 - t, a = 3 * u * u * t, b = 3 * u * t * t;
+        const x = points[index].x - u ** 3 * start.x - t ** 3 * end.x;
+        const y = points[index].y - u ** 3 * start.y - t ** 3 * end.y;
+        aa += a * a; ab += a * b; bb += b * b;
+        ax += a * x; ay += a * y; bx += b * x; by += b * y;
+    }
+    const determinant = aa * bb - ab * ab;
+    if (determinant <= 1e-10) return null;
+    const first = { x: (bb * ax - ab * bx) / determinant, y: (bb * ay - ab * by) / determinant };
+    const second = { x: (aa * bx - ab * ax) / determinant, y: (aa * by - ab * ay) / determinant };
+    if (!(along(first) > 0 && along(second) < 1 && along(first) <= along(second))) return null;
+    const miss = positions.some((t, i) => {
+        const u = 1 - t, a = 3 * u * u * t, b = 3 * u * t * t;
+        const x = u ** 3 * start.x + a * first.x + b * second.x + t ** 3 * end.x;
+        const y = u ** 3 * start.y + a * first.y + b * second.y + t ** 3 * end.y;
+        return Math.hypot(x - points[i].x, y - points[i].y) > length * 0.085;
+    });
+    return miss ? null : `M ${point(start)} C ${point(first)} ${point(second)} ${point(end)}`;
+}
+
+function planCurveSmoothing(parsed) {
+    if (parsed.subpathCount !== 1 || parsed.commands.some(({ type }) => !["M", "L", "Z"].includes(type))
+        || parsed.commands.slice(0, -1).some(({ type }) => type === "Z")) return null;
+    const points = parsed.commands.filter(({ type }) => type !== "Z").map(({ end }) => end);
+    if (parsed.hasClose && points[0].x === points.at(-1).x && points[0].y === points.at(-1).y) points.pop();
+    const path = parsed.hasClose ? ellipseOutline(points) : fitOpenCurve(points);
+    return path ? { path, reason: parsed.hasClose
+        ? "This outline is close to an ellipse. Review the fitted curve against the original cut before applying."
+        : "This open outline repeatedly changes direction. Review a fitted cubic that keeps both endpoints and smooths the turns." } : null;
+}
+
+return { planCurveSmoothing };
+})();
+
 // Source: modules/curveAnalyzer.js
 const module6 = (() => {
+const { planCurveSmoothing } = module7;
+
 const NS = "http://www.w3.org/2000/svg";
 const SCALE = 10n ** 30n;
 const ARITY = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4 };
 const EXTENDED_ARITY = { ...ARITY, Q: 4, T: 2, A: 7 };
 const ROOT_ATTRIBUTES = new Set(["xmlns", "width", "height", "viewBox", "preserveAspectRatio", "version", "id"]);
-const PATH_ATTRIBUTES = new Set(["d", "fill", "stroke", "opacity", "fill-opacity", "fill-rule"]);
+const PATH_ATTRIBUTES = new Set(["d", "fill", "stroke", "stroke-width", "opacity", "fill-opacity", "fill-rule"]);
 const OPAQUE = /^(?:#[0-9a-f]{3}|#[0-9a-f]{6}|black|white|red|green|blue|yellow)$/i;
 const same = (a, b) => a.x === b.x && a.y === b.y;
-const numberPoint = ({ x, y }) => ({ x: Number(x) / 1e30, y: Number(y) / 1e30 });
+const numberPoint = ({ x, y }) => ({ x: Number(`${x}e-30`), y: Number(`${y}e-30`) });
 
 function exactNumber(text) {
     if (text.length > 80) throw new Error("Numeric precision exceeds the supported range.");
@@ -749,8 +833,13 @@ function attrs(node) { return [...node.attributes].map(({ name, value }) => [nam
 function contextRisk(path, documentRisk) {
     if (documentRisk) return "Document CSS, references, active content or animation require manual review.";
     if (path.children.length || attrs(path).some(([name]) => !PATH_ATTRIBUTES.has(name))) return "IDs, references, transforms, styles, markers, path-length settings or metadata must be preserved; manual review only.";
-    if (path.getAttribute("stroke") !== "none" || !OPAQUE.test(path.getAttribute("fill") || "")
-        || ["opacity", "fill-opacity"].some((name) => path.hasAttribute(name) && path.getAttribute(name) !== "1")) return "Only opaque, unstroked filled paths are eligible; stroke/dash/marker rendering is outside this proof.";
+    const stroke = path.getAttribute("stroke") ?? "none";
+    const fill = path.getAttribute("fill") ?? "black";
+    const width = path.getAttribute("stroke-width");
+    const plainStroke = fill === "none" && OPAQUE.test(stroke)
+        && /^(?:\d+(?:\.\d+)?|\.\d+)$/.test(width || "") && Number(width) > 0;
+    if (!(plainStroke || (stroke === "none" && OPAQUE.test(fill)))
+        || ["opacity", "fill-opacity"].some((name) => path.hasAttribute(name) && path.getAttribute(name) !== "1")) return "Only plain solid fills or explicitly sized, solid strokes are eligible.";
     for (let parent = path.parentElement; parent; parent = parent.parentElement) {
         if (!["svg", "g"].includes(parent.localName)) return "Unsupported parent coordinate context.";
         const allowed = parent.localName === "svg" ? ROOT_ATTRIBUTES : new Set(["id"]);
@@ -768,12 +857,16 @@ function inspectCurveDocument(document) {
     const elements = [...document.querySelectorAll("path")];
     const paths = [], findings = [], proposals = [];
     let remainingData = 1000000, capped = false;
-    function add(pathIndex, segmentIndex, reason, eligible = false) {
+    function add(pathIndex, segmentIndex, reason, eligible = false, replacement = null) {
         if (findings.length >= 500) { capped = true; return; }
         const number = findings.length + 1, id = `curve-finding-${number}`;
-        const proposalId = eligible ? `remove-collapsed-cubic:${pathIndex}:${segmentIndex}` : null;
-        findings.push({ id, number, pathIndex, segmentIndex, reason, proposalId });
-        if (eligible) {
+        const proposalId = replacement ? `smooth-outline:${pathIndex}`
+            : eligible ? `remove-collapsed-cubic:${pathIndex}:${segmentIndex}` : null;
+        findings.push({ id, number, pathIndex, segmentIndex, reason, proposalId, ...(replacement ? { replacement } : {}) });
+        if (replacement) {
+            proposals.push({ id: proposalId, findingId: id, pathIndex, kind: "smooth-outline", replacement,
+                source: paths[pathIndex].data, preservesGeometry: false, requiresReview: true, safeToAutoApply: false });
+        } else if (eligible) {
             const segment = paths[pathIndex].parsed.commands[segmentIndex];
             proposals.push({ id: proposalId, findingId: id, kind: "remove-collapsed-cubic", pathIndex, segmentIndex,
                 sourceRef: { ...segment.sourceRef, command: segment.sourceCommand, text: paths[pathIndex].data.slice(segment.sourceRef.start, segment.sourceRef.end) },
@@ -783,7 +876,7 @@ function inspectCurveDocument(document) {
     elements.slice(0, 200).forEach((node, index) => {
         const data = node.getAttribute("d") || "";
         const label = `path ${index + 1}${node.getAttribute("id") ? ` (#${node.getAttribute("id")})` : ""}`;
-        const parsed = data.length <= remainingData ? parseCurvePathData(data) : { supported: false, commands: [], reason: "Total path-data inspection limit reached; manual review required." };
+        const parsed = data.length <= remainingData ? parseCurvePathData(data, { extended: true }) : { supported: false, commands: [], reason: "Total path-data inspection limit reached; manual review required." };
         remainingData = Math.max(remainingData - data.length, 0);
         let mappingRisk = node.namespaceURI !== NS ? "Unsupported namespace." : null;
         let svgCount = 0;
@@ -795,6 +888,11 @@ function inspectCurveDocument(document) {
         paths.push({ index, label, data, parsed, previewable: parsed.supported && !mappingRisk });
         if (!parsed.supported || mappingRisk) { add(index, null, mappingRisk || parsed.reason); return; }
         const risk = contextRisk(node, documentRisk);
+        const smoothing = planCurveSmoothing(parsed);
+        if (smoothing) add(index, null, risk || smoothing.reason, false, risk ? null : smoothing.path);
+        const close = parsed.commands.at(-1);
+        const endsAtStart = close.type === "Z" && same(close.start, close.end);
+        const usesReflection = parsed.hasSmooth || parsed.commands.some(({ sourceCommand }) => sourceCommand.toUpperCase() === "T");
         parsed.commands.forEach((segment, segmentIndex) => {
             if (segment.type !== "C") return;
             if (!segment.collapsed) {
@@ -803,7 +901,7 @@ function inspectCurveDocument(document) {
             }
             const before = parsed.commands[segmentIndex - 1], after = parsed.commands[segmentIndex + 1];
             const eligible = !risk && segment.sourceCommand.toUpperCase() === "C" && segment.explicit
-                && parsed.subpathCount === 1 && !parsed.hasClose && !parsed.hasSmooth
+                && parsed.subpathCount === 1 && (!parsed.hasClose || endsAtStart) && !usesReflection
                 && before?.type === "C" && before.explicit && !before.collapsed && after?.type === "C" && !after.collapsed && after.explicit;
             add(index, segmentIndex, eligible
                 ? "Both control points and endpoint equal the segment start exactly. The interior segment is a constant point already retained by adjacent explicit cubic geometry; removal preserves geometry."
@@ -1019,7 +1117,7 @@ return { StrayNodeSvgInputError, getStrayCircleGeometry, normalizeSvgGeometry, r
 })();
 
 // Source: modules/strayNodePreview.js
-const module7 = (() => {
+const module8 = (() => {
 const { getStrayCircleGeometry, normalizeSvgGeometry } = module4;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -1162,7 +1260,7 @@ return { createStrayNodePreviewModel, getFindingPreviewKey, renderStrayNodePrevi
 })();
 
 // Source: modules/strayNodeRepairPlanner.js
-const module9 = (() => {
+const module10 = (() => {
 const SUPPORTED_ELEMENT_TYPES = new Set(["polyline", "polygon"]);
 
 function finitePoint(point) {
@@ -1341,7 +1439,7 @@ return { planExactCoincidentNodeRepairs };
 })();
 
 // Source: modules/pathCloser.js
-const module10 = (() => {
+const module11 = (() => {
 const { parseCurvePathData } = module6;
 
 function parseSvg(svgText) {
@@ -2045,7 +2143,7 @@ function createContourBridge(analysis, svgDocument) {
     const sourceData = sourceElement.localName === "path" ? sourceElement.getAttribute("d") : null;
     const parsed = sourceData && analysis.component.edges.length === 1
         ? parseCurvePathData(sourceData, { extended: true }) : null;
-    const closeInPlace = parsed?.supported && parsed.subpathCount === 1 && !parsed.hasClose;
+    const closeInPlace = parsed?.supported && !parsed.hasClose && splitPathData(sourceData).length === 1;
     if (analysis.overshootPathData || closeInPlace) {
         const index = getPathElements(sourceElement.ownerDocument).indexOf(sourceElement);
         const workingPath = getPathElements(svgDocument)[index];
@@ -2225,11 +2323,11 @@ return { parseSvg, getPathElements, getPathData, isPathExplicitlyClosed, tokeniz
 })();
 
 // Source: modules/strayNodeRepairExecution.js
-const module8 = (() => {
+const module9 = (() => {
 const { getStrayCircleGeometry, inspectStrayNodeSvg, normalizeSvgGeometry } = module4;
-const { createStrayNodePreviewModel } = module7;
-const { planExactCoincidentNodeRepairs } = module9;
-const { parseSvg, serializeSvg, validateSvgText } = module10;
+const { createStrayNodePreviewModel } = module8;
+const { planExactCoincidentNodeRepairs } = module10;
+const { parseSvg, serializeSvg, validateSvgText } = module11;
 
 // Adapt an in-memory document to the existing analysis/preview APIs. No serialization.
 function inspectWorkingDocument(document) {
@@ -2464,7 +2562,7 @@ return { inspectWorkingDocument, createStrayNodeRepairSession };
 })();
 
 // Source: modules/strayNodeDownload.js
-const module11 = (() => {
+const module12 = (() => {
 function cleanedSvgFilename(originalName) {
     const basename = String(originalName || "drawing.svg").split(/[\\/]/).pop();
     const stem = basename.replace(/\.svg$/i, "").replace(/[<>:"|?*\x00-\x1f]/g, "_").trim() || "drawing";
@@ -2494,7 +2592,7 @@ return { cleanedSvgFilename, downloadCleanedSvg };
 })();
 
 // Source: modules/accessFoundation.js
-const module13 = (() => {
+const module14 = (() => {
 const { PRODUCT_MANIFEST, UNIVERSAL_ENTITLEMENT_ID } = module2;
 
 const HUB_ROUTE = "index.html";
@@ -2532,8 +2630,8 @@ return { HUB_ROUTE, validateReturnDestination, deriveToolAccessState };
 })();
 
 // Source: modules/strayNodeAccess.js
-const module12 = (() => {
-const { deriveToolAccessState } = module13;
+const module13 = (() => {
+const { deriveToolAccessState } = module14;
 const { getProduct } = module2;
 
 const PRODUCT_ID = "stray_node_cleaner";
@@ -2588,10 +2686,10 @@ const {
     getFindingPreviewKey,
     renderStrayNodePreview,
     setPreviewHighlight,
-} = module7;
-const { createStrayNodeRepairSession } = module8;
-const { downloadCleanedSvg } = module11;
-const { runWithFreshStrayNodeAccess } = module12;
+} = module8;
+const { createStrayNodeRepairSession } = module9;
+const { downloadCleanedSvg } = module12;
+const { runWithFreshStrayNodeAccess } = module13;
 
 const CATEGORY_LABELS = Object.freeze({
     "coincident-node": "Coincident nodes",

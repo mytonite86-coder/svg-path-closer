@@ -2,7 +2,8 @@ import { inspectCurveDocument, parseCurvePathData } from "./curveAnalyzer.js";
 import { parseSvg, serializeSvg, validateSvgText } from "./pathCloser.js";
 
 function geometrySignature(command) {
-    return { type: command.type, sourceCommand: command.sourceCommand, explicit: command.explicit, exactGeometry: command.exactGeometry };
+    return { type: command.type, sourceCommand: command.sourceCommand, explicit: command.explicit, exactGeometry: command.exactGeometry,
+        arc: command.arc, close: command.type === "Z" ? [command.start, command.end] : undefined };
 }
 
 export function createCurveRepairSession(source, { DOMParser: Parser = globalThis.DOMParser } = {}) {
@@ -24,9 +25,13 @@ export function createCurveRepairSession(source, { DOMParser: Parser = globalThi
         let removedCount = 0;
         for (const record of records) {
             if (nodes[record.pathIndex]?.getAttribute("d") !== record.after) throw new Error("Validation failed: repaired source text differs.");
-            const before = parseCurvePathData(record.before), after = parseCurvePathData(record.after);
+            const before = parseCurvePathData(record.before, { extended: true }), after = parseCurvePathData(record.after, { extended: true });
             if (!before.supported || !after.supported || before.subpathCount !== after.subpathCount || before.hasClose !== after.hasClose) {
                 throw new Error("Validation failed: path syntax, subpaths or closure changed.");
+            }
+            if (record.replaced) {
+                removedCount++;
+                continue;
             }
             const removed = new Set(record.segmentIndexes);
             const retained = before.commands.filter((_command, index) => !removed.has(index));
@@ -71,6 +76,12 @@ export function createCurveRepairSession(source, { DOMParser: Parser = globalThi
                 const records = [];
                 for (const [pathIndex, proposals] of groups) {
                     const before = originalPaths[pathIndex].getAttribute("d");
+                    if (proposals[0].kind === "smooth-outline") {
+                        const proposal = proposals[0];
+                        if (proposals.length !== 1 || proposal.source !== before) throw new Error("Conflicting or stale outline smoothing proposal.");
+                        records.push({ pathIndex, before, after: proposal.replacement, replaced: true });
+                        continue;
+                    }
                     const ordered = [...proposals].sort((a, b) => a.sourceRef.start - b.sourceRef.start);
                     if (new Set(ordered.map(({ segmentIndex }) => segmentIndex)).size !== ordered.length) throw new Error("Conflicting segment selections.");
                     for (let index = 0; index < ordered.length; index++) {
